@@ -51,3 +51,30 @@ Blockers:
 
 Next recommended step:
 - Decide whether to do a minimal README sync in this iteration or carry it as the next explicit task before calling the current work complete.
+
+[2026-03-17 12:05 +08:00] Session: browser-safe preview fallback
+Focus: Make the current workbench build previewable without Electron preload injection
+
+What changed:
+- Added a browser preview shim in `src/lib/browser-preview.ts` to provide a safe `window.electron` fallback when the app is opened in a plain browser.
+- Wired the shim into `src/main.tsx` before transport initialization.
+- Updated `src/App.tsx` to avoid forcing the setup redirect during browser-preview mode and to guard the navigate subscription.
+- Added `tests/unit/browser-preview.test.ts` to verify the shim behavior.
+
+Validation run:
+- `npm exec --yes pnpm@10.31.0 test -- tests/unit/browser-preview.test.ts tests/unit/settings-store-layout.test.ts tests/unit/workbench-context-rail.test.tsx tests/unit/workbench-sidebar.test.tsx tests/unit/settings-center.test.tsx tests/unit/workbench-shell.test.tsx`
+- `npm exec --yes pnpm@10.31.0 run build:vite`
+
+Results:
+- 6 test files passed, 9 tests passed.
+- build:vite passed.
+
+Decisions:
+- Static preview should not depend on Electron startup.
+- Browser preview uses a shimmed `window.electron` and skips first-run setup redirection.
+
+Blockers:
+- None for this task.
+
+Next recommended step:
+- Open the static preview again and collect visual feedback before moving to the next product task.

@@ -20,6 +20,7 @@ import { Setup } from './pages/Setup';
 import { useSettingsStore } from './stores/settings';
 import { useGatewayStore } from './stores/gateway';
 import { applyGatewayTransportPreference } from './lib/api-client';
+import { isBrowserPreviewMode } from './lib/browser-preview';
 
 
 /**
@@ -94,6 +95,7 @@ function App() {
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
   const initGateway = useGatewayStore((state) => state.init);
+  const browserPreviewMode = isBrowserPreviewMode();
 
   useEffect(() => {
     initSettings();
@@ -113,10 +115,10 @@ function App() {
 
   // Redirect to setup wizard if not complete
   useEffect(() => {
-    if (!setupComplete && !location.pathname.startsWith('/setup')) {
+    if (!browserPreviewMode && !setupComplete && !location.pathname.startsWith('/setup')) {
       navigate('/setup');
     }
-  }, [setupComplete, location.pathname, navigate]);
+  }, [browserPreviewMode, setupComplete, location.pathname, navigate]);
 
   // Listen for navigation events from main process
   useEffect(() => {
@@ -127,7 +129,7 @@ function App() {
       }
     };
 
-    const unsubscribe = window.electron.ipcRenderer.on('navigate', handleNavigate);
+    const unsubscribe = window.electron?.ipcRenderer?.on?.('navigate', handleNavigate);
 
     return () => {
       if (typeof unsubscribe === 'function') {
