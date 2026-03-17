@@ -2,8 +2,8 @@
   "project": "KaiTianClaw Control Plane",
   "objective": "Adapt the existing ClawX demo into the approved KaiTianClaw workbench UI and preserve project progress across sessions.",
   "current_phase": "in_progress",
-  "current_focus": "DESIGN-017",
-  "last_updated": "2026-03-17T16:35:00+08:00",
+  "current_focus": "DESIGN-018",
+  "last_updated": "2026-03-17T18:00:00+08:00",
   "tasks": [
     {
       "id": "PERSIST-001",
@@ -443,6 +443,25 @@
         "Team Map flows horizontally from left to right"
       ],
       "notes": "Requested by user to innovate structurally on the list and map views.",
+      "subtasks": []
+    },
+    {
+      "id": "DESIGN-018",
+      "title": "Figma 全页面设计评审稿 (Fusion)",
+      "type": "design",
+      "status": "done",
+      "priority": "P0",
+      "depends_on": [
+        "DESIGN-017"
+      ],
+      "description": "生成一套 KaiTianClaw 全页面设计评审稿，包含：主工作台空态、对话态、团队视图、设置中心",
+      "acceptance_criteria": [
+        "包含主工作台默认空态、活跃对话态",
+        "包含团队 / IM 频道 / 定时任务视图",
+        "包含设置中心：基础 / 工作流 / 能力 / 治理",
+        "包含折叠左栏等关键状态"
+      ],
+      "notes": "Delivered complete 9-frame design review: (01) empty state, (02) active chat + Agent drawer, (03) team overview table, (04) IM channel multi-agent chat, (05) Kanban task board, (06) cron/scheduled tasks, (07) settings basic, (08) settings skills/MCP, (09) settings governance/monitoring. All frames use consistent Inter font, ChatGPT-neutral palette, 4-accordion left sidebar, and top-right File/Agent trigger pattern.",
       "subtasks": []
     }
   ]

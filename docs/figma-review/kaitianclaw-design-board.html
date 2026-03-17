@@ -1,1724 +1,489 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>KTClaw - AutoClaw Single Column Mockup</title>
-  <style>
-    :root {
-      --bg-sidebar: #F7F7F9;
-      --bg-main: #FFFFFF;
-      --line: #EBECEF;
-      --text-dark: #1D2129;
-      --text-muted: #86909C;
-      --text-light: #C9CDD4;
-      --accent: #F53F3F; 
-      --accent-hover: #F76560;
-      --accent-bg: #FFECE8;
-      --item-hover: #F2F3F5;
-      --item-active: #FFFFFF;
-      --radius-sm: 4px;
-      --radius-md: 8px;
-      --radius-lg: 12px;
-      --radius-xl: 16px;
-      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-      --shadow-md: 0 4px 10px rgba(0,0,0,0.08);
+<meta charset="UTF-8">
+<title>KTClaw 全页面设计评审稿 v2 (Fusion)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#fff;--bg2:#f7f7f8;--bg3:#ebebef;--bg4:#fafafa;--tx:#0d0d0d;--tx2:#6b6b6b;--tx3:#999;--bd:#e5e5e5;--ac:#10a37f;--ac2:#0e8c6e;--r:8px;--r2:12px;--r3:16px;--r4:24px;--sh:0 2px 8px rgba(0,0,0,.06);--sh2:0 8px 24px rgba(0,0,0,.1)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e8e8ed;font-family:'Inter',system-ui,sans-serif;padding:48px 0;display:flex;flex-direction:column;align-items:center;gap:64px;color:var(--tx)}
+.fw{width:1440px;display:flex;flex-direction:column;gap:12px}
+.ft{font-size:18px;font-weight:600;color:#555;padding-left:4px}
+.ft span{font-size:13px;font-weight:400;color:#999;margin-left:12px}
+.aw{width:1440px;height:900px;background:var(--bg);border-radius:var(--r2);box-shadow:var(--sh2);display:flex;overflow:hidden;border:1px solid var(--bd)}
 
-      /* New vars for team views */
-      --staff-bg: #F4F5F7;
-      --staff-card: #FFFFFF;
-      --staff-text: #1d2129;
-      --staff-line: #E5E6EB;
+/* Sidebar */
+.sb{width:260px;background:var(--bg2);border-right:1px solid var(--bd);display:flex;flex-direction:column;flex-shrink:0}
+.sb.col{width:64px}
+.sbh{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0}
+.sb.col .sbh{justify-content:center}
+.ib{width:32px;height:32px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--tx2);transition:.15s}
+.ib:hover{background:var(--bg3);color:var(--tx)}
+.sbc{flex:1;padding:8px;overflow-y:auto}
+.sst{font-size:11px;font-weight:600;color:var(--tx3);padding:16px 10px 6px;letter-spacing:.5px;text-transform:uppercase}
+.si{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);font-size:14px;cursor:pointer;transition:.15s;color:var(--tx)}
+.si:hover{background:var(--bg3)}
+.si.on{background:var(--bg3);font-weight:500}
+.si .ic{width:20px;text-align:center;flex-shrink:0;font-size:14px}
+.sb.col .si{justify-content:center;padding:10px 0}
+.sb.col .si .itx,.sb.col .sst{display:none}
+.sb.col .si .ic{margin:0}
+.sbf{height:52px;border-top:1px solid var(--bd);display:flex;align-items:center;gap:10px;padding:0 16px;cursor:pointer}
+.sbf:hover{background:var(--bg3)}
+.uav{width:28px;height:28px;border-radius:50%;background:#d9d9d9}
+.sb.col .sbf{justify-content:center;padding:0}
+.sb.col .sbf .un{display:none}
 
-      --map-bg: #000000;
-      --map-line: #333333;
-      --map-card-bg: #1A1A1A;
-      --map-text: #E5E6EB;
-    }
-    
-    * { box-sizing: border-box; }
-    body {
-      margin: 0; 
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-      color: var(--text-dark);
-      background: #E5E6EB; 
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 40px;
-      padding: 40px;
-    }
-    
-    .app-window {
-      width: 1440px;
-      height: 900px;
-      background: var(--bg-main);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      display: flex;
-      overflow: hidden;
-      border: 1px solid var(--line);
-    }
+/* Main */
+.ma{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--bg)}
+.tb{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0}
+.tt{font-weight:600;font-size:15px;display:flex;align-items:center;gap:6px}
+.ta{display:flex;gap:8px}
+.bo{padding:5px 12px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;background:#fff;color:var(--tx);transition:.15s;font-family:inherit}
+.bo:hover{background:var(--bg3)}
+.bo.on{background:var(--bg3)}
 
-    /* --- Left Sidebar --- */
-    .left-sidebar {
-      width: 260px;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--line);
-      display: flex;
-      flex-direction: column;
-    }
+/* Empty */
+.ec{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding-bottom:32px}
+.lm{width:56px;height:56px;background:var(--tx);border-radius:var(--r3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:20px}
+.ec h2{font-size:26px;font-weight:500;margin-bottom:32px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:600px;margin-bottom:32px}
+.sc{padding:14px 16px;border:1px solid var(--bd);border-radius:var(--r2);font-size:13px;color:var(--tx2);cursor:pointer;transition:.2s}
+.sc:hover{background:var(--bg2);border-color:#d1d1d1}
+.sc b{display:block;color:var(--tx);font-weight:500;margin-bottom:4px}
 
-    .ls-header {
-      height: 54px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-    }
-    .ls-header .icon-btn {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--text-dark);
-      border-radius: var(--radius-sm);
-    }
-    .ls-header .icon-btn:hover { background: var(--item-hover); }
+/* Composer */
+.cc{padding:0 32px 32px;display:flex;justify-content:center}
+.cw{width:100%;max-width:720px}
+.cb{background:var(--bg2);border-radius:var(--r4);padding:10px 14px 10px 18px;display:flex;align-items:flex-end;gap:10px;border:1px solid transparent;transition:.2s}
+.cb:focus-within{border-color:#d1d1d1;background:#fff;box-shadow:var(--sh)}
+.ci{flex:1;border:none;background:transparent;outline:none;font-size:14px;color:var(--tx);resize:none;min-height:22px;font-family:inherit}
+.ci::placeholder{color:var(--tx3)}
+.cb-btn{width:30px;height:30px;border-radius:50%;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:.15s}
+.cb-at{background:transparent;color:var(--tx2);font-size:16px}
+.cb-at:hover{background:var(--bg3);color:var(--tx)}
+.cb-s{background:var(--tx);color:#fff}
+.cb-s:hover{opacity:.85}
+.cf{font-size:11px;color:var(--tx3);text-align:center;margin-top:6px}
 
-    .ls-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 12px;
-    }
+/* Chat */
+.ch{flex:1;overflow-y:auto;padding:20px 32px;display:flex;flex-direction:column;gap:24px;align-items:center}
+.mr{width:100%;max-width:720px;display:flex;gap:16px}
+.mr.mu{justify-content:flex-end}
+.mav{width:28px;height:28px;border-radius:var(--r);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+.mav.ai{background:var(--ac);color:#fff}
+.mc{font-size:14px;line-height:1.65;color:var(--tx);max-width:85%}
+.mu .mc{background:var(--bg2);padding:10px 14px;border-radius:16px;border-top-right-radius:4px}
+.mtc{margin:12px 0;padding:10px 14px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--r);font-family:monospace;font-size:12px;color:var(--tx2)}
+.mth{display:flex;align-items:center;gap:6px;font-weight:500;margin-bottom:6px}
+.sp{width:10px;height:10px;border:2px solid var(--bd);border-top-color:var(--tx2);border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-    /* Accordion */
-    .accordion {
-      margin-bottom: 8px;
-    }
-    .accordion-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 32px;
-      padding: 0 8px;
-      font-size: 13px;
-      color: var(--text-muted);
-      cursor: pointer;
-      border-radius: var(--radius-sm);
-    }
-    .accordion-head:hover { background: var(--item-hover); color: var(--text-dark); }
-    .accordion-head .arrow { font-size: 10px; transform: scaleY(0.6); }
-    
-    .accordion-body {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
+/* Right Drawer */
+.rd{width:300px;border-left:1px solid var(--bd);background:var(--bg);display:flex;flex-direction:column;flex-shrink:0}
+.rdh{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--bd);font-weight:500;font-size:14px}
+.rdb{padding:20px 16px;overflow-y:auto;display:flex;flex-direction:column;gap:20px}
+.ap{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.apa{width:64px;height:64px;border-radius:16px;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px}
+.apn{font-size:16px;font-weight:600}
+.apd{font-size:12px;color:var(--tx2);line-height:1.4}
+.ifc{border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden}
+.ifh{padding:10px 14px;background:var(--bg4);font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;border-bottom:1px solid var(--bd)}
+.ifb{padding:12px 14px;display:flex;flex-direction:column;gap:10px;font-size:12px}
+.ifr{display:flex;justify-content:space-between}
+.ifl{color:var(--tx3);width:72px;flex-shrink:0}
+.ifv{color:var(--tx);font-weight:500;text-align:right}
+.tp{display:inline-block;padding:2px 7px;background:var(--bg3);border-radius:10px;font-size:11px;margin:1px 2px}
 
-    /* List Item */
-    .list-item {
-      display: flex;
-      align-items: center;
-      padding: 8px;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      position: relative;
-    }
-    .list-item:hover { background: var(--item-hover); }
-    .list-item.active {
-      background: var(--item-active);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-    }
+/* View (Table) */
+.vc{flex:1;padding:32px;display:flex;flex-direction:column;overflow-y:auto}
+.vch{margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end}
+.vch h1{font-size:24px;font-weight:600;margin-bottom:6px}
+.vch p{font-size:13px;color:var(--tx2)}
+.ct{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.ct th{text-align:left;padding:10px 14px;color:var(--tx2);font-weight:500;border-bottom:1px solid var(--bd)}
+.ct td{padding:14px;border-bottom:1px solid var(--bd);vertical-align:top}
+.ct tr:hover td{background:var(--bg4)}
+.ct tr:last-child td{border-bottom:none}
+.sb-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:12px;font-size:11px;font-weight:500}
+.sg-g{background:#edfaf5;color:var(--ac)}
+.sg-y{background:var(--bg3);color:var(--tx2)}
+.sg-r{background:#feeceb;color:#e03e3e}
+.sd{width:5px;height:5px;border-radius:50%;background:currentColor}
+.tc{display:flex;align-items:center;gap:10px}
+.tca{width:36px;height:36px;border-radius:9px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px}
+.tci h4{font-size:14px;font-weight:500;margin-bottom:2px}
+.tci p{font-size:12px;color:var(--tx2)}
 
-    .item-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: #E5E6EB;
-      margin-right: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      flex-shrink: 0;
-    }
-    .list-item.active .item-avatar {
-      background: var(--accent);
-      color: white;
-    }
-    
-    .item-info {
-      flex: 1;
-      min-width: 0;
-    }
-    .item-title {
-      font-size: 14px;
-      font-weight: 500;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      margin-bottom: 2px;
-    }
-    .item-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    .item-time {
-      font-size: 12px;
-      color: var(--text-light);
-    }
+/* Kanban */
+.kb{flex:1;display:flex;gap:16px;padding:0 32px 32px;overflow-x:auto}
+.kc{width:280px;flex-shrink:0;background:var(--bg2);border-radius:var(--r2);display:flex;flex-direction:column;max-height:100%}
+.kch{padding:14px 16px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.kch span{font-size:11px;font-weight:400;color:var(--tx3)}
+.kcb{flex:1;padding:0 12px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.ki{background:#fff;border:1px solid var(--bd);border-radius:var(--r);padding:12px;cursor:pointer;transition:.15s}
+.ki:hover{box-shadow:var(--sh);transform:translateY(-1px)}
+.ki h5{font-size:13px;font-weight:500;margin-bottom:6px}
+.ki p{font-size:11px;color:var(--tx2);line-height:1.4}
+.ki-f{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 
-    /* Sub-menus */
-    .text-item {
-      display: flex;
-      align-items: center;
-      padding: 8px 12px 8px 28px;
-      border-radius: var(--radius-md);
-      font-size: 14px;
-      color: var(--text-dark);
-      cursor: pointer;
-    }
-    .text-item:hover { background: var(--item-hover); }
-    .text-item.active { background: #FFEBE8; color: var(--accent); font-weight: 500;}
-    .text-item::before {
-      content: "";
-      width: 4px;
-      height: 4px;
-      border-radius: 50%;
-      background: var(--text-light);
-      margin-right: 8px;
-    }
-    .text-item.active::before { background: var(--accent); }
+/* Settings */
+.sl{display:flex;flex:1;overflow:hidden}
+.sn{width:220px;border-right:1px solid var(--bd);padding:28px 12px;display:flex;flex-direction:column;gap:20px;background:var(--bg4)}
+.sng{display:flex;flex-direction:column}
+.snt{font-size:10px;font-weight:600;color:var(--tx3);padding:0 10px 6px;letter-spacing:.5px;text-transform:uppercase}
+.sni{padding:7px 10px;border-radius:var(--r);font-size:13px;color:var(--tx);cursor:pointer;transition:.15s}
+.sni:hover{background:var(--bg3)}
+.sni.on{background:var(--bg3);font-weight:500}
+.scn{flex:1;padding:32px 60px;overflow-y:auto;display:flex;flex-direction:column;gap:32px}
+.sch h1{font-size:24px;font-weight:600;margin-bottom:6px}
+.sch p{font-size:13px;color:var(--tx2)}
+.ss{display:flex;flex-direction:column;gap:20px;max-width:640px}
+.skc{border:1px solid var(--bd);border-radius:var(--r2);padding:20px;background:#fff}
+.skc h3{font-size:15px;font-weight:600;margin-bottom:14px}
+.fg{margin-bottom:20px}
+.fg:last-child{margin-bottom:0}
+.fl{display:block;font-size:13px;font-weight:500;margin-bottom:6px}
+.fi{width:100%;padding:8px 12px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px;outline:none;font-family:inherit;transition:.15s}
+.fi:focus{border-color:var(--tx)}
+.fd{font-size:12px;color:var(--tx2);margin-top:6px}
+.tr{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--bd)}
+.tr:last-child{border-bottom:none;padding-bottom:0}
+.tr:first-child{padding-top:0}
+.tri b{display:block;font-size:13px;font-weight:500;margin-bottom:3px}
+.tri span{font-size:12px;color:var(--tx2);line-height:1.4;display:block;max-width:420px}
+.ts{width:36px;height:20px;background:var(--ac);border-radius:10px;position:relative;cursor:pointer;flex-shrink:0}
+.ts::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:2px;right:2px;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.ts.off{background:#ccc}
+.ts.off::after{right:auto;left:2px}
 
-    .ls-footer {
-      padding: 16px;
-      border-top: 1px solid var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .user-profile {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .user-avatar {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: #D9D9D9;
-    }
-    .user-name {
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--text-dark);
-    }
+/* IM Channel */
+.im-l{flex:1;display:flex;flex-direction:column}
+.im-h{padding:14px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:10px;font-weight:500;font-size:14px}
+.im-b{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.im-m{display:flex;gap:10px;max-width:85%}
+.im-m.sys{align-self:center;max-width:none}
+.im-av{width:32px;height:32px;border-radius:var(--r);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;background:var(--bg3)}
+.im-av.bot{background:var(--ac);color:#fff}
+.im-mc{font-size:13px;line-height:1.5}
+.im-mc b{font-size:12px;font-weight:600;display:block;margin-bottom:3px}
+.im-mc .ts-t{font-size:11px;color:var(--tx3);margin-top:3px}
+.im-sys{font-size:12px;color:var(--tx3);background:var(--bg2);padding:4px 12px;border-radius:12px}
 
-    /* --- Center Main --- */
-    .center-main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: var(--bg-main);
-      position: relative;
-    }
-
-    .cm-header {
-      height: 60px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 24px;
-    }
-    .cm-title {
-      font-size: 18px;
-      font-weight: 600;
-    }
-
-    /* Top Right Controls */
-    .top-right-controls {
-      position: absolute;
-      top: 16px;
-      right: 24px;
-      display: flex;
-      gap: 16px;
-      align-items: center;
-      z-index: 10;
-    }
-    .tr-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 14px;
-      color: var(--text-dark);
-      cursor: pointer;
-      background: none;
-      border: none;
-      padding: 4px 8px;
-      border-radius: var(--radius-sm);
-    }
-    .tr-btn:hover { background: var(--item-hover); }
-    .tr-btn.active {
-      background: var(--item-hover);
-      font-weight: 500;
-    }
-
-    .cm-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px;
-    }
-
-    .status-bar {
-      position: absolute;
-      top: 60px;
-      left: 0;
-      right: 0;
-      background: #F4F5F7;
-      color: var(--text-muted);
-      font-size: 12px;
-      text-align: center;
-      padding: 6px 0;
-    }
-
-    /* Home specific */
-    .promo-banner {
-      background: var(--accent-bg);
-      color: var(--text-dark);
-      padding: 6px 16px;
-      border-radius: 999px;
-      font-size: 13px;
-      margin-bottom: 24px;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .promo-link {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .empty-logo {
-      width: 64px;
-      height: 64px;
-      margin-bottom: 20px;
-      background: #1D2129;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .empty-title {
-      font-size: 28px;
-      font-weight: 600;
-      margin: 0 0 12px 0;
-    }
-    .empty-desc {
-      font-size: 14px;
-      color: var(--text-muted);
-      margin: 0 0 32px 0;
-    }
-
-    .quick-config {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 16px 24px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-lg);
-      width: 400px;
-      box-shadow: var(--shadow-sm);
-    }
-    .qc-icon {
-      font-size: 32px;
-    }
-    .qc-text h4 { margin: 0 0 4px 0; font-size: 15px; }
-    .qc-text p { margin: 0; font-size: 12px; color: var(--text-muted); line-height: 1.5; }
-
-    .cm-footer {
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .chat-input {
-      width: 100%;
-      max-width: 760px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-xl);
-      padding: 16px 20px;
-      background: #FAFAFA;
-      display: flex;
-      align-items: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-    .chat-input input {
-      flex: 1;
-      border: none;
-      background: transparent;
-      outline: none;
-      font-size: 15px;
-    }
-    .input-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .model-selector {
-      font-size: 13px;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .send-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background: var(--text-light);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-    }
-
-    .footer-note {
-      font-size: 12px;
-      color: var(--text-light);
-      margin-top: 12px;
-    }
-
-    /* --- Right Sidebar --- */
-    .right-sidebar {
-      width: 300px;
-      background: var(--bg-main);
-      border-left: 1px solid var(--line);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .rs-header {
-      padding: 24px 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      border-bottom: 1px solid transparent;
-    }
-    .rs-avatar {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background: var(--accent);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      font-weight: bold;
-      flex-shrink: 0;
-    }
-    .rs-title h3 { margin: 0 0 4px 0; font-size: 16px; }
-    .rs-title p { margin: 0; font-size: 13px; color: var(--text-muted); }
-
-    .rs-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0 20px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-
-    .rs-section h4 {
-      margin: 0 0 12px 0;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .info-table {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      border-collapse: collapse;
-    }
-    .info-table tr {
-      border-bottom: 1px solid var(--line);
-    }
-    .info-table tr:last-child { border-bottom: none; }
-    .info-table td {
-      padding: 12px;
-      font-size: 13px;
-      vertical-align: top;
-    }
-    .info-table td:first-child {
-      width: 80px;
-      color: var(--text-muted);
-    }
-    .info-table td:last-child {
-      color: var(--text-dark);
-    }
-
-    .rs-section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      margin-bottom: 12px;
-    }
-    .rs-section-header h4 { margin: 0; }
-    .rs-section-header span { font-size: 12px; color: var(--text-light); }
-
-    /* --- Staff Overview Specifics (Image 1) --- */
-    .staff-container {
-      width: 100%;
-      height: 100%;
-      background: var(--staff-bg);
-      display: flex;
-      flex-direction: column;
-    }
-    .staff-header {
-      padding: 24px 32px 0;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-    }
-    .staff-header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 600;
-    }
-    .staff-header span {
-      font-size: 14px;
-      color: var(--text-muted);
-    }
-    .staff-toggle-btn {
-      padding: 6px 12px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: white;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .staff-main-panel {
-      margin: 24px 32px;
-      background: white;
-      border-radius: var(--radius-xl);
-      border: 1px solid var(--staff-line);
-      padding: 24px;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .staff-panel-header h2 { margin: 0 0 8px 0; font-size: 20px;}
-    .staff-panel-header p { margin: 0; font-size: 13px; color: var(--text-muted);}
-
-    .staff-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: auto;
-      gap: 24px;
-      margin-top: 16px;
-    }
-    .staff-card {
-      border: 1px solid var(--staff-line);
-      border-radius: var(--radius-xl);
-      padding: 24px;
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-      position: relative;
-      overflow: hidden;
-    }
-    .staff-card::before {
-      content: "";
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
-      pointer-events: none;
-      z-index: 0;
-    }
-    .staff-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-      border-color: rgba(245, 63, 63, 0.3);
-    }
-    .staff-card > * { position: relative; z-index: 1; }
-
-    .staff-card-top {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-    .staff-card-avatar {
-      width: 64px;
-      height: 64px;
-      border-radius: 16px;
-      background: linear-gradient(135deg, #ffffff 0%, #f4f5f7 100%);
-      border: 1px solid var(--staff-line);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      transition: transform 0.3s ease;
-    }
-    .staff-card:hover .staff-card-avatar {
-      transform: scale(1.05) rotate(-3deg);
-    }
-    .staff-card-title h3 { margin: 0 0 4px 0; font-size: 18px; font-weight: 600; letter-spacing: -0.2px; }
-    .staff-card-title p { margin: 0; font-size: 13px; color: var(--text-muted); }
-
-    .staff-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .staff-table td {
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(229, 230, 235, 0.5);
-      vertical-align: top;
-    }
-    .staff-table tr:last-child td { border-bottom: none; }
-    .staff-table td:first-child {
-      color: var(--text-muted);
-      width: 100px;
-    }
-    .staff-table td:last-child {
-      color: var(--text-dark);
-      font-weight: 500;
-    }
-    
-    /* Bento Layout Specifics */
-    .staff-card.staff-hero {
-      grid-column: span 2;
-      grid-row: span 2;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(235, 243, 255, 0.8));
-      border-color: rgba(20, 122, 255, 0.2);
-      box-shadow: 0 8px 32px rgba(20, 122, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-    }
-    .staff-card.staff-hero .staff-card-avatar {
-      width: 80px;
-      height: 80px;
-      font-size: 40px;
-    }
-    .staff-card.staff-hero .staff-card-title h3 {
-      font-size: 22px;
-    }
-    
-    .staff-card.staff-wide {
-      grid-column: span 3;
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .staff-card.staff-wide .staff-card-top {
-      margin-bottom: 0;
-      width: 30%;
-    }
-    .staff-card.staff-wide .staff-table {
-      width: 65%;
-      margin: 0;
-    }
-    .staff-card.staff-wide .staff-table tbody {
-      display: flex;
-      gap: 32px;
-      justify-content: flex-end;
-    }
-    .staff-card.staff-wide .staff-table tr {
-      display: flex;
-      flex-direction: column;
-      border: none;
-    }
-    .staff-card.staff-wide .staff-table td {
-      border: none;
-      padding: 4px 0;
-      white-space: nowrap;
-    }
-
-    .staff-footer-rows {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      margin: 0 32px 32px;
-    }
-    .staff-footer-row {
-      background: rgba(255, 255, 255, 0.8);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid var(--staff-line);
-      border-radius: var(--radius-lg);
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: 500;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-    .staff-footer-row:hover {
-      background: #FFFFFF;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      border-color: #D9D9D9;
-    }
-
-    /* --- Map View Specifics (Image 2) --- */
-    .map-container {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-    .map-header {
-      padding: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .map-view-toggles {
-      display: flex;
-      background: var(--line);
-      border-radius: var(--radius-sm);
-      padding: 4px;
-      gap: 4px;
-    }
-    .map-toggle {
-      padding: 6px 12px;
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .map-toggle.active {
-      background: var(--bg-main);
-      color: var(--text-dark);
-      box-shadow: var(--shadow-sm);
-    }
-    .map-status {
-      display: flex;
-      gap: 16px;
-      background: var(--staff-bg);
-      padding: 8px 16px;
-      border-radius: 999px;
-      font-size: 12px;
-      color: var(--text-dark);
-    }
-    .map-dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 6px;
-    }
-
-    .map-canvas {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-top: 40px;
-      position: relative;
-    }
-    
-    /* Horizontal Mind-Map Tree Structure */
-    .tree {
-      display: flex;
-      padding: 48px;
-      overflow: auto;
-      min-height: 480px;
-      align-items: center;
-    }
-    .tree ul {
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      padding-left: 64px;
-      gap: 24px;
-      margin: 0;
-      list-style-type: none;
-      justify-content: center;
-    }
-    .tree > ul {
-      padding-left: 0;
-    }
-    .tree li {
-      display: flex;
-      align-items: center;
-      position: relative;
-    }
-    
-    /* Vertical line connecting sibling nodes */
-    .tree li::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: -32px;
-      border-left: 2px dashed rgba(200, 204, 212, 0.8);
-    }
-    .tree li:first-child::before {
-      top: 50%;
-    }
-    .tree li:last-child::before {
-      bottom: 50%;
-    }
-    .tree li:only-child::before {
-      display: none;
-    }
-    
-    /* Horizontal line entering a child node */
-    .tree li::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      left: -32px;
-      width: 32px;
-      border-top: 2px dashed rgba(200, 204, 212, 0.8);
-    }
-    .tree li:only-child::after {
-      /* If only child, extend line directly backwards */
-      left: -64px;
-      width: 64px;
-    }
-    
-    /* Horizontal line exiting a parent node */
-    .tree ul::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 0;
-      width: 32px;
-      border-top: 2px dashed rgba(200, 204, 212, 0.8);
-    }
-    .tree > ul::before {
-      display: none;
-    }
-    
-    .map-node {
-      display: inline-block;
-      width: 220px;
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(229, 230, 235, 0.8);
-      border-radius: var(--radius-lg);
-      padding: 16px;
-      text-align: left;
-      position: relative;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255,255,255,0.8);
-      transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-      cursor: pointer;
-      overflow: hidden;
-    }
-    .map-node.top-border-yellow { border-top: 3px solid #F5A623; }
-    .map-node.top-border-yellow .node-icon { background: linear-gradient(135deg, #FFF3E0, #FFE0B2); color: #F5A623; }
-    .map-node.top-border-yellow:hover { border-color: rgba(245, 166, 35, 0.4); }
-
-    .map-node.top-border-green { border-top: 3px solid #00B42A; }
-    .map-node.top-border-green .node-icon { background: linear-gradient(135deg, #E8FFEA, #B7F4C8); color: #00B42A; }
-    .map-node.top-border-green:hover { border-color: rgba(0, 180, 42, 0.4); }
-    
-    .map-node.top-border-purple { border-top: 3px solid #9F18F9; }
-    .map-node.top-border-purple .node-icon { background: linear-gradient(135deg, #F9F0FF, #E5C3FF); color: #9F18F9; }
-    .map-node.top-border-purple:hover { border-color: rgba(159, 24, 249, 0.4); }
-
-    .map-node.top-border-red { border-top: 3px solid #F53F3F; }
-    .map-node.top-border-red .node-icon { background: linear-gradient(135deg, #FFEBE8, #FFC5C0); color: #F53F3F; }
-    .map-node.top-border-red:hover { border-color: rgba(245, 63, 63, 0.4); }
-
-    .map-node.top-border-cyan { border-top: 3px solid #14C9C9; }
-    .map-node.top-border-cyan .node-icon { background: linear-gradient(135deg, #E6FFFA, #B5F5EC); color: #14C9C9; }
-    .map-node.top-border-cyan:hover { border-color: rgba(20, 201, 201, 0.4); }
-
-    .map-node > * { color: var(--text-dark); position: relative; z-index: 1; }
-
-    .node-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .node-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      background: var(--item-hover);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: bold;
-      color: inherit; /* adopts border color through cascade hack */
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-      transition: transform 0.3s ease;
-    }
-    .map-node:hover .node-icon { transform: rotate(5deg) scale(1.1); }
-    .node-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--text-dark);
-      letter-spacing: -0.2px;
-    }
-    .node-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-      line-height: 1.4;
-    }
-    .node-stats {
-      display: flex;
-      gap: 6px;
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px dashed rgba(229, 230, 235, 0.6);
-    }
-    .stat-pill {
-      font-size: 11px;
-      padding: 3px 8px;
-      border-radius: 6px;
-      background: var(--staff-bg);
-      color: var(--text-muted);
-      font-weight: 500;
-      transition: background 0.2s;
-    }
-    .map-node:hover .stat-pill { background: rgba(0,0,0,0.04); }
-    .stat-pill.red { color: #E8353E; background: #FFEBEB; }
-    .stat-pill.green { color: #00B42A; background: #E8FFEA; }
-
-    .map-zoom-controls {
-      position: absolute;
-      bottom: 24px;
-      left: 24px;
-      background: var(--bg-main);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      display: flex;
-      flex-direction: column;
-      box-shadow: var(--shadow-sm);
-    }
-    .zoom-btn {
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-dark);
-      cursor: pointer;
-      border-bottom: 1px solid var(--line);
-    }
-    .zoom-btn:last-child { border-bottom: none; }
-    .zoom-btn:hover { background: var(--item-hover); }
-
-    .map-bottom-nav {
-      position: absolute;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      background: var(--bg-main);
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--line);
-      overflow: hidden;
-      box-shadow: var(--shadow-sm);
-    }
-    .map-bottom-btn {
-      padding: 8px 16px;
-      font-size: 13px;
-      color: var(--text-muted);
-      cursor: pointer;
-    }
-    .map-bottom-btn.active {
-      background: var(--item-hover);
-      color: var(--accent);
-      border-left: 1px solid var(--line);
-      border-right: 1px solid var(--line);
-    }
-
-    .live-logs-btn {
-      position: absolute;
-      bottom: 24px;
-      right: 24px;
-      padding: 8px 16px;
-      background: var(--bg-main);
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      color: var(--text-dark);
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      box-shadow: var(--shadow-sm);
-    }
-  </style>
+/* Cron */
+.cron-list{display:flex;flex-direction:column;gap:12px}
+.cron-i{border:1px solid var(--bd);border-radius:var(--r2);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;transition:.15s}
+.cron-i:hover{box-shadow:var(--sh)}
+.cron-left{display:flex;align-items:center;gap:14px}
+.cron-ic{width:40px;height:40px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px}
+.cron-info h4{font-size:14px;font-weight:500;margin-bottom:3px}
+.cron-info p{font-size:12px;color:var(--tx2)}
+.cron-right{text-align:right}
+.cron-next{font-size:12px;color:var(--tx2);margin-bottom:3px}
+.cron-expr{font-size:11px;font-family:monospace;color:var(--tx3)}
+</style>
 </head>
 <body>
-  
-  <h1 style="color: #666; font-size: 24px; margin-bottom: 0;">Frame 1: Homepage (AutoClaw Base)</h1>
-  
-  <!-- Frame 1: Homepage (Original Mockup aligned with AutoClaw) -->
-  <div class="app-window">
-    
-    <!-- Left Sidebar -->
-    <aside class="left-sidebar">
-      <div class="ls-header">
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-        </div>
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </div>
-      </div>
 
-      <div class="ls-content">
-        <!-- Accordion: 分身 -->
-        <div class="accordion">
-          <div class="accordion-head">分身 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="list-item active">
-              <div class="item-avatar">✦</div>
-              <div class="item-info">
-                <div class="item-title">KTClaw</div>
-                <div class="item-sub">+ 新分身</div>
-              </div>
-              <div class="item-time">10:37</div>
-            </div>
-            <div class="list-item">
-              <div class="item-avatar" style="background: white; border: 1px solid var(--line); color: var(--text-dark)">🔍</div>
-              <div class="item-info">
-                <div class="item-title">沉思小助手</div>
-                <div class="item-sub">+ 新分身</div>
-              </div>
-              <div class="item-time">10:37</div>
-            </div>
-            <!-- More clones... -->
-          </div>
-        </div>
+<!-- ===== Frame 1: 主工作台 / 默认空态 ===== -->
+<div class="fw">
+<h1 class="ft">01 主工作台 / 默认空态 <span>用户首次打开，无历史对话</span></h1>
+<div class="aw">
+<aside class="sb">
+<div class="sbh"><div class="ib">☰</div><div class="ib">＋</div></div>
+<div class="sbc">
+<div class="sst">分身</div>
+<div class="si on"><span class="ic">✦</span><span class="itx">KTClaw</span></div>
+<div class="si"><span class="ic">🔍</span><span class="itx">沉思小助手</span></div>
+<div class="sst">Channel 频道</div>
+<div class="si"><span class="ic">💬</span><span class="itx">IM 频道</span></div>
+<div class="sst">任务</div>
+<div class="si"><span class="ic">📋</span><span class="itx">任务看板</span></div>
+<div class="si"><span class="ic">📅</span><span class="itx">任务日程</span></div>
+<div class="sst">团队管理</div>
+<div class="si"><span class="ic">👥</span><span class="itx">团队总览</span></div>
+<div class="si"><span class="ic">🗺</span><span class="itx">团队看板</span></div>
+</div>
+<div class="sbf"><div class="uav"></div><span class="un" style="font-size:13px;font-weight:500">Administrator</span></div>
+</aside>
+<main class="ma">
+<div class="tb"><div class="tt">KTClaw <span style="color:var(--tx3);font-size:12px">▾</span></div><div class="ta"><button class="bo">📄 文件</button><button class="bo">🤖 Agent</button></div></div>
+<div class="ec">
+<div class="lm">✦</div>
+<h2>有什么我可以帮你的？</h2>
+<div class="sg">
+<div class="sc"><b>代码重构方案</b>提取 src/utils 核心逻辑并编写单测</div>
+<div class="sc"><b>检查系统健康度</b>调出监控面板，查昨日定时任务状态</div>
+<div class="sc"><b>撰写周报汇总</b>收集近 5 天 Git commit 生成团队周报</div>
+<div class="sc"><b>查看团队记忆</b>总结关于架构设计的长期记忆</div>
+</div>
+</div>
+<div class="cc"><div class="cw"><div class="cb"><button class="cb-btn cb-at">📎</button><textarea class="ci" placeholder="给 KTClaw 发送消息..." rows="1"></textarea><button class="cb-btn cb-s">➤</button></div><div class="cf">Agent 在本地安全运行 · 由 AI 模型生成内容</div></div></div>
+</main>
+</div>
+</div>
 
-        <!-- Accordion: Channel 频道 -->
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">Channel 频道 <span class="arrow">▼</span></div>
-        </div>
+<!-- ===== Frame 2: 主工作台 / 活跃对话 + Agent 侧栏 ===== -->
+<div class="fw">
+<h1 class="ft">02 主工作台 / 活跃对话 + Agent 侧栏展开 <span>对话中展示工具调用</span></h1>
+<div class="aw">
+<aside class="sb">
+<div class="sbh"><div class="ib">☰</div><div class="ib">＋</div></div>
+<div class="sbc">
+<div class="sst">分身</div>
+<div class="si on"><span class="ic">✦</span><span class="itx">KTClaw</span></div>
+<div class="si"><span class="ic">🔍</span><span class="itx">沉思小助手</span></div>
+<div class="sst">Channel 频道</div>
+<div class="si"><span class="ic">💬</span><span class="itx">IM 频道</span></div>
+<div class="sst">任务</div>
+<div class="si"><span class="ic">📋</span><span class="itx">任务看板</span></div>
+<div class="si"><span class="ic">📅</span><span class="itx">任务日程</span></div>
+<div class="sst">团队管理</div>
+<div class="si"><span class="ic">👥</span><span class="itx">团队总览</span></div>
+<div class="si"><span class="ic">🗺</span><span class="itx">团队看板</span></div>
+</div>
+<div class="sbf"><div class="uav"></div><span class="un" style="font-size:13px;font-weight:500">Administrator</span></div>
+</aside>
+<main class="ma">
+<div class="tb"><div class="tt">KTClaw <span style="color:var(--tx3);font-size:12px">▾</span></div><div class="ta"><button class="bo">📄 文件</button><button class="bo on">🤖 Agent</button></div></div>
+<div class="ch">
+<div class="mr mu"><div class="mc">帮我查看最新的系统日志，找 API 限流异常。</div></div>
+<div class="mr"><div class="mav ai">✦</div><div class="mc">好的，我这就去排查。<div class="mtc"><div class="mth"><div class="sp"></div> 执行工具: read_system_logs</div>正在拉取过去 24 小时的记录...</div>没有发现 429 Too Many Requests，但今天 06:15 有约 5 分钟的超时。可能是网络代理波动。需要我深入排查吗？</div></div>
+<div class="mr mu"><div class="mc">是的，帮我分析那段网络日志。</div></div>
+<div class="mr"><div class="mav ai">✦</div><div class="mc"><div class="mtc"><div class="mth"><div class="sp"></div> 执行工具: analyze_network_trace</div>分析 06:10-06:20 时段的 TCP 连接日志...</div></div></div>
+</div>
+<div class="cc"><div class="cw"><div class="cb"><button class="cb-btn cb-at">📎</button><textarea class="ci" placeholder="给 KTClaw 发送消息..." rows="1"></textarea><button class="cb-btn cb-s">➤</button></div></div></div>
+</main>
+<aside class="rd">
+<div class="rdh"><span>Agent 检查器</span><div class="ib">✕</div></div>
+<div class="rdb">
+<div class="ap"><div class="apa">✦</div><h3 class="apn">KTClaw 主脑</h3><p class="apd">默认总控调度 Agent，负责接收指令、分解任务并协调工具。</p></div>
+<div class="ifc"><div class="ifh">基本设定</div><div class="ifb"><div class="ifr"><div class="ifl">ID</div><div class="ifv">ktclaw-main</div></div><div class="ifr"><div class="ifl">模型</div><div class="ifv">GLM-5-Turbo</div></div><div class="ifr"><div class="ifl">权限级别</div><div class="ifv">Admin</div></div></div></div>
+<div class="ifc"><div class="ifh">可用工具</div><div class="ifb"><div><span class="tp">file_system</span><span class="tp">terminal</span><span class="tp">browser</span><span class="tp">fetch</span><span class="tp">git_ops</span></div></div></div>
+<div class="ifc"><div class="ifh">机器记忆</div><div class="ifb"><div class="ifr"><div class="ifl">专注领域</div><div class="ifv">全栈架构</div></div><div class="ifr"><div class="ifl">沟通偏好</div><div class="ifv">指令明确</div></div></div></div>
+</div>
+</aside>
+</div>
+</div>
 
-        <!-- Accordion: 任务 -->
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">任务 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="text-item">任务看板</div>
-            <div class="text-item">任务日程</div>
-          </div>
-        </div>
+<!-- ===== Frame 3: 团队总览 (Bento) ===== -->
+<div class="fw">
+<h1 class="ft">03 团队总览 / 员工与分工 <span>Bento Box 布局，左栏折叠</span></h1>
+<div class="aw">
+<aside class="sb col">
+<div class="sbh" style="justify-content:center;padding:0"><div class="ib">☰</div></div>
+<div class="sbc">
+<div class="si"><span class="ic">✦</span></div>
+<div class="si"><span class="ic">🔍</span></div>
+<div style="height:1px;background:var(--bd);margin:12px 8px"></div>
+<div class="si"><span class="ic">💬</span></div>
+<div style="height:1px;background:var(--bd);margin:12px 8px"></div>
+<div class="si"><span class="ic">📋</span></div>
+<div class="si"><span class="ic">📅</span></div>
+<div style="height:1px;background:var(--bd);margin:12px 8px"></div>
+<div class="si on"><span class="ic">👥</span></div>
+<div class="si"><span class="ic">🗺</span></div>
+</div>
+<div class="sbf"><div class="uav"></div></div>
+</aside>
+<main class="ma">
+<div class="vc">
+<div class="vch"><div><h1>员工与分工总览</h1><p>所有激活的 Agent 角色及当前工作状态</p></div><div class="ta"><button class="bo">+ 雇佣新员工</button></div></div>
+<table class="ct">
+<thead><tr><th style="width:25%">员工角色</th><th style="width:13%">状态</th><th style="width:30%">正在处理</th><th>最近产出</th></tr></thead>
+<tbody>
+<tr><td><div class="tc"><div class="tca">✦</div><div class="tci"><h4>KTClaw 主脑</h4><p>Orchestrator</p></div></div></td><td><span class="sb-badge sg-g"><span class="sd"></span>工作中</span></td><td>处理「代码重构与提取方案」</td><td>架构大纲 v1.2</td></tr>
+<tr><td><div class="tc"><div class="tca">🔍</div><div class="tci"><h4>沉思小助手</h4><p>信息提取</p></div></div></td><td><span class="sb-badge sg-y"><span class="sd"></span>待命</span></td><td>无任务</td><td>Agent 生态早报</td></tr>
+<tr><td><div class="tc"><div class="tca">🤖</div><div class="tci"><h4>Monkey</h4><p>字幕打轴</p></div></div></td><td><span class="sb-badge sg-y"><span class="sd"></span>待命</span></td><td>YouTube URL 入列</td><td>Monkey Asset...</td></tr>
+<tr><td><div class="tc"><div class="tca">⚠️</div><div class="tci"><h4>安全审核</h4><p>权限检查</p></div></div></td><td><span class="sb-badge sg-r"><span class="sd"></span>阻断</span></td><td>拦截 /root 读取</td><td>Access Denied</td></tr>
+</tbody>
+</table>
+</div>
+</main>
+</div>
+</div>
 
-        <!-- Accordion: 团队管理 -->
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">团队管理 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="text-item">团队总览</div>
-            <div class="text-item">团队看板</div>
-          </div>
-        </div>
+<!-- ===== Frame 4: IM 频道 ===== -->
+<div class="fw">
+<h1 class="ft">04 IM 频道 / 多 Agent 对话 <span>团队内部消息流</span></h1>
+<div class="aw">
+<aside class="sb">
+<div class="sbh"><div class="ib">☰</div><div class="ib">＋</div></div>
+<div class="sbc">
+<div class="sst">分身</div>
+<div class="si"><span class="ic">✦</span><span class="itx">KTClaw</span></div>
+<div class="si"><span class="ic">🔍</span><span class="itx">沉思小助手</span></div>
+<div class="sst">Channel 频道</div>
+<div class="si on"><span class="ic">💬</span><span class="itx">IM 频道</span></div>
+<div class="sst">任务</div>
+<div class="si"><span class="ic">📋</span><span class="itx">任务看板</span></div>
+<div class="si"><span class="ic">📅</span><span class="itx">任务日程</span></div>
+<div class="sst">团队管理</div>
+<div class="si"><span class="ic">👥</span><span class="itx">团队总览</span></div>
+<div class="si"><span class="ic">🗺</span><span class="itx">团队看板</span></div>
+</div>
+<div class="sbf"><div class="uav"></div><span class="un" style="font-size:13px;font-weight:500">Administrator</span></div>
+</aside>
+<main class="ma">
+<div class="im-l">
+<div class="im-h">💬 #general <span style="color:var(--tx3);font-size:12px;margin-left:8px">—— 团队公共频道</span></div>
+<div class="im-b">
+<div class="im-m sys"><span class="im-sys">✦ KTClaw 创建了频道 #general · 今天 09:00</span></div>
+<div class="im-m"><div class="im-av bot">✦</div><div class="im-mc"><b>KTClaw</b>各位早，今天主线任务是完成 Q2 Sprint 的代码审查。Monkey 负责字幕模块，沉思协助文档提取。<div class="ts-t">09:01</div></div></div>
+<div class="im-m"><div class="im-av">🔍</div><div class="im-mc"><b>沉思小助手</b>收到。我先把昨晚爬取的 3 篇技术文章摘要整理好发出来。<div class="ts-t">09:02</div></div></div>
+<div class="im-m"><div class="im-av">🤖</div><div class="im-mc"><b>Monkey</b>YouTube 视频队列已有 2 条待处理。预计 11:00 前完成字幕提取。<div class="ts-t">09:03</div></div></div>
+<div class="im-m"><div class="im-av bot">✦</div><div class="im-mc"><b>KTClaw</b>好的，我同步更新了任务看板。如果有阻塞及时在这里同步。<div class="ts-t">09:05</div></div></div>
+</div>
+<div style="padding:12px 20px;border-top:1px solid var(--bd)"><div class="cb" style="border-radius:var(--r2)"><button class="cb-btn cb-at">📎</button><textarea class="ci" placeholder="在 #general 发送消息..." rows="1"></textarea><button class="cb-btn cb-s">➤</button></div></div>
+</div>
+</main>
+</div>
+</div>
 
-      </div>
+<!-- ===== Frame 5: 任务看板 (Kanban) ===== -->
+<div class="fw">
+<h1 class="ft">05 任务看板 / 自动化工作流 <span>看板拖拽式任务管理</span></h1>
+<div class="aw">
+<aside class="sb">
+<div class="sbh"><div class="ib">☰</div><div class="ib">＋</div></div>
+<div class="sbc">
+<div class="sst">分身</div>
+<div class="si"><span class="ic">✦</span><span class="itx">KTClaw</span></div>
+<div class="si"><span class="ic">🔍</span><span class="itx">沉思小助手</span></div>
+<div class="sst">Channel 频道</div>
+<div class="si"><span class="ic">💬</span><span class="itx">IM 频道</span></div>
+<div class="sst">任务</div>
+<div class="si on"><span class="ic">📋</span><span class="itx">任务看板</span></div>
+<div class="si"><span class="ic">📅</span><span class="itx">任务日程</span></div>
+<div class="sst">团队管理</div>
+<div class="si"><span class="ic">👥</span><span class="itx">团队总览</span></div>
+<div class="si"><span class="ic">🗺</span><span class="itx">团队看板</span></div>
+</div>
+<div class="sbf"><div class="uav"></div><span class="un" style="font-size:13px;font-weight:500">Administrator</span></div>
+</aside>
+<main class="ma">
+<div class="tb"><div class="tt">📋 任务看板</div><div class="ta"><button class="bo">+ 新建任务</button><button class="bo">筛选</button></div></div>
+<div class="kb">
+<div class="kc"><div class="kch">待办 <span>3</span></div><div class="kcb">
+<div class="ki"><h5>整理 Q2 技术债务清单</h5><p>收集过去 3 个 Sprint 的 TODO 注释</p><div class="ki-f"><span class="tp">🔍 沉思</span><span class="tp" style="background:#feeceb;color:#e03e3e">P1</span></div></div>
+<div class="ki"><h5>视频字幕 Batch #12</h5><p>3 条 YouTube URL 待提取</p><div class="ki-f"><span class="tp">🤖 Monkey</span><span class="tp" style="background:#fff3e0;color:#e65100">P2</span></div></div>
+<div class="ki"><h5>更新 README 文档</h5><p>同步最新 API 变更到主文档</p><div class="ki-f"><span class="tp">✦ KTClaw</span></div></div>
+</div></div>
+<div class="kc"><div class="kch">进行中 <span>2</span></div><div class="kcb">
+<div class="ki" style="border-left:3px solid var(--ac)"><h5>代码重构与提取方案</h5><p>提取 src/utils 核心逻辑并编写单元测试覆盖</p><div class="ki-f"><span class="tp">✦ KTClaw</span><span class="tp" style="background:#feeceb;color:#e03e3e">P0</span></div></div>
+<div class="ki" style="border-left:3px solid #ffb300"><h5>安全审计 - 权限扫描</h5><p>扫描所有 Agent 的文件系统访问权限</p><div class="ki-f"><span class="tp">⚠️ 安全审核</span><span class="tp" style="background:#feeceb;color:#e03e3e">P0</span></div></div>
+</div></div>
+<div class="kc"><div class="kch">已完成 <span>4</span></div><div class="kcb">
+<div class="ki" style="opacity:.65"><h5>生成架构大纲 v1.2</h5><p>已交付并获 Review 通过</p><div class="ki-f"><span class="tp">✦ KTClaw</span></div></div>
+<div class="ki" style="opacity:.65"><h5>Agent 生态早报</h5><p>3/17 早报已发布到 #general</p><div class="ki-f"><span class="tp">🔍 沉思</span></div></div>
+<div class="ki" style="opacity:.65"><h5>字幕 Batch #11</h5><p>5 条视频已完成</p><div class="ki-f"><span class="tp">🤖 Monkey</span></div></div>
+<div class="ki" style="opacity:.65"><h5>周报 Week 11</h5><p>已生成并推送至邮件</p><div class="ki-f"><span class="tp">✦ KTClaw</span></div></div>
+</div></div>
+<div class="kc"><div class="kch">已归档 <span>1</span></div><div class="kcb">
+<div class="ki" style="opacity:.45"><h5>Q1 回顾文档</h5><p>季度回顾归档完毕</p></div>
+</div></div>
+</div>
+</main>
+</div>
+</div>
 
-      <div class="ls-footer">
-        <div class="user-profile">
-          <img class="user-avatar" src="https://ui-avatars.com/api/?name=User&background=D9D9D9" alt="User">
-          <div class="user-name">177****7838</div>
-        </div>
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-        </div>
-      </div>
-    </aside>
+<!-- ===== Frame 6: 定时任务 ===== -->
+<div class="fw">
+<h1 class="ft">06 定时任务 / Cron 总览 <span>自动化执行调度</span></h1>
+<div class="aw">
+<aside class="sb col">
+<div class="sbh" style="justify-content:center;padding:0"><div class="ib">☰</div></div>
+<div class="sbc">
+<div class="si"><span class="ic">✦</span></div><div class="si"><span class="ic">🔍</span></div>
+<div style="height:1px;background:var(--bd);margin:12px 8px"></div>
+<div class="si"><span class="ic">💬</span></div>
+<div style="height:1px;background:var(--bd);margin:12px 8px"></div>
+<div class="si"><span class="ic">📋</span></div><div class="si on"><span class="ic">📅</span></div>
+<div style="height:1px;background:var(--bd);margin:12px 8px"></div>
+<div class="si"><span class="ic">👥</span></div><div class="si"><span class="ic">🗺</span></div>
+</div>
+<div class="sbf"><div class="uav"></div></div>
+</aside>
+<main class="ma">
+<div class="vc">
+<div class="vch"><div><h1>定时任务</h1><p>自动化调度的周期性任务</p></div><div class="ta"><button class="bo">+ 新建定时任务</button></div></div>
+<div class="cron-list">
+<div class="cron-i"><div class="cron-left"><div class="cron-ic">📰</div><div class="cron-info"><h4>每日 Agent 生态早报</h4><p>由 沉思小助手 执行 · 爬取 + 摘要 + 推送到 #general</p></div></div><div class="cron-right"><div class="cron-next">下次: 明天 07:00</div><div class="cron-expr">0 7 * * *</div></div><div><span class="sb-badge sg-g"><span class="sd"></span>活跃</span></div></div>
+<div class="cron-i"><div class="cron-left"><div class="cron-ic">📊</div><div class="cron-info"><h4>每周五团队周报</h4><p>由 KTClaw 主脑 执行 · 汇总 commit + 生成报告</p></div></div><div class="cron-right"><div class="cron-next">下次: 周五 18:00</div><div class="cron-expr">0 18 * * 5</div></div><div><span class="sb-badge sg-g"><span class="sd"></span>活跃</span></div></div>
+<div class="cron-i"><div class="cron-left"><div class="cron-ic">🔒</div><div class="cron-info"><h4>每日安全扫描</h4><p>由 安全审核 执行 · 检查工具权限及日志异常</p></div></div><div class="cron-right"><div class="cron-next">下次: 明天 03:00</div><div class="cron-expr">0 3 * * *</div></div><div><span class="sb-badge sg-g"><span class="sd"></span>活跃</span></div></div>
+<div class="cron-i"><div class="cron-left"><div class="cron-ic">🎬</div><div class="cron-info"><h4>YouTube 字幕定时抓取</h4><p>由 Monkey 执行 · 处理入列的视频 URL</p></div></div><div class="cron-right"><div class="cron-next">下次: 明天 10:00</div><div class="cron-expr">0 10 * * *</div></div><div><span class="sb-badge sg-y"><span class="sd"></span>暂停</span></div></div>
+</div>
+</div>
+</main>
+</div>
+</div>
 
-    <!-- Center Main -->
-    <main class="center-main">
-      <div class="cm-header">
-        <div class="cm-title">KTClaw</div>
-      </div>
-      
-      <!-- Top Right Controls -->
-      <div class="top-right-controls">
-        <button class="tr-btn">文件</button>
-        <button class="tr-btn active">Agent</button>
-      </div>
+<!-- ===== Frame 7: 设置中心 / 基础 ===== -->
+<div class="fw">
+<h1 class="ft">07 设置中心 / 基础配置 <span>外观、模型、网络</span></h1>
+<div class="aw">
+<div class="sl">
+<nav class="sn">
+<div class="sng"><div class="snt">基础</div><div class="sni on">常规设置</div><div class="sni">模型与 Provider</div><div class="sni">网络与代理</div></div>
+<div class="sng"><div class="snt">工作流</div><div class="sni">团队与角色策略</div><div class="sni">通道高级配置</div><div class="sni">自动化默认策略</div></div>
+<div class="sng"><div class="snt">能力</div><div class="sni">记忆与知识</div><div class="sni">Skills 与 MCP</div><div class="sni">工具权限</div></div>
+<div class="sng"><div class="snt">治理</div><div class="sni">监控与统计</div><div class="sni">安全与审批</div><div class="sni">反馈与开发者</div></div>
+</nav>
+<main class="scn">
+<div class="sch"><h1>常规设置</h1><p>管理全局外观、语言以及应用启动行为。</p></div>
+<div class="ss">
+<div class="skc"><h3>外观与体验</h3><div class="fg"><label class="fl">界面语言</label><select class="fi"><option>简体中文</option><option>English</option></select><div class="fd">切换后需重启应用。</div></div><div class="fg"><label class="fl">界面主题</label><select class="fi"><option>跟随系统</option><option>浅色</option><option>深色</option></select></div></div>
+<div class="skc"><h3>行为</h3><div class="tr"><div class="tri"><b>开机随系统启动</b><span>登录后自动拉起 KTClaw</span></div><div class="ts"></div></div><div class="tr"><div class="tri"><b>关闭时隐藏到托盘</b><span>点击关闭按钮时隐藏而非退出</span></div><div class="ts"></div></div><div class="tr"><div class="tri"><b>记录诊断日志</b><span>本地保存执行错误堆栈，数据不上传</span></div><div class="ts off"></div></div></div>
+</div>
+</main>
+</div>
+</div>
+</div>
 
-      <div class="cm-content">
-        <div class="promo-banner">29 元即享 5000 积分 <a href="#" class="promo-link">去购买</a></div>
-        <div class="empty-logo">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M8 13h2"></path><path d="M8 17h2"></path><path d="M14 13h2"></path><path d="M14 17h2"></path></svg>
-        </div>
-        <h1 class="empty-title">KTClaw</h1>
-        <p class="empty-desc">描述你的目标，KTClaw 会分步执行并实时反馈</p>
+<!-- ===== Frame 8: 设置中心 / 能力 ===== -->
+<div class="fw">
+<h1 class="ft">08 设置中心 / 能力配置 <span>Skills、MCP、工具权限</span></h1>
+<div class="aw">
+<div class="sl">
+<nav class="sn">
+<div class="sng"><div class="snt">基础</div><div class="sni">常规设置</div><div class="sni">模型与 Provider</div><div class="sni">网络与代理</div></div>
+<div class="sng"><div class="snt">工作流</div><div class="sni">团队与角色策略</div><div class="sni">通道高级配置</div><div class="sni">自动化默认策略</div></div>
+<div class="sng"><div class="snt">能力</div><div class="sni">记忆与知识</div><div class="sni on">Skills 与 MCP</div><div class="sni">工具权限</div></div>
+<div class="sng"><div class="snt">治理</div><div class="sni">监控与统计</div><div class="sni">安全与审批</div><div class="sni">反馈与开发者</div></div>
+</nav>
+<main class="scn">
+<div class="sch"><h1>Skills 与 MCP 服务</h1><p>管理可挂载的技能包和 Model Context Protocol 服务端。</p></div>
+<div class="ss">
+<div class="skc"><h3>已安装 Skills</h3><div class="tr"><div class="tri"><b>file_system</b><span>读写本地文件系统</span></div><div class="ts"></div></div><div class="tr"><div class="tri"><b>terminal</b><span>执行 Shell 命令</span></div><div class="ts"></div></div><div class="tr"><div class="tri"><b>browser</b><span>浏览器自动化操作</span></div><div class="ts"></div></div><div class="tr"><div class="tri"><b>git_ops</b><span>Git 仓库操作</span></div><div class="ts off"></div></div></div>
+<div class="skc"><h3>MCP 服务端</h3><div class="fg"><label class="fl">Figma MCP</label><div style="display:flex;gap:8px"><input class="fi" value="https://figma.mcp.example.com" style="flex:1"><button class="bo" style="flex-shrink:0">测试连接</button></div><div class="fd">状态: 已连接 · 上次同步 5 分钟前</div></div><div class="fg"><label class="fl">Notion MCP</label><div style="display:flex;gap:8px"><input class="fi" value="" placeholder="输入 MCP 服务端 URL..." style="flex:1"><button class="bo" style="flex-shrink:0">添加</button></div></div></div>
+</div>
+</main>
+</div>
+</div>
+</div>
 
-        <div class="quick-config">
-          <div class="qc-icon">🪪</div>
-          <div class="qc-text">
-            <h4>快速配置</h4>
-            <p>设置名字、角色，让 KTClaw 更了解你</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="cm-footer">
-        <div style="width: 100%; max-width: 760px; margin-bottom: 8px; font-size: 13px; color: var(--text-muted);">
-          发送给 KTClaw
-        </div>
-        <div class="chat-input">
-          <div class="input-actions">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-light);"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-            <div class="model-selector">
-              GLM-5-Turbo
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </div>
-          </div>
-          <input type="text" placeholder="" />
-          <button class="send-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
-          </button>
-        </div>
-        <div class="footer-note">Agent 在本地运行，内容由AI生成</div>
-      </div>
-    </main>
-
-    <!-- Right Sidebar -->
-    <aside class="right-sidebar">
-      <div class="rs-header">
-        <div class="rs-avatar">沉思</div>
-        <div class="rs-title">
-          <h3>小钱</h3>
-          <p>AI coworker</p>
-        </div>
-      </div>
-
-      <div class="rs-content">
-        <!-- 基础信息 -->
-        <div class="rs-section">
-          <h4>关于我</h4>
-          <table class="info-table">
-            <tr>
-              <td>生日</td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td>风格</td>
-              <td>
-                <div style="margin-bottom:4px">sharp</div>
-                <div style="margin-bottom:4px">resourceful</div>
-                <div>no-nonsense</div>
-              </td>
-            </tr>
-            <tr>
-              <td>emoji</td>
-              <td>🦞</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- 机器记忆 -->
-        <div class="rs-section">
-          <div class="rs-section-header">
-            <h4>我眼中的你</h4>
-            <span>我知晓得越多，帮得越好</span>
-          </div>
-          <table class="info-table">
-            <tr>
-              <td>名字</td>
-              <td>6</td>
-            </tr>
-            <tr>
-              <td>称呼</td>
-              <td>6</td>
-            </tr>
-            <tr>
-              <td>时区</td>
-              <td>Asia/Shanghai</td>
-            </tr>
-            <tr>
-              <td>专注于</td>
-              <td>coding</td>
-            </tr>
-            <tr>
-              <td>备注</td>
-              <td>
-                <div style="margin-bottom:4px">Name: 6</div>
-                <div style="margin-bottom:4px">Timezone: Asia/Shanghai</div>
-                <div style="margin-bottom:4px">Language: 中文</div>
-                <div>首次上线: 2026-03-16</div>
-              </td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- 当前工作 -->
-        <div class="rs-section">
-          <h4>我的笔记</h4>
-          <table class="info-table">
-            <tr>
-              <td>当前项目</td>
-              <td>Current project not recorded yet</td>
-            </tr>
-            <tr>
-              <td>工作流</td>
-              <td>Capture recurring workflows here</td>
-            </tr>
-            <tr>
-              <td>记忆系统</td>
-              <td>Summarize stable facts and working patterns</td>
-            </tr>
-          </table>
-        </div>
-      </div>
-    </aside>
-  </div>
-
-
-  <h1 style="color: #666; font-size: 24px; margin-bottom: 0;">Frame 2: Team Overview (员工 / 团队总览)</h1>
-
-  <!-- Frame 2: Team Overview (Staff view) -->
-  <div class="app-window">
-    
-    <!-- Left Sidebar -->
-    <aside class="left-sidebar">
-      <div class="ls-header">
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-        </div>
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </div>
-      </div>
-
-      <div class="ls-content">
-        <div class="accordion">
-          <div class="accordion-head">分身 <span class="arrow">▼</span></div>
-        </div>
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">Channel 频道 <span class="arrow">▼</span></div>
-        </div>
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">任务 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="text-item">任务看板</div>
-            <div class="text-item">任务日程</div>
-          </div>
-        </div>
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">团队管理 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="text-item active">团队总览</div>
-            <div class="text-item">团队看板</div>
-          </div>
-        </div>
-      </div>
-      <div class="ls-footer">
-        <div class="user-profile">
-          <img class="user-avatar" src="https://ui-avatars.com/api/?name=User&background=D9D9D9" alt="User">
-          <div class="user-name">177****7838</div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Center Main: Staff Overview -->
-    <main class="center-main" style="padding: 0; background: var(--staff-bg); overflow-y: auto;">
-      <div class="staff-header">
-        <div>
-          <h1>员工</h1>
-          <span>员工、分工与职责</span>
-        </div>
-        <button class="staff-toggle-btn">收起检索栏</button>
-      </div>
-
-      <div class="staff-main-panel">
-        <div class="staff-panel-header">
-          <h2>员工总览</h2>
-          <p>默认视图只显示员工名字、角色定位、当前状态、正在处理什么、最近产出，以及是否在排班里。</p>
-        </div>
-
-        <div class="staff-grid">
-          
-          <!-- Card 1 (Hero) -->
-          <div class="staff-card staff-hero" style="cursor: pointer; position: relative;">
-            <div style="position: absolute; top: 20px; right: 20px; background: rgba(20, 122, 255, 0.1); color: #147aff; border: 1px solid rgba(20, 122, 255, 0.2); padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 600;">✦ Orchestrator Main</div>
-            <div class="staff-card-top">
-              <div class="staff-card-avatar" style="background: linear-gradient(135deg, #e6f0ff 0%, #ffffff 100%); border-color: #b3d4ff; color: #147aff;">🐻</div>
-              <div class="staff-card-title">
-                <h3>main</h3>
-                <p>主控与协调</p>
-              </div>
-            </div>
-            <table class="staff-table" style="margin-top: auto;">
-              <tr>
-                <td>当前状态</td>
-                <td style="color: #00B42A;">● 工作中</td>
-              </tr>
-              <tr>
-                <td>正在处理</td>
-                <td>creatos-sales-lead-radar</td>
-              </tr>
-              <tr>
-                <td>关键决策</td>
-                <td>"先只看X，因为这里容易同时拿到：具体人-具体痛点..."</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>已生成战略大纲 v1.2</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Card 2 -->
-          <div class="staff-card">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🐔</div>
-              <div class="staff-card-title">
-                <h3>Coq-每日新闻</h3>
-                <p>每日情报与趋势简报</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tr>
-                <td>当前状态</td>
-                <td>待命</td>
-              </tr>
-              <tr>
-                <td>下一项</td>
-                <td>Trend Report 09:00</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>"今天的主线是agent基础设施层升温。"</td>
-              </tr>
-              <tr>
-                <td>是否在排班</td>
-                <td>已排班</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Card 3 -->
-          <div class="staff-card">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🐒</div>
-              <div class="staff-card-title">
-                <h3>monkey</h3>
-                <p>YouTube 视频转长文</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tr>
-                <td>当前状态</td>
-                <td>待命</td>
-              </tr>
-              <tr>
-                <td>正在处理</td>
-                <td>无</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>Monkey Asset Inta...</td>
-              </tr>
-              <tr>
-                <td>是否在排班</td>
-                <td>未排班</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Card 4 (Wide) -->
-          <div class="staff-card staff-wide">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🦦</div>
-              <div class="staff-card-title">
-                <h3>otter</h3>
-                <p>私人助理与提醒</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tbody>
-                <tr>
-                  <td>当前状态</td>
-                  <td>待命</td>
-                </tr>
-                <tr>
-                  <td>下一项</td>
-                  <td>每日07:30晨报</td>
-                </tr>
-                <tr>
-                  <td>最近产出</td>
-                  <td>"记下了。我会把这件事作为后续提..."</td>
-                </tr>
-                <tr>
-                  <td>是否在排班</td>
-                  <td>已排班</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Card 3 -->
-          <div class="staff-card">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🐒</div>
-              <div class="staff-card-title">
-                <h3>monkey</h3>
-                <p>YouTube 视频转长文</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tr>
-                <td>当前状态</td>
-                <td>待命</td>
-              </tr>
-              <tr>
-                <td>正在处理什么</td>
-                <td>当前无实时任务</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>OK /Users/tianyi/Documents/Zoo/Inbox/Monkey Asset Inta...</td>
-              </tr>
-              <tr>
-                <td>是否在排班里</td>
-                <td>未排班</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Card 4 -->
-          <div class="staff-card">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🦦</div>
-              <div class="staff-card-title">
-                <h3>otter</h3>
-                <p>私人助理与提醒</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tr>
-                <td>当前状态</td>
-                <td>待命</td>
-              </tr>
-              <tr>
-                <td>下一项</td>
-                <td>每日07:30晨报（天气/重点邮件/今日待办)</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>记下了。我会把这件事作为后续提醒项目：OpenClaw Control...</td>
-              </tr>
-              <tr>
-                <td>是否在排班里</td>
-                <td>已排班</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Card 5 -->
-          <div class="staff-card">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🐼</div>
-              <div class="staff-card-title">
-                <h3>pandas</h3>
-                <p>控制中心开发与交付</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tr>
-                <td>当前状态</td>
-                <td>待命</td>
-              </tr>
-              <tr>
-                <td>正在处理什么</td>
-                <td>当前无实时任务</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>收到，这条分工链路清晰，也合理。我这边后续就按这个角色执行...</td>
-              </tr>
-              <tr>
-                <td>是否在排班里</td>
-                <td>未排班</td>
-              </tr>
-            </table>
-          </div>
-
-          <!-- Card 6 -->
-          <div class="staff-card">
-            <div class="staff-card-top">
-              <div class="staff-card-avatar">🐯</div>
-              <div class="staff-card-title">
-                <h3>tiger</h3>
-                <p>安全和更新</p>
-              </div>
-            </div>
-            <table class="staff-table">
-              <tr>
-                <td>当前状态</td>
-                <td>待命</td>
-              </tr>
-              <tr>
-                <td>正在处理什么</td>
-                <td>当前无实时任务</td>
-              </tr>
-              <tr>
-                <td>最近产出</td>
-                <td>搞定。所有已显式配置模型的agent都已经统一...</td>
-              </tr>
-              <tr>
-                <td>是否在排班里</td>
-                <td>未排班</td>
-              </tr>
-            </table>
-          </div>
-
-        </div>
-      </div> <!-- End main panel -->
-
-      <div class="staff-footer-rows">
-        <div class="staff-footer-row">
-          <span>员工共同目标</span>
-          <button class="staff-toggle-btn">展开</button>
-        </div>
-        <div class="staff-footer-row">
-          <span>员工配置明细</span>
-          <button class="staff-toggle-btn">展开</button>
-        </div>
-      </div>
-    </main>
-  </div> <!-- End Frame 2 -->
-
-
-  <h1 style="color: #666; font-size: 24px; margin-bottom: 0;">Frame 3: Team Map (团队关系拓扑)</h1>
-
-  <!-- Frame 3: Team Map (Hierarchy view, light mode) -->
-  <div class="app-window map-light">
-    
-    <!-- Left Sidebar -->
-    <aside class="left-sidebar">
-      <div class="ls-header">
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
-        </div>
-        <div class="icon-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        </div>
-      </div>
-
-      <div class="ls-content">
-        <div class="accordion">
-          <div class="accordion-head">分身 <span class="arrow">▼</span></div>
-        </div>
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">Channel 频道 <span class="arrow">▼</span></div>
-        </div>
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">任务 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="text-item">任务看板</div>
-            <div class="text-item">任务日程</div>
-          </div>
-        </div>
-        <div class="accordion" style="margin-top: 16px;">
-          <div class="accordion-head">团队管理 <span class="arrow">▼</span></div>
-          <div class="accordion-body">
-            <div class="text-item">团队总览</div>
-            <div class="text-item active">团队看板</div>
-          </div>
-        </div>
-      </div>
-      <div class="ls-footer">
-        <div class="user-profile">
-          <img class="user-avatar" src="https://ui-avatars.com/api/?name=User&background=D9D9D9" alt="User">
-          <div class="user-name">177****7838</div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Center Main: Map View -->
-    <main class="center-main" style="padding: 0; background: var(--staff-bg);">
-      <div class="map-container">
-        
-        <div class="map-header">
-          <div class="map-view-toggles">
-            <div class="map-toggle active">Map</div>
-            <div class="map-toggle">Grid</div>
-            <div class="map-toggle">Feed</div>
-          </div>
-          <div class="map-status">
-            <span><span class="map-dot" style="background:#00B42A"></span> Healthy</span>
-            <span><span class="map-dot" style="background:#F53F3F"></span> Errors</span>
-            <span><span class="map-dot" style="background:var(--text-light)"></span> No crons</span>
-          </div>
-        </div>
-
-        <div class="map-canvas">
-          
-          <!-- Tree Structure -->
-          <div class="tree">
-            <ul>
-              <li>
-                <!-- Root Node -->
-                <div class="map-node top-border-yellow">
-                  <div class="node-header">
-                    <div class="node-icon">💼</div>
-                    <div>
-                      <div class="node-title">Jarvis</div>
-                      <div class="node-sub">Orchestrator</div>
-                    </div>
-                  </div>
-                  <div class="node-sub">Top-level orchestrator.</div>
-                  <div class="node-stats">
-                    <span class="stat-pill red">4 tools</span>
-                    <span class="stat-pill">18 reports</span>
-                  </div>
-                </div>
-
-                <ul>
-                  <!-- Child 1 -->
-                  <li>
-                    <div class="map-node top-border-yellow">
-                      <div class="node-header">
-                        <div class="node-icon">R</div>
-                        <div>
-                          <div class="node-title">Robin</div>
-                          <div class="node-sub">Agent</div>
-                        </div>
-                      </div>
-                      <div class="node-sub">Robin agent.</div>
-                      <div class="node-stats">
-                        <span class="stat-pill red">2 tools</span>
-                        <span class="stat-pill">2 reports</span>
-                        <span class="stat-pill green">1 cron</span>
-                      </div>
-                    </div>
-
-                    <!-- Grandchildren of Child 1 -->
-                    <ul>
-                      <li>
-                        <div class="map-node top-border-yellow">
-                          <div class="node-header">
-                            <div class="node-icon">R</div>
-                            <div>
-                              <div class="node-title">RECON</div>
-                              <div class="node-sub">Robin Sub-Agent</div>
-                            </div>
-                          </div>
-                        </div>
-                      </li>
-                      <li>
-                        <div class="map-node top-border-green">
-                          <div class="node-header">
-                            <div class="node-icon">L</div>
-                            <div>
-                              <div class="node-title">LEADS</div>
-                              <div class="node-sub">Robin Sub-Agent</div>
-                            </div>
-                          </div>
-                        </div>
-                      </li>
-                    </ul>
-
-                  </li>
-
-                  <!-- Child 2 -->
-                  <li>
-                    <div class="map-node top-border-purple">
-                      <div class="node-header">
-                        <div class="node-icon">P</div>
-                        <div>
-                          <div class="node-title">Pulse</div>
-                          <div class="node-sub">Agent</div>
-                        </div>
-                      </div>
-                      <div class="node-sub">Pulse agent.</div>
-                      <div class="node-stats">
-                        <span class="stat-pill red">2 tools</span>
-                        <span class="stat-pill">2 reports</span>
-                        <span class="stat-pill green">2 crons</span>
-                      </div>
-                    </div>
-
-                    <!-- Grandchildren of Child 2 -->
-                    <ul>
-                      <li>
-                        <div class="map-node top-border-red">
-                          <div class="node-header">
-                            <div class="node-icon">F</div>
-                            <div>
-                              <div class="node-title">FEED</div>
-                              <div class="node-sub">Pulse Sub-Agent</div>
-                            </div>
-                          </div>
-                        </div>
-                      </li>
-                    </ul>
-
-                  </li>
-
-                  <!-- Child 3 -->
-                  <li>
-                    <div class="map-node top-border-cyan">
-                      <div class="node-header">
-                        <div class="node-icon">P</div>
-                        <div>
-                          <div class="node-title">PROOF</div>
-                          <div class="node-sub">Agent</div>
-                        </div>
-                      </div>
-                      <div class="node-sub">PROOF agent.</div>
-                      <div class="node-stats">
-                        <span class="stat-pill red">2 tools</span>
-                      </div>
-                    </div>
-                  </li>
-
-                </ul>
-              </li>
-            </ul>
-          </div>
-
-        </div> <!-- End map canvas -->
-
-        <!-- Map floating controls -->
-        <div class="map-zoom-controls">
-          <div class="zoom-btn">+</div>
-          <div class="zoom-btn">-</div>
-          <div class="zoom-btn">[ ]</div>
-          <div class="zoom-btn">🔒</div>
-        </div>
-
-        <div class="map-bottom-nav">
-          <div class="map-bottom-btn">Teams</div>
-          <div class="map-bottom-btn active">Hierarchy</div>
-        </div>
-
-        <button class="live-logs-btn">
-          <span style="color: #F53F3F">●</span> Live Logs ▷
-        </button>
-
-      </div>
-    </main>
-  </div> <!-- End Frame 3 -->
+<!-- ===== Frame 9: 设置中心 / 治理 ===== -->
+<div class="fw">
+<h1 class="ft">09 设置中心 / 治理 <span>监控、安全审批、开发者</span></h1>
+<div class="aw">
+<div class="sl">
+<nav class="sn">
+<div class="sng"><div class="snt">基础</div><div class="sni">常规设置</div><div class="sni">模型与 Provider</div><div class="sni">网络与代理</div></div>
+<div class="sng"><div class="snt">工作流</div><div class="sni">团队与角色策略</div><div class="sni">通道高级配置</div><div class="sni">自动化默认策略</div></div>
+<div class="sng"><div class="snt">能力</div><div class="sni">记忆与知识</div><div class="sni">Skills 与 MCP</div><div class="sni">工具权限</div></div>
+<div class="sng"><div class="snt">治理</div><div class="sni on">监控与统计</div><div class="sni">安全与审批</div><div class="sni">反馈与开发者</div></div>
+</nav>
+<main class="scn">
+<div class="sch"><h1>监控与统计策略</h1><p>配置 Token 用量追踪、Agent 运行状态监控和告警策略。</p></div>
+<div class="ss">
+<div class="skc"><h3>Token 用量追踪</h3><div class="tr"><div class="tri"><b>启用用量统计</b><span>自动解析 transcript 文件并聚合 Token 消耗</span></div><div class="ts"></div></div><div class="tr"><div class="tri"><b>每日用量报告</b><span>每天发送前一日的 Token 消耗汇总到 #general</span></div><div class="ts off"></div></div><div class="tr"><div class="tri"><b>超限告警</b><span>单日消耗超过阈值时触发告警</span></div><div class="ts"></div></div></div>
+<div class="skc"><h3>告警配置</h3><div class="fg"><label class="fl">单日 Token 上限</label><input class="fi" value="500000"><div class="fd">超过此值将触发告警并暂停非关键任务。</div></div><div class="fg"><label class="fl">告警推送方式</label><select class="fi"><option>IM 频道 #alerts</option><option>系统通知</option><option>邮件</option></select></div></div>
+</div>
+</main>
+</div>
+</div>
+</div>
 
 </body>
 </html>
