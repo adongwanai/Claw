@@ -320,6 +320,86 @@
       gap: 6px;
     }
 
+    .top-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.88);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .action-btn.active {
+      border-color: #f1c6ae;
+      background: #fff5ee;
+      color: #a8562a;
+    }
+
+    .action-icon {
+      width: 18px;
+      height: 18px;
+      border: 2px solid currentColor;
+      border-radius: 4px;
+      display: inline-block;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .action-icon.file::after {
+      content: "";
+      position: absolute;
+      right: -2px;
+      top: -2px;
+      width: 7px;
+      height: 7px;
+      border-top: 2px solid currentColor;
+      border-right: 2px solid currentColor;
+      border-radius: 0 4px 0 0;
+      background: #fff;
+    }
+
+    .action-icon.agent {
+      border-radius: 50%;
+    }
+
+    .action-icon.agent::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 3px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      transform: translateX(-50%);
+    }
+
+    .action-icon.agent::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 2px;
+      width: 10px;
+      height: 6px;
+      border-radius: 8px 8px 4px 4px;
+      border: 2px solid currentColor;
+      border-top: 0;
+      transform: translateX(-50%);
+    }
+
     .pill {
       border: 1px solid #ecd7c9;
       background: #fff5ee;
@@ -474,6 +554,12 @@
       display: grid;
       place-items: center;
       padding: 12px 8px;
+    }
+
+    .drawer-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
     }
 
     .rail-handle {
@@ -704,12 +790,12 @@
         <div class="frame-head">
           <div>
             <h2>01 主工作台 / 空态（Default）</h2>
-            <p>首页直接进入 workbench。左栏保持我们的对象式结构，但统一为四个折叠组；右栏收敛成文件与 Agent 两个 inspector，并保留折叠能力。</p>
+            <p>首页默认不显示右侧栏，只在右上角提供 `文件` 和 `Agent` 两个按钮；点击后才从右侧弹出对应侧栏。</p>
           </div>
           <span class="chip">Workbench Empty</span>
         </div>
         <div class="stage">
-          <div class="shell">
+          <div class="shell no-right">
             <aside class="left-rail">
               <div class="rail-top">
                 <div class="rail-logo">KC</div>
@@ -749,19 +835,18 @@
             <main class="main-area">
               <div class="main-top">
                 <h3>主工作台</h3>
-                <div class="pills">
-                  <span class="pill">Object-centric IA</span>
-                  <span class="pill">Quick Setup</span>
-                  <span class="pill">Warm Neutral</span>
+                <div class="top-actions">
+                  <span class="action-btn"><span class="action-icon file"></span>文件</span>
+                  <span class="action-btn"><span class="action-icon agent"></span>Agent</span>
                 </div>
               </div>
               <div class="canvas empty-state">
                 <div class="halo"></div>
                 <h4>开始描述你的目标</h4>
-                <p>主工作台保持单一心智入口。先选择左侧工作对象，再在中央发起任务；右侧只保留文件和 Agent 两个 inspector，不再承载通道与治理摘要。</p>
+                <p>主工作台保持单一心智入口。先选择左侧工作对象，再在中央发起任务；右上角按钮负责按需调出 `文件` 或 `Agent` 侧栏，不点击时完全隐藏。</p>
                 <div class="hint-card">
-                  <strong>快速配置建议</strong>
-                  <p>可在此一步设置名称、角色、默认 Agent 与文件上下文，随后直接进入会话执行。</p>
+                  <strong>默认态说明</strong>
+                  <p>当前是“无右栏”状态，画布最宽。需要文件或 Agent 信息时，再点击右上角按钮弹出对应侧栏。</p>
                 </div>
               </div>
               <div class="composer">
@@ -769,14 +854,6 @@
                 <button class="send">发送</button>
               </div>
             </main>
-            <aside class="right-rail">
-              <div class="right-rail-head">
-                <div class="rail-title">右侧 Inspector</div>
-                <div class="rail-fold">可折叠</div>
-              </div>
-              <article class="info-card"><strong>文件</strong><p>当前挂载：产品文档、设计评审清单、历史 transcript。只保留“现在用到什么文件”。</p></article>
-              <article class="info-card"><strong>Agent</strong><p>当前主 Agent：KaiTianClaw；已预载 Browser Agent 与总结助理作为可调用成员。</p></article>
-            </aside>
           </div>
         </div>
       </article>
@@ -785,7 +862,7 @@
         <div class="frame-head">
           <div>
             <h2>02 主工作台 / 活跃会话（Active）</h2>
-            <p>进入执行后，中心区保持对话与操作轨迹主导。右栏继续只保留文件与 Agent 两个 inspector，和 AutoClaw 的右侧人物面板关系更接近。</p>
+            <p>活跃会话态示范 `Agent` 按钮被点击后的状态：右侧弹出 Agent 人设/信息栏，而不是默认常驻。</p>
           </div>
           <span class="chip">Active Conversation</span>
         </div>
@@ -829,9 +906,9 @@
             <main class="main-area">
               <div class="main-top">
                 <h3>KaiTianClaw · 对话执行中</h3>
-                <div class="pills">
-                  <span class="pill">Drafting</span>
-                  <span class="pill">Tool Calls</span>
+                <div class="top-actions">
+                  <span class="action-btn"><span class="action-icon file"></span>文件</span>
+                  <span class="action-btn active"><span class="action-icon agent"></span>Agent</span>
                 </div>
               </div>
               <div class="canvas chat">
@@ -847,11 +924,12 @@
             </main>
             <aside class="right-rail">
               <div class="right-rail-head">
-                <div class="rail-title">文件 / Agent</div>
-                <div class="rail-fold">折叠</div>
+                <div class="drawer-title">Agent</div>
+                <div class="rail-fold">关闭</div>
               </div>
-              <article class="info-card"><strong>文件</strong><p>当前引用：`产品文档`、`设计板 HTML`、`reference 对照截图`。保持“当前文件清单”而不是治理卡堆叠。</p></article>
-              <article class="info-card"><strong>Agent</strong><p>主 Agent：KaiTianClaw；辅助：Browser Agent。右栏只负责展示当前角色与人设信息。</p></article>
+              <article class="info-card"><strong>当前 Agent</strong><p>主 Agent：KaiTianClaw，定位为主工作台总控与分派入口。</p></article>
+              <article class="info-card"><strong>角色标签</strong><p>AI coworker / sharp / resourceful / no-nonsense，表现方式贴近你给的 AutoClaw 右侧人物卡。</p></article>
+              <article class="info-card"><strong>辅助成员</strong><p>Browser Agent 已绑定，可随时加入当前会话执行搜索与页面操作。</p></article>
             </aside>
           </div>
         </div>
@@ -1009,13 +1087,13 @@
       <article class="frame-card">
         <div class="frame-head">
           <div>
-            <h2>06 关键折叠态 / Right Inspector Collapsed</h2>
-            <p>首页右 inspector 可折叠，释放中心工作区宽度；左侧对象栏保持完整四组结构，不影响任务和团队管理切换。</p>
+            <h2>06 关键交互态 / 文件侧栏弹出</h2>
+            <p>示范点击右上角 `文件` 按钮后的状态。默认无右栏，点击后从右侧弹出文件侧栏；Agent 与文件共享同一交互模式。</p>
           </div>
           <span class="chip">Collapsed State</span>
         </div>
         <div class="stage">
-          <div class="shell collapsed-right">
+          <div class="shell">
             <aside class="left-rail">
               <div class="rail-top">
                 <div class="rail-logo">KC</div>
@@ -1053,15 +1131,15 @@
             </aside>
             <main class="main-area">
               <div class="main-top">
-                <h3>主工作台（右 Inspector 折叠）</h3>
-                <div class="pills">
-                  <span class="pill">Focus Mode</span>
-                  <span class="pill">Inspector Hidden</span>
+                <h3>主工作台（文件侧栏打开）</h3>
+                <div class="top-actions">
+                  <span class="action-btn active"><span class="action-icon file"></span>文件</span>
+                  <span class="action-btn"><span class="action-icon agent"></span>Agent</span>
                 </div>
               </div>
               <div class="canvas chat">
-                <div class="bubble user">当前窗口太挤，把右边栏折起来继续工作。</div>
-                <div class="bubble">已进入 Focus Mode。右侧 inspector 折叠成把手，中心区更接近 AutoClaw 那种大画布工作感。</div>
+                <div class="bubble user">我点一下右上角文件按钮，看看文件侧栏弹出来是什么感觉。</div>
+                <div class="bubble">已打开文件侧栏。它只在需要时出现，关闭后恢复为无右栏的大画布工作态。</div>
                 <div class="bubble">左侧四组对象栏保持完整，不影响在分身、频道、任务和团队管理之间切换。</div>
               </div>
               <div class="composer">
@@ -1069,8 +1147,14 @@
                 <button class="send">发送</button>
               </div>
             </main>
-            <aside class="rail-collapsed">
-              <div class="rail-handle">文件 / Agent</div>
+            <aside class="right-rail">
+              <div class="right-rail-head">
+                <div class="drawer-title">文件</div>
+                <div class="rail-fold">关闭</div>
+              </div>
+              <article class="info-card"><strong>当前文件</strong><p>`产品文档`、`设计板 HTML`、`AutoClaw 参考图` 已挂到当前会话。</p></article>
+              <article class="info-card"><strong>最近引用</strong><p>继续保留“当前项目 / 工作流 / 记忆系统”这类摘要，但以文件抽屉方式出现，不常驻占位。</p></article>
+              <article class="info-card"><strong>使用方式</strong><p>点击右上角按钮展开，点关闭或切换到 `Agent` 按钮即可收回或替换。</p></article>
             </aside>
           </div>
         </div>

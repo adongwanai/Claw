@@ -214,3 +214,52 @@ Blockers:
 
 Next recommended step:
 - Continue with `DESIGN-007` once the next image-based visual direction is provided.
+
+[2026-03-17 15:29 +08:00] Session: DESIGN-007 top-right File/Agent trigger interaction
+Focus: Replace the persistent right inspector with AutoClaw-style top-right trigger buttons for File and Agent
+
+What changed:
+- Recovered the current design iteration state from `continue/task.json` and `continue/progress.txt`, then moved `DESIGN-007` into active work.
+- Updated the homepage-related review frames in `docs/figma-review/kaitianclaw-design-board.html` so the right-side information model now matches the latest AutoClaw reference interaction:
+  - homepage default state no longer shows a persistent right rail
+  - top-right action buttons now show `文件` and `Agent` with icon-like button styling
+  - clicking `Agent` is represented by an Agent drawer opening from the right
+  - clicking `文件` is represented by a File drawer opening from the right
+- Reworked the three homepage interaction states accordingly:
+  - `01 主工作台 / 空态（Default）` -> default hidden right drawer
+  - `02 主工作台 / 活跃会话（Active）` -> Agent drawer open
+  - `06 关键交互态 / 文件侧栏弹出` -> File drawer open
+- Kept the left rail structure from the previous round unchanged:
+  - `分身`
+  - `Channel 频道`
+  - `任务`
+  - `团队管理`
+- Kept the AutoClaw-inspired warm neutral palette from the previous round.
+- Re-delivered the updated board into the existing Figma review file.
+
+Figma delivery:
+- Existing file used: `KaiTianClaw UI Review Board`
+- File key: `7gBaKvTT8oFRYkPqN02p2F`
+- Updated capture node URL: `https://www.figma.com/design/7gBaKvTT8oFRYkPqN02p2F?node-id=6-2`
+
+Results:
+- `continue/task.json` parses successfully with Node after the updates.
+- The local review board still serves with `HTTP 200`.
+- HTML verification confirms the new interaction tokens/copy are present for:
+  - default hidden right sidebar
+  - top-right `文件` / `Agent` buttons
+  - `Agent` drawer title/state
+  - `文件` drawer title/state
+  - no-right default shell copy
+- Figma capture completed successfully and screenshot verification confirmed the updated design node is populated.
+
+Decisions:
+- The homepage right-side content should be modeled as an on-demand drawer, not as a persistent inspector.
+- File and Agent share the same interaction model: top-right trigger button -> one matching right drawer.
+- The default homepage should maximize the center workbench canvas and only reveal the drawer when explicitly requested.
+
+Blockers:
+- None for this design iteration.
+
+Next recommended step:
+- Continue with `DESIGN-008` once the next visual or interaction direction is provided.

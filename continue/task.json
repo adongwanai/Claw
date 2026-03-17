@@ -2,8 +2,8 @@
   "project": "KaiTianClaw Control Plane",
   "objective": "Adapt the existing ClawX demo into the approved KaiTianClaw workbench UI and preserve project progress across sessions.",
   "current_phase": "planned",
-  "current_focus": "DESIGN-007",
-  "last_updated": "2026-03-17T15:18:00+08:00",
+  "current_focus": "DESIGN-008",
+  "last_updated": "2026-03-17T15:29:00+08:00",
   "tasks": [
     {
       "id": "PERSIST-001",
@@ -257,7 +257,7 @@
       "id": "DESIGN-007",
       "title": "Continue user-directed visual iteration of the review deck",
       "type": "design",
-      "status": "planned",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "DESIGN-006"
@@ -268,7 +268,25 @@
         "Updated review artifact is re-delivered to Figma MCP",
         "continue state and progress log stay aligned with the active design iteration"
       ],
-      "notes": "Reserved for the next image-based design feedback round from the user.",
+      "notes": "Updated the homepage interaction so File and Agent are no longer represented as a persistent right inspector. They now appear as top-right icon buttons like the provided AutoClaw reference, with the default homepage showing no right sidebar and dedicated states demonstrating Agent drawer open and File drawer open.",
+      "subtasks": []
+    },
+    {
+      "id": "DESIGN-008",
+      "title": "Continue user-provided homepage interaction and visual refinement",
+      "type": "design",
+      "status": "planned",
+      "priority": "P0",
+      "depends_on": [
+        "DESIGN-007"
+      ],
+      "description": "Apply the next round of user feedback to the homepage/workbench review artifact before production implementation begins.",
+      "acceptance_criteria": [
+        "Next requested homepage or workbench interaction change is reflected in the local review board",
+        "The updated review board is re-delivered to Figma MCP",
+        "continue state and progress log stay aligned with the active design iteration"
+      ],
+      "notes": "Reserved for the next design direction from the user.",
       "subtasks": []
     }
   ]
