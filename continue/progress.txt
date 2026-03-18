@@ -698,3 +698,9 @@ Next: 等待用户审查设计并给出下一步反馈
 - Fixed the pre-existing type mismatch in src/lib/browser-preview.ts by realigning the shim signature with ElectronAPI expectations while preserving browser-preview test behavior.
 - Verification: npm test -- tests/unit/settings-center.test.tsx tests/unit/browser-preview.test.ts passed; npm run typecheck passed; npm run lint passed with the existing warning in electron/api/routes/providers.ts:198 (any).
 - Next recommended step: continue BUILD-005 with the next high-fidelity settings slice, preferably Frame 10.3 migration & backup or Frame 09.1 memory & knowledge.
+2026-03-18T16:14:54+08:00 - Completed FRONTEND-002: Migration & Backup module high-fidelity React migration.
+- Landed src/components/settings-center/settings-migration-panel.tsx and src/components/settings-center/settings-migration-wizard.tsx, then integrated both into src/pages/Settings/index.tsx under the migration-backup section.
+- Added targeted coverage in tests/unit/settings-migration-panel.test.tsx and tests/unit/settings-migration-wizard.test.tsx, and expanded tests/unit/settings-center.test.tsx to verify the migration CTA is reachable from the real Settings page.
+- Worker output was merged without overlapping write ownership; the extra worker-generated spec note was intentionally left untracked to keep this commit scoped to production code + tests.
+- Verification: npm test -- tests/unit/settings-center.test.tsx tests/unit/settings-migration-panel.test.tsx tests/unit/settings-migration-wizard.test.tsx tests/unit/browser-preview.test.ts passed; npm run typecheck passed; npm run lint passed with the existing warning in electron/api/routes/providers.ts:198 (any).
+- Next active task: FRONTEND-003 for the Frame 09.1 Memory & Knowledge dual-pane browser.

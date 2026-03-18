@@ -122,6 +122,9 @@ describe('Settings center', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Alerts & Policies' }));
     expect(screen.getByText('Quota & Billing Alert')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: /迁移与备份/ }));
+    expect(screen.getByRole('button', { name: /启动迁移向导/ })).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /模型与 Provider/ }));
     expect(screen.getByText('Providers Settings Mock')).toBeInTheDocument();
 

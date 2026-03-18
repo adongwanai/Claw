@@ -3,6 +3,8 @@ import { Monitor, Moon, RefreshCw, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
+import { SettingsMigrationPanel } from '@/components/settings-center/settings-migration-panel';
+import { SettingsMigrationWizard } from '@/components/settings-center/settings-migration-wizard';
 import { UpdateSettings } from '@/components/settings/UpdateSettings';
 import { SettingsMonitoringPanel } from '@/components/settings-center/settings-monitoring-panel';
 import { SettingsNav } from '@/components/settings-center/settings-nav';
@@ -71,6 +73,7 @@ export function Settings() {
   const [savingProxy, setSavingProxy] = useState(false);
   const [doctorRunning, setDoctorRunning] = useState<'diagnose' | 'fix' | null>(null);
   const [doctorSummary, setDoctorSummary] = useState('');
+  const [migrationWizardOpen, setMigrationWizardOpen] = useState(false);
 
   useEffect(() => setProxyEnabledDraft(proxyEnabled), [proxyEnabled]);
   useEffect(() => setProxyServerDraft(proxyServer), [proxyServer]);
@@ -78,6 +81,11 @@ export function Settings() {
   useEffect(() => setProxyHttpsServerDraft(proxyHttpsServer), [proxyHttpsServer]);
   useEffect(() => setProxyAllServerDraft(proxyAllServer), [proxyAllServer]);
   useEffect(() => setProxyBypassRulesDraft(proxyBypassRules), [proxyBypassRules]);
+  useEffect(() => {
+    if (activeSection !== 'migration-backup' && migrationWizardOpen) {
+      setMigrationWizardOpen(false);
+    }
+  }, [activeSection, migrationWizardOpen]);
 
   const activeMeta = SETTINGS_SECTION_META[activeSection];
 
@@ -215,11 +223,19 @@ export function Settings() {
               doctorRunning,
               runDoctor,
               doctorSummary,
+              openMigrationWizard: () => setMigrationWizardOpen(true),
               t,
             })}</div>
           </div>
         </main>
       </div>
+
+      {migrationWizardOpen ? (
+        <SettingsMigrationWizard
+          open
+          onOpenChange={setMigrationWizardOpen}
+        />
+      ) : null}
     </div>
   );
 }
@@ -263,6 +279,7 @@ type RenderSectionArgs = {
   doctorRunning: 'diagnose' | 'fix' | null;
   runDoctor: (mode: 'diagnose' | 'fix') => Promise<void>;
   doctorSummary: string;
+  openMigrationWizard: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
@@ -495,20 +512,7 @@ function renderActiveSection(args: RenderSectionArgs) {
       );
 
     case 'migration-backup':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: '快照迁移',
-              description: '预留 OpenClaw -> ClawX 迁移向导与兼容性报告入口。',
-            },
-            {
-              title: '冷备份与恢复',
-              description: '展示完整快照、增量备份和覆盖式导入等卡片布局。',
-            },
-          ]}
-        />
-      );
+      return <SettingsMigrationPanel onLaunchWizard={args.openMigrationWizard} />;
 
     case 'feedback-developer':
       return (
