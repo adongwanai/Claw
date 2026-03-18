@@ -78,8 +78,8 @@ function translate(key: string, vars?: Record<string, unknown>): string {
     'workbench.quickConfig': '快速配置',
     'chat:workbench.hero.subtitle': '描述你的目标，主分身会协同分身执行并实时反馈',
     'workbench.hero.subtitle': '描述你的目标，主分身会协同分身执行并实时反馈',
-    'chat:workbench.quickConfigDescription': '设置当前分身的名称、角色、常用通道、默认技能与常用工具，让它立即进入可工作状态。',
-    'workbench.quickConfigDescription': '设置当前分身的名称、角色、常用通道、默认技能与常用工具，让它立即进入可工作状态。',
+    'chat:workbench.quickConfigDescription': '设置当前分身的名称、角色、常用通道、默认技能与常用工具，让它立刻进入可工作状态。',
+    'workbench.quickConfigDescription': '设置当前分身的名称、角色、常用通道、默认技能与常用工具，让它立刻进入可工作状态。',
   };
 
   if (key === 'chat:toolbar.currentAgent') {
@@ -110,14 +110,17 @@ describe('Chat workbench shell', () => {
     gatewayState.status = { state: 'running', port: 18789 };
   });
 
-  it('renders workbench quick actions and onboarding content', () => {
+  it('renders workbench quick actions, premium onboarding cards, and the agent inspector shell', () => {
     render(<Chat />);
 
     expect(screen.getByText('文件')).toBeInTheDocument();
     expect(screen.getByText('Agent')).toBeInTheDocument();
-    expect(screen.getAllByText('快速配置').length).toBeGreaterThan(1);
+    expect(screen.getByText('快速配置')).toBeInTheDocument();
     expect(screen.getAllByText('KaiTianClaw').length).toBeGreaterThan(0);
-    expect(screen.getByText('描述你的目标，主分身会协同分身执行并实时反馈')).toBeInTheDocument();
+    expect(screen.getByText('从常见工作流开始，几分钟内进入协作状态。')).toBeInTheDocument();
+    expect(screen.getByText('代码重构方案')).toBeInTheDocument();
+    expect(screen.getByText('系统健康检查')).toBeInTheDocument();
+    expect(screen.getByText('Agent 检查器')).toBeInTheDocument();
     expect(screen.getByTestId('chat-input')).toBeInTheDocument();
   });
 });

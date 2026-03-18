@@ -3,7 +3,7 @@
   "objective": "Adapt the existing ClawX demo into the approved KaiTianClaw workbench UI and preserve project progress across sessions.",
   "current_phase": "in_progress",
   "current_focus": "BUILD-005",
-  "last_updated": "2026-03-18T16:40:42+08:00",
+  "last_updated": "2026-03-18T17:00:47+08:00",
   "tasks": [
     {
       "id": "DESIGN-019",
@@ -589,6 +589,24 @@
         "Targeted tests pass and the app remains green under npm run typecheck and npm run lint"
       ],
       "notes": "Completed on 2026-03-18. Landed the Frame 09.1 tab container, dual-pane memory browser, and static strategy panel under 能力 / 记忆与知识. Verified with settings-center + memory-browser + memory-strategy + migration + browser-preview tests, plus npm run typecheck and npm run lint (existing providers.ts warning remains).",
+      "subtasks": []
+    },
+    {
+      "id": "FRONTEND-004",
+      "title": "Workbench Frame 1/2 high-fidelity React migration",
+      "type": "build",
+      "status": "done",
+      "priority": "P0",
+      "depends_on": [
+        "BUILD-005"
+      ],
+      "description": "Convert the approved Frame 1/2 workbench design into the real Chat surface: premium empty state, refined top bar, and Agent inspector drawer in the current renderer code.",
+      "acceptance_criteria": [
+        "The empty workbench state matches the approved board with hero mark, suggestion cards, and premium composer framing",
+        "The active chat state exposes the Agent inspector drawer in the approved visual language without breaking existing chat runtime wiring",
+        "Targeted workbench tests, npm run typecheck, and npm run lint remain green"
+      ],
+      "notes": "Completed on 2026-03-18. Upgraded the workbench empty state to the approved Frame 1 hero/suggestion-card layout and refactored the expanded right rail into a Frame 2-style Agent inspector drawer while preserving collapsed behavior. Verified with tests/unit/workbench-empty-state.test.tsx, tests/unit/workbench-context-rail.test.tsx, tests/unit/workbench-shell.test.tsx, npm run typecheck, and npm run lint (existing providers.ts warning remains).",
       "subtasks": []
     }
   ]

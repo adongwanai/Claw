@@ -710,3 +710,10 @@ Next: 等待用户审查设计并给出下一步反馈
 - Expanded tests/unit/settings-center.test.tsx to verify the real Settings page now exposes both Memory tabs, and added dedicated tests for the browser and strategy subcomponents.
 - Verification: npm test -- tests/unit/settings-center.test.tsx tests/unit/settings-memory-browser.test.tsx tests/unit/settings-memory-strategy.test.tsx tests/unit/settings-migration-panel.test.tsx tests/unit/settings-migration-wizard.test.tsx tests/unit/browser-preview.test.ts passed; npm run typecheck passed; npm run lint passed with the existing warning in electron/api/routes/providers.ts:198 (any).
 - BUILD-005 remains active overall; next recommended slice is the workbench side (Frame 1/2) or the remaining settings capability/governance pages that are still placeholders.
+2026-03-18T17:00:47+08:00 - Completed FRONTEND-004: Workbench Frame 1/2 high-fidelity React migration.
+- Used gpt-5.3-codex workers with isolated ownership to update the workbench empty state and the expanded right-side Agent inspector drawer in parallel.
+- Landed the new Frame 1 empty-state treatment in src/components/workbench/workbench-empty-state.tsx with premium hero mark and 4 suggestion cards: 代码重构方案 / 系统健康检查 / 撰写周报汇总 / 查看团队记忆.
+- Replaced the generic expanded context rail in src/components/workbench/context-rail.tsx with a Frame 2-style Agent 检查器 drawer while preserving the existing collapsed/expand behavior.
+- Updated tests/unit/workbench-shell.test.tsx to validate the new empty-state cards and Agent inspector shell, and added tests/unit/workbench-empty-state.test.tsx for the new component.
+- Verification: npm test -- tests/unit/workbench-empty-state.test.tsx tests/unit/workbench-context-rail.test.tsx tests/unit/workbench-shell.test.tsx passed; npm run typecheck passed; npm run lint passed with the existing warning in electron/api/routes/providers.ts:198 (any).
+- BUILD-005 remains in progress overall. Next recommended slice is the active-chat center stream / message presentation polish, or the left sidebar/home shell alignment if you want to keep pushing Frame 1/2 fidelity.
