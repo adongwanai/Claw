@@ -128,6 +128,10 @@ describe('Settings center', () => {
     fireEvent.click(screen.getByRole('button', { name: /模型与 Provider/ }));
     expect(screen.getByText('Providers Settings Mock')).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: /记忆与知识/ }));
+    expect(screen.getByRole('tab', { name: '数据浏览器' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '策略配置' })).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /反馈与开发者/ }));
     expect(screen.getByText('Update Settings Mock')).toBeInTheDocument();
   });

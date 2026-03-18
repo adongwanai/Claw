@@ -2,8 +2,8 @@
   "project": "KaiTianClaw Control Plane",
   "objective": "Adapt the existing ClawX demo into the approved KaiTianClaw workbench UI and preserve project progress across sessions.",
   "current_phase": "in_progress",
-  "current_focus": "FRONTEND-003",
-  "last_updated": "2026-03-18T16:14:54+08:00",
+  "current_focus": "BUILD-005",
+  "last_updated": "2026-03-18T16:40:42+08:00",
   "tasks": [
     {
       "id": "DESIGN-019",
@@ -576,7 +576,7 @@
       "id": "FRONTEND-003",
       "title": "Memory & Knowledge module high-fidelity React migration",
       "type": "build",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "FRONTEND-001",
@@ -588,7 +588,7 @@
         "The page preserves a settings/config fallback tab for strategy fields and does not rely on live backend parsing yet",
         "Targeted tests pass and the app remains green under npm run typecheck and npm run lint"
       ],
-      "notes": "Active slice after FRONTEND-002 commit. Planned for parallel subagent execution with isolated component ownership and main-thread integration inside src/pages/Settings/index.tsx.",
+      "notes": "Completed on 2026-03-18. Landed the Frame 09.1 tab container, dual-pane memory browser, and static strategy panel under 能力 / 记忆与知识. Verified with settings-center + memory-browser + memory-strategy + migration + browser-preview tests, plus npm run typecheck and npm run lint (existing providers.ts warning remains).",
       "subtasks": []
     }
   ]

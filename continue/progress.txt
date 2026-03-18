@@ -704,3 +704,9 @@ Next: 等待用户审查设计并给出下一步反馈
 - Worker output was merged without overlapping write ownership; the extra worker-generated spec note was intentionally left untracked to keep this commit scoped to production code + tests.
 - Verification: npm test -- tests/unit/settings-center.test.tsx tests/unit/settings-migration-panel.test.tsx tests/unit/settings-migration-wizard.test.tsx tests/unit/browser-preview.test.ts passed; npm run typecheck passed; npm run lint passed with the existing warning in electron/api/routes/providers.ts:198 (any).
 - Next active task: FRONTEND-003 for the Frame 09.1 Memory & Knowledge dual-pane browser.
+2026-03-18T16:40:42+08:00 - Completed FRONTEND-003: Memory & Knowledge module high-fidelity React migration.
+- Merged subagent work into a new Memory & Knowledge tab container and replaced the old placeholder branch in src/pages/Settings/index.tsx.
+- Added src/components/settings-center/settings-memory-knowledge-panel.tsx plus the worker-owned settings-memory-browser.tsx and settings-memory-strategy.tsx components to recreate Frame 09.1 with 策略配置 / 数据浏览器 tabs.
+- Expanded tests/unit/settings-center.test.tsx to verify the real Settings page now exposes both Memory tabs, and added dedicated tests for the browser and strategy subcomponents.
+- Verification: npm test -- tests/unit/settings-center.test.tsx tests/unit/settings-memory-browser.test.tsx tests/unit/settings-memory-strategy.test.tsx tests/unit/settings-migration-panel.test.tsx tests/unit/settings-migration-wizard.test.tsx tests/unit/browser-preview.test.ts passed; npm run typecheck passed; npm run lint passed with the existing warning in electron/api/routes/providers.ts:198 (any).
+- BUILD-005 remains active overall; next recommended slice is the workbench side (Frame 1/2) or the remaining settings capability/governance pages that are still placeholders.

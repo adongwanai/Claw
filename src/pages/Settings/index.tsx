@@ -3,6 +3,7 @@ import { Monitor, Moon, RefreshCw, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
+import { SettingsMemoryKnowledgePanel } from '@/components/settings-center/settings-memory-knowledge-panel';
 import { SettingsMigrationPanel } from '@/components/settings-center/settings-migration-panel';
 import { SettingsMigrationWizard } from '@/components/settings-center/settings-migration-wizard';
 import { UpdateSettings } from '@/components/settings/UpdateSettings';
@@ -445,20 +446,7 @@ function renderActiveSection(args: RenderSectionArgs) {
       );
 
     case 'memory-knowledge':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: '知识策略',
-              description: '预留知识库接入、检索范围和记忆保鲜策略的展示面板。',
-            },
-            {
-              title: '数据浏览器',
-              description: '为 Frame 09.1 的双栏浏览器保留真实 React 容器位置。',
-            },
-          ]}
-        />
-      );
+      return <SettingsMemoryKnowledgePanel />;
 
     case 'skills-mcp':
       return (
