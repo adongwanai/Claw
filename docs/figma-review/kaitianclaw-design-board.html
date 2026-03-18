@@ -1885,6 +1885,7 @@
 
     .cron-table {
       width: 100%;
+      min-width: 1400px;
       border-collapse: separate;
       border-spacing: 0;
       border: 1px solid #f1f5f9;
@@ -1912,7 +1913,7 @@
       vertical-align: top;
       padding: 12px;
       height: 140px;
-      width: 18%
+      min-width: 180px;
     }
 
     .cron-table td:last-child {
@@ -2966,11 +2967,13 @@
                   <thead>
                     <tr>
                       <th style="border-bottom: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; width: 60px;"></th>
-                      <th>Mon</th>
-                      <th>Tue</th>
-                      <th>Wed</th>
-                      <th>Thu</th>
-                      <th>Fri</th>
+                      <th>星期一</th>
+                      <th>星期二</th>
+                      <th>星期三</th>
+                      <th>星期四</th>
+                      <th>星期五</th>
+                      <th>星期六</th>
+                      <th>星期日</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -3136,6 +3139,8 @@
                           </div>
                         </div>
                       </td>
+                      <td></td>
+                      <td></td>
                     </tr>
                     <tr>
                       <td class="cron-hour">06:00</td>
@@ -3199,6 +3204,8 @@
                           </div>
                         </div>
                       </td>
+                      <td></td>
+                      <td></td>
                     </tr>
                     <tr>
                       <td class="cron-hour">07:00</td>
@@ -3272,6 +3279,8 @@
                           </div>
                         </div>
                       </td>
+                      <td></td>
+                      <td></td>
                     </tr>
                   </tbody>
                 </table>

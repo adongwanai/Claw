@@ -672,3 +672,9 @@ Next: 等待用户审查设计并给出下一步反馈
 
 2026-03-18T11:35:00+08:00 - Applied user feedback to Frame 2, redesigning Chat UI and creating 4-module HIG Accordions for Agent Inspector. Fixed CSS syntax lints. Design iteration completed.
 
+2026-03-18T11:40:00+08:00 - COMPLETED DESIGN-022. Committed Design Board to Figma. Frame 2 fully aligns with Apple HIG Pro Max principles.
+
+2026-03-18T11:42:00+08:00 - Starting update for Frame 6 Cron Schedule: translating weekdays and adding horizontal scroll.
+
+2026-03-18T11:45:00+08:00 - Modified Frame 6 Cron Grid to 7 days (星期一 to 星期日), adjusted css table widths for horizontal scrolling.
+
