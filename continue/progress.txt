@@ -766,3 +766,64 @@ Next recommended step:
 - commit: 54917ef
 
 Next：继续对照更多设计稿截图修复剩余 Frame（04-10）
+
+[2026-03-19 00:00 +08:00] Session: PIXEL-ALIGN-001 close + PIXEL-ALIGN-002 done
+Focus: 根据用户提供的设计稿截图，完成 Settings 10.1/10.3 和迁移向导的像素级还原
+
+Context recovery:
+- Read Prompt.md → confirmed project is ClawX-main (no separate KTClaw-main directory)
+- Read continue/AGENT.MD, task.json (current_focus: PIXEL-ALIGN-001 in_progress), progress.txt
+- Git log shows last commit was 53c356c (fix: channel sidebar navigable); 21 files modified+untracked
+
+What changed this session:
+1. Layout fixes (earlier work not yet committed):
+   - MainLayout.tsx: overflow-hidden on <main> so h-full pages work
+   - TitleBar.tsx: KTClaw label added to left side
+   - Sidebar.tsx: emoji icon alignment → inline-flex h-5 w-5
+   - All 10 pages: removed -m-6, changed to h-full
+
+2. Settings 08.3/09.1/09.2/09.3 (earlier work):
+   - AutomationDefaultsSection: 调度参数限制/失败处理/告警触发器
+   - SkillsMcpSection: native skills filter tabs + MCP service list
+   - ToolPermissionsSection: risk level dropdown + ACL toggles
+   - SettingsMemoryStrategy: storage layer + embeddings + toggles + dir mount
+   - SettingsMemoryBrowser: two-panel file explorer with search/sort/preview
+
+3. Settings 10.1 监控与统计 (redesign per user mockups):
+   - Tab labels → 大盘监控 (Dashboard) / 用量分析 / 告警与策略
+   - Cron task cards → border-2 colored border (rose/amber/sky) instead of top accent bar
+   - AlertsTab → real inputs for token/cost thresholds + dropdown + toggle (2 sections, not 3)
+
+4. Settings 10.3 迁移与备份 (redesign per user mockups):
+   - 从 OpenClaw 迁移配置: single row card with blue button
+   - 冷备与导出: Snapshot label + import row with button
+   - 自动增量备份: toggle added (was missing)
+   - 恢复出厂: red destructive button layout
+   - Updated settings-shell-data.ts subtitle
+
+5. Migration Wizard (complete rewrite per user mockups):
+   - Step 1: 迁移兼容性报告 — 14-item pass/fail list with SVG checklist icon, dotted separator
+   - Step 2: 选择迁移范围 — 7 selectable items with orange checkboxes, 取消全选/count
+   - Step 3: 确认执行迁移 — triangle warning icon, 3 bullet points, yellow security notice, risk ack
+
+6. Typecheck fixes:
+   - browser-preview.ts: __clawxBrowserPreviewShim → __ktclawBrowserPreviewShim
+   - Settings/index.tsx: removed unused PlaceholderSection
+
+Validation:
+- npm run typecheck: PASSED (0 errors)
+- All changes committed: f5dcfac (21 files, +1198/-767)
+- Screenshots verified against user-provided design mockups for all sections
+
+Decisions:
+- Prompt.md references KTClaw-main directory which doesn't exist; confirmed ClawX-main is the active project
+- Kept settings wizard as 3 steps (not 4) matching the user's design images
+- Footer shows 跳过 only on non-final steps, matching design
+
+Blockers:
+- None.
+
+Next recommended step:
+- Run full test suite (npm run test) to verify all existing tests still pass
+- Continue pixel-align pass on remaining frames (Channels, Kanban, Cron, Team pages) against design board
+- Or proceed to next feature as directed by user

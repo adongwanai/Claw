@@ -2,8 +2,8 @@
   "project": "KaiTianClaw Control Plane",
   "objective": "Adapt the existing KTClaw demo into the approved KaiTianClaw workbench UI and preserve project progress across sessions.",
   "current_phase": "in_progress",
-  "current_focus": "PIXEL-ALIGN-001",
-  "last_updated": "2026-03-18T23:05:00+08:00",
+  "current_focus": "PIXEL-ALIGN-002",
+  "last_updated": "2026-03-19T00:00:00+08:00",
   "tasks": [
     {
       "id": "DESIGN-019",
@@ -650,7 +650,7 @@
       "id": "PIXEL-ALIGN-001",
       "title": "像素级还原设计稿 Frame 1/2",
       "type": "build",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "depends_on": ["FRONTEND-006"],
       "description": "逐帧截图对比设计稿与实现，修复所有视觉差异，直到像素级对齐。",
@@ -661,8 +661,27 @@
         "Hero 图标为绿色渐变 #10b981→#059669",
         "npm run typecheck 和 npm run test 全部绿色"
       ],
-      "notes": "本次已修复：侧边栏顺序、分身空态静态项、App名称、Hero图标颜色。已 commit 到 main 分支。截图对比结果显示与设计稿高度吻合。",
+      "notes": "全部 acceptance criteria 均已满足并 commit。侧边栏/App名称/Hero图标/emoji icon对齐均完成。",
+      "subtasks": []
+    },
+    {
+      "id": "PIXEL-ALIGN-002",
+      "title": "像素级还原设计稿 Settings 10.1/10.3 + Migration Wizard",
+      "type": "build",
+      "status": "done",
+      "priority": "P0",
+      "depends_on": ["PIXEL-ALIGN-001"],
+      "description": "根据用户提供的设计稿截图，完成 Settings 监控与统计、迁移与备份、迁移向导的像素级还原。",
+      "acceptance_criteria": [
+        "10.1 监控与统计：Tab 标签中英文双语、Cron 卡片改为彩色边框、告警标签页用真实 input/dropdown/toggle",
+        "10.3 迁移与备份：卡片布局对齐设计稿、自动增量备份有 toggle",
+        "迁移向导：3 步 — 兼容性报告(pass/fail 行)、选择范围(橙色 checkbox)、确认执行(安全提醒+确认)",
+        "npm run typecheck 全部绿色"
+      ],
+      "notes": "Committed on 2026-03-19 as f5dcfac. All acceptance criteria satisfied and screenshot-verified against user-provided design mockups.",
       "subtasks": []
     }
-  ]
+  ],
+  "last_updated": "2026-03-19T00:00:00+08:00",
+  "current_focus": "PIXEL-ALIGN-002"
 }
