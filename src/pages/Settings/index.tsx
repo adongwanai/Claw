@@ -49,6 +49,10 @@ export function Settings() {
     setAutoDownloadUpdate,
     devModeUnlocked,
     setDevModeUnlocked,
+    remoteRpcEnabled,
+    setRemoteRpcEnabled,
+    p2pSyncEnabled,
+    setP2pSyncEnabled,
     telemetryEnabled,
     setTelemetryEnabled,
   } = useSettingsStore();
@@ -210,6 +214,10 @@ export function Settings() {
                 updateSetAutoDownload,
                 devModeUnlocked,
                 setDevModeUnlocked,
+                remoteRpcEnabled,
+                setRemoteRpcEnabled,
+                p2pSyncEnabled,
+                setP2pSyncEnabled,
                 telemetryEnabled,
                 setTelemetryEnabled,
                 doctorRunning,
@@ -258,6 +266,10 @@ type RenderSectionArgs = {
   updateSetAutoDownload: (value: boolean) => void;
   devModeUnlocked: boolean;
   setDevModeUnlocked: (value: boolean) => void;
+  remoteRpcEnabled: boolean;
+  setRemoteRpcEnabled: (value: boolean) => void;
+  p2pSyncEnabled: boolean;
+  setP2pSyncEnabled: (value: boolean) => void;
   telemetryEnabled: boolean;
   setTelemetryEnabled: (value: boolean) => void;
   doctorRunning: 'diagnose' | 'fix' | null;
@@ -302,73 +314,77 @@ function renderActiveSection(args: RenderSectionArgs) {
     case 'feedback-developer':
       return (
         <>
+          {/* Card 1: 实验室实验 */}
           <SettingsSectionCard
-            title={args.t('settings:updates.title')}
-            description="延续真实的更新设置，并嵌入新的设置中心卡片层级。"
+            title="实验室实验 (Experimental Flags)"
+            description=""
           >
-            <UpdateSettings />
-            <div className="flex items-center justify-between gap-6">
-              <Label>{args.t('settings:updates.autoCheck')}</Label>
-              <Switch checked={args.autoCheckUpdate} onCheckedChange={args.setAutoCheckUpdate} />
-            </div>
-            <div className="flex items-center justify-between gap-6">
-              <Label>{args.t('settings:updates.autoDownload')}</Label>
-              <Switch
-                checked={args.autoDownloadUpdate}
-                onCheckedChange={(value) => {
-                  args.setAutoDownloadUpdate(value);
-                  args.updateSetAutoDownload(value);
-                }}
-              />
-            </div>
+            <ToggleRow
+              label="开发者专用模式 (Dev Mode)"
+              desc="在主工作台解锁底层 WebSocket 抓包控制台与 RAW Payload 窗口。"
+              checked={args.devModeUnlocked}
+              onCheckedChange={args.setDevModeUnlocked}
+            />
+            <ToggleRow
+              label="启用远程 API RPC 监听"
+              desc="开启本地 18789 端口，允许本机的浏览器扩展或其他 Shell 直接使唤主控内核。 (有一定风险)"
+              checked={args.remoteRpcEnabled}
+              onCheckedChange={args.setRemoteRpcEnabled}
+            />
+            <ToggleRow
+              label="启用 Tauri/Web P2P 同步 (预览)"
+              desc="正在酝酿的能力测试：多机器设备组网互传 Agent 记忆。"
+              checked={args.p2pSyncEnabled}
+              onCheckedChange={args.setP2pSyncEnabled}
+            />
           </SettingsSectionCard>
 
+          {/* Card 2: 诊断排错与反馈系统 */}
           <SettingsSectionCard
-            title={args.t('settings:developer.title')}
-            description="保留开发者模式、Doctor 诊断和遥测开关。"
+            title="诊断排错与反馈系统"
+            description=""
           >
-            <div className="flex items-center justify-between gap-6">
-              <Label>{args.t('settings:advanced.devMode')}</Label>
-              <Switch checked={args.devModeUnlocked} onCheckedChange={args.setDevModeUnlocked} />
-            </div>
-            <div className="flex items-center justify-between gap-6">
-              <Label>{args.t('settings:advanced.telemetry')}</Label>
-              <Switch checked={args.telemetryEnabled} onCheckedChange={args.setTelemetryEnabled} />
+            <div className="mb-3 flex items-center gap-3 rounded-xl bg-[#f2f2f7] px-4 py-3">
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-[#2563eb]">KTClaw Doctor</p>
+                <p className="mt-0.5 text-[12px] text-[#8e8e93]">完整分析你的环境变量、Nodejs 版本与目录权限有无隐患。</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0 rounded-lg text-[12px]"
+                onClick={() => void args.runDoctor('diagnose')}
+                disabled={args.doctorRunning !== null}
+              >
+                {args.doctorRunning === 'diagnose' ? args.t('common:status.running') : 'Run checks'}
+              </Button>
             </div>
 
-            {args.devModeUnlocked ? (
-              <div className="space-y-4 rounded-2xl bg-[#f8fafc] px-4 py-4">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() => void args.runDoctor('diagnose')}
-                    disabled={args.doctorRunning !== null}
-                  >
-                    {args.doctorRunning === 'diagnose'
-                      ? args.t('common:status.running')
-                      : args.t('settings:developer.runDoctor')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="rounded-full"
-                    onClick={() => void args.runDoctor('fix')}
-                    disabled={args.doctorRunning !== null}
-                  >
-                    {args.doctorRunning === 'fix'
-                      ? args.t('common:status.running')
-                      : args.t('settings:developer.runDoctorFix')}
-                  </Button>
-                </div>
-                {args.doctorSummary ? (
-                  <p className="text-[12px] text-[#667085]">{args.doctorSummary}</p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-[13px] text-[#667085]">
-                启用开发者模式后，可运行 OpenClaw Doctor 和高级诊断动作。
-              </p>
-            )}
+            {args.doctorSummary ? (
+              <p className="mb-3 text-[12px] text-[#667085]">{args.doctorSummary}</p>
+            ) : null}
+
+            <ToggleRow
+              label="崩溃时自动发送匿名报告 (Telemetry)"
+              desc="帮助核心社区了解运行时发生的 Electron 异常。"
+              checked={args.telemetryEnabled}
+              onCheckedChange={args.setTelemetryEnabled}
+            />
+
+            <div className="mt-4 flex gap-3">
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-dashed border-[#c6c6c8] px-3 py-2.5 text-[13px] text-[#8e8e93] transition-colors hover:border-[#8e8e93] hover:text-[#3c3c43]"
+              >
+                📝 提交 Issue (GitHub)
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-xl border border-dashed border-[#c6c6c8] px-3 py-2.5 text-[13px] text-[#8e8e93] transition-colors hover:border-[#8e8e93] hover:text-[#3c3c43]"
+              >
+                🐛 复制本机运行环境清单
+              </button>
+            </div>
           </SettingsSectionCard>
         </>
       );

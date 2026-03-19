@@ -39,6 +39,8 @@ interface SettingsState {
   contextRailCollapsed: boolean;
   rightPanelMode: 'agent' | 'files' | null;
   devModeUnlocked: boolean;
+  remoteRpcEnabled: boolean;
+  p2pSyncEnabled: boolean;
 
   // Setup
   setupComplete: boolean;
@@ -65,6 +67,8 @@ interface SettingsState {
   setContextRailCollapsed: (value: boolean) => void;
   setRightPanelMode: (mode: 'agent' | 'files' | null) => void;
   setDevModeUnlocked: (value: boolean) => void;
+  setRemoteRpcEnabled: (value: boolean) => void;
+  setP2pSyncEnabled: (value: boolean) => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
 }
@@ -90,6 +94,8 @@ const defaultSettings = {
   contextRailCollapsed: true,
   rightPanelMode: null as 'agent' | 'files' | null,
   devModeUnlocked: false,
+  remoteRpcEnabled: false,
+  p2pSyncEnabled: false,
   setupComplete: false,
 };
 
@@ -176,6 +182,8 @@ export const useSettingsStore = create<SettingsState>()(
           body: JSON.stringify({ value: devModeUnlocked }),
         }).catch(() => { });
       },
+      setRemoteRpcEnabled: (remoteRpcEnabled) => set({ remoteRpcEnabled }),
+      setP2pSyncEnabled: (p2pSyncEnabled) => set({ p2pSyncEnabled }),
       markSetupComplete: () => set({ setupComplete: true }),
       resetSettings: () => set(defaultSettings),
     }),

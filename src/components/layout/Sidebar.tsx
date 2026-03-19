@@ -230,10 +230,10 @@ export function Sidebar() {
               onClick={() => navigate('/channels')}
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
-              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden text-[15px] leading-none">
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">
                 {channel.name === '飞书' ? '🪶' : channel.name === '钉钉' ? '💙' : '🍀'}
               </span>
-              <span className="min-w-0 flex-1 truncate">{channel.name}</span>
+              <span className="min-w-0 flex-1 truncate text-left">{channel.name}</span>
             </button>
           ))}
         </AccordionGroup>
