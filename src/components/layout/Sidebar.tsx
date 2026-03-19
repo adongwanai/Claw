@@ -159,7 +159,7 @@ export function Sidebar() {
                       isActive && 'bg-white font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_0.5px_rgba(0,0,0,0.04)]',
                     )}
                   >
-                    <span className="w-5 shrink-0 text-center text-[14px]">✦</span>
+                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">✦</span>
                     <span className="min-w-0 flex-1 truncate">{sessionTitle}</span>
                   </button>
 
@@ -192,11 +192,11 @@ export function Sidebar() {
                   isOnChat && 'bg-white font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_0.5px_rgba(0,0,0,0.04)]',
                 )}
               >
-                <span className="w-5 shrink-0 text-center text-[14px]">✦</span>
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">✦</span>
                 <span className="min-w-0 flex-1 truncate">KTClaw</span>
               </button>
               <div className="flex items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]">
-                <span className="w-5 shrink-0 text-center text-[14px]">🔍</span>
+                <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">🔍</span>
                 <span className="min-w-0 flex-1 truncate">沉思小助手</span>
               </div>
             </>
@@ -215,7 +215,7 @@ export function Sidebar() {
               onClick={() => navigate('/channels')}
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
-              <span className="w-5 shrink-0 text-center text-[14px]">
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">
                 {channel.name === '飞书' ? '🪶' : channel.name === '钉钉' ? '💙' : '🍀'}
               </span>
               <span className="min-w-0 flex-1 truncate">{channel.name}</span>
@@ -235,7 +235,7 @@ export function Sidebar() {
               onClick={() => navigate(task.name === '任务看板' ? '/kanban' : '/cron')}
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
-              <span className="w-5 shrink-0 text-center text-[14px]">
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">
                 {task.name === '任务看板' ? '📋' : '📅'}
               </span>
               <span className="min-w-0 flex-1 truncate text-left">{task.name}</span>
@@ -255,7 +255,7 @@ export function Sidebar() {
               onClick={() => navigate(team.name === '团队总览' ? '/team-overview' : '/team-map')}
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
-              <span className="w-5 shrink-0 text-center text-[14px]">{team.name === '团队总览' ? '👥' : '🗺'}</span>
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">{team.name === '团队总览' ? '👥' : '🗺'}</span>
               <span className="min-w-0 flex-1 truncate text-left">{team.name}</span>
             </button>
           ))}

@@ -156,7 +156,7 @@ export function Settings() {
   };
 
   return (
-    <div className="-m-6 h-[calc(100vh-2.5rem)] bg-[linear-gradient(180deg,#f3f4f6_0%,#eceff3_100%)] p-6 dark:bg-background">
+    <div className="h-full bg-[linear-gradient(180deg,#f3f4f6_0%,#eceff3_100%)] p-6 dark:bg-background">
       <div className="mx-auto flex h-full max-w-[1360px] overflow-hidden rounded-[32px] border border-black/[0.05] bg-white shadow-[0_24px_64px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-background">
         <SettingsNav
           groups={SETTINGS_NAV_GROUPS}
@@ -165,7 +165,7 @@ export function Settings() {
         />
 
         <main className="min-w-0 flex-1 overflow-y-auto bg-white px-[60px] py-8 dark:bg-background">
-          <div className="mx-auto max-w-[640px]">
+          <div className="mx-auto max-w-[780px]">
             <header className="mb-8">
               <button
                 onClick={() => navigate('/')}
@@ -282,55 +282,16 @@ function renderActiveSection(args: RenderSectionArgs) {
       return <ChannelAdvancedSection />;
 
     case 'automation-defaults':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: 'Cron 默认模版',
-              description: '管理日报、巡检、周报等定时任务的默认参数与负责人。',
-            },
-            {
-              title: '自动化审批门槛',
-              description: '预留成本、工具权限与人工确认的默认阈值配置。',
-            },
-          ]}
-        />
-      );
+      return <AutomationDefaultsSection />;
 
     case 'memory-knowledge':
       return <SettingsMemoryKnowledgePanel />;
 
     case 'skills-mcp':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: '技能目录',
-              description: '统一展示已安装技能、推荐技能和来源状态。',
-            },
-            {
-              title: 'MCP 连接器',
-              description: '预留连接器健康度、配置摘要和重连入口。',
-            },
-          ]}
-        />
-      );
+      return <SkillsMcpSection />;
 
     case 'tool-permissions':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: '执行白名单',
-              description: '对 shell、文件系统、浏览器等执行权限做静态分层展示。',
-            },
-            {
-              title: '风险边界',
-              description: '为未来的审核链路、审批阈值和审计事件预留面板。',
-            },
-          ]}
-        />
-      );
+      return <ToolPermissionsSection />;
 
     case 'monitoring':
       return <SettingsMonitoringPanel />;
@@ -979,24 +940,404 @@ function ChannelAdvancedSection() {
   );
 }
 
-/* ─── PlaceholderSection (kept for unused sections) ─── */
+/* ─── Section: Automation Defaults (08.3) ─── */
 
-function PlaceholderSection({
-  cards,
-}: {
-  cards: Array<{ title: string; description: string }>;
-}) {
+function AutomationDefaultsSection() {
+  const [workerSlots, setWorkerSlots] = useState('4');
+  const [maxDailyRuns, setMaxDailyRuns] = useState('200');
+  const [exponentialBackoff, setExponentialBackoff] = useState(true);
+  const [agentSelfHeal, setAgentSelfHeal] = useState(true);
+  const [suspendOnFail, setSuspendOnFail] = useState(true);
+  const [mobileAlert, setMobileAlert] = useState(true);
+
+  const selectStyle = {
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat' as const,
+    backgroundPosition: 'right 12px center',
+    paddingRight: '32px',
+  };
+
   return (
     <>
-      {cards.map((card) => (
-        <SettingsSectionCard key={card.title} title={card.title} description={card.description}>
-          <div className="rounded-2xl border border-dashed border-black/[0.08] bg-[#f8fafc] px-4 py-4 text-[13px] leading-7 text-[#667085]">
-            当前先以高保真静态骨架承接设计稿，后续再逐步接入真实数据和交互。
-          </div>
-        </SettingsSectionCard>
-      ))}
+      <SettingsCard title="调度参数限制">
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">并行 Worker 槽位</p>
+          <select
+            value={workerSlots}
+            onChange={(e) => setWorkerSlots(e.target.value)}
+            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            style={selectStyle}
+          >
+            <option value="2">2 并发 (轻量)</option>
+            <option value="4">4 并发 (均衡)</option>
+            <option value="8">8 并发 (高性能)</option>
+            <option value="16">16 并发 (企业级)</option>
+          </select>
+        </div>
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">单日最大自动化运行次数</p>
+          <input
+            type="number"
+            value={maxDailyRuns}
+            onChange={(e) => setMaxDailyRuns(e.target.value)}
+            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+          />
+          <p className="mt-1.5 text-[12px] text-[#8e8e93]">防止死循环剧烈消耗配额。</p>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="失败处理与重试">
+        <ToggleRow
+          label="断网或超时后指数退避重试 (Exponential Backoff)"
+          desc="采用 1min / 5min / 15min / 1hour 进行 4 次尝试"
+          checked={exponentialBackoff}
+          onCheckedChange={setExponentialBackoff}
+        />
+        <ToggleRow
+          label="工具报错让 Agent 原地思辨"
+          desc="当 API 报 400 时，给 Agent 至多 3 轮机会尝试修复参数"
+          checked={agentSelfHeal}
+          onCheckedChange={setAgentSelfHeal}
+        />
+      </SettingsCard>
+
+      <SettingsCard title="告警触发器">
+        <ToggleRow
+          label="连续失败将任务挂起并标红 (Suspend)"
+          desc="不轻易跳过，等待人类处理"
+          checked={suspendOnFail}
+          onCheckedChange={setSuspendOnFail}
+        />
+        <ToggleRow
+          label="主系统发呆、熔断推送到手机通道"
+          desc="通过通知组件强制唤醒人类监管审核"
+          checked={mobileAlert}
+          onCheckedChange={setMobileAlert}
+        />
+      </SettingsCard>
     </>
   );
 }
+
+/* ─── Section: Skills & MCP (09.2) ─── */
+
+const NATIVE_SKILLS_DATA = [
+  { id: 'file_system', name: 'file_system', tag: null as string | null, desc: '本地文件的读写、搜索、目录遍历', enabled: true },
+  { id: 'browser_control', name: 'browser_control', tag: '(Playwright)', desc: '控制无头浏览器抓包、截屏与交互点击', enabled: true },
+  { id: 'terminal_session', name: 'terminal_session', tag: '(Node PTY)', desc: '长连接跨平台的控制台执行环境', enabled: true },
+];
+
+const MCP_QUICK_TEMPLATES = ['File System', 'Brave Search', 'SQLite', 'Web Fetch', 'Puppeteer', 'Memory'];
+
+const MCP_SERVICES_DATA = [
+  { tag: 'CB', tagBg: '#111', name: 'MCP GitHub Service', cmd: 'npx -y @modelcontextprotocol/server-github', status: 'active' },
+  { tag: 'S3', tagBg: '#3b82f6', name: 'MCP Amazon S3 Bridge', cmd: 'stdmcp_amazonS3 --bucket clawx-assets', status: 'idle' },
+];
+
+function SkillsMcpSection() {
+  const [activeFilter, setActiveFilter] = useState('全部');
+  const [skills, setSkills] = useState(NATIVE_SKILLS_DATA.map((s) => ({ ...s })));
+
+  const FILTER_TABS = [
+    { label: '全部', count: 3 },
+    { label: '可用', count: 3 },
+    { label: '已安装', count: 3 },
+    { label: '消耗积分', count: 0 },
+  ];
+
+  return (
+    <>
+      <SettingsCard
+        title="已安装内置技能 (Native Skills)"
+        headerRight={
+          <button type="button" className="text-[12px] text-[#8e8e93] hover:text-[#000000]">
+            ↻ 刷新
+          </button>
+        }
+      >
+        <div className="my-2 rounded-lg border border-[#fbbf24]/30 bg-[#fffbeb] px-3 py-2.5">
+          <span className="text-[13px] text-[#92400e]">
+            ⚠ Gateway 未连接。请先连接 Gateway 再管理技能。
+          </span>
+        </div>
+
+        <div className="my-3 flex flex-wrap gap-2">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.label}
+              type="button"
+              onClick={() => setActiveFilter(tab.label)}
+              className={cn(
+                'rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
+                activeFilter === tab.label
+                  ? 'bg-[#007aff] text-white'
+                  : 'border border-black/10 text-[#3c3c43] hover:bg-[#f2f2f7]',
+              )}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
+        </div>
+
+        {skills.map((skill) => (
+          <div key={skill.id} className="flex items-center justify-between gap-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-[#000000]">
+                {skill.name}
+                {skill.tag && (
+                  <span className="ml-1.5 text-[12px] font-normal text-[#8e8e93]">{skill.tag}</span>
+                )}
+              </p>
+              <p className="mt-0.5 text-[12px] text-[#8e8e93]">{skill.desc}</p>
+            </div>
+            <Switch
+              checked={skill.enabled}
+              onCheckedChange={(v) =>
+                setSkills((prev) =>
+                  prev.map((sk) => (sk.id === skill.id ? { ...sk, enabled: v } : sk)),
+                )
+              }
+            />
+          </div>
+        ))}
+
+        <div className="py-3 text-center">
+          <button type="button" className="text-[13px] text-[#007aff] hover:underline">
+            浏览技能市场...
+          </button>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Model Context Protocol 接入"
+        headerRight={
+          <div className="flex gap-2">
+            <button type="button" className="text-[12px] text-[#8e8e93] hover:text-[#000000]">
+              ↻ 刷新
+            </button>
+            <button
+              type="button"
+              className="rounded-lg bg-[#007aff] px-3 py-1 text-[12px] font-medium text-white hover:bg-[#0056b3]"
+            >
+              + 添加服务
+            </button>
+          </div>
+        }
+      >
+        <div className="py-2">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">快速添加模版 (Quick Templates)</p>
+          <div className="flex flex-wrap gap-2">
+            {MCP_QUICK_TEMPLATES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                className="rounded-full border border-black/10 px-3 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+              >
+                + {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {MCP_SERVICES_DATA.map((svc) => (
+          <div key={svc.name} className="border-t border-black/[0.04] py-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                  style={{ background: svc.tagBg }}
+                >
+                  {svc.tag}
+                </span>
+                <span className="text-[13px] font-medium text-[#000000]">{svc.name}</span>
+              </div>
+              {svc.status === 'active' ? (
+                <span className="rounded-full bg-[#dcfce7] px-2.5 py-0.5 text-[11px] font-medium text-[#059669]">
+                  Active
+                </span>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+                  >
+                    唤醒
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+                  >
+                    配置
+                  </button>
+                </div>
+              )}
+            </div>
+            <code className="font-mono text-[11px] text-[#8e8e93]">{svc.cmd}</code>
+          </div>
+        ))}
+      </SettingsCard>
+    </>
+  );
+}
+
+/* ─── Section: Tool Permissions (09.3) ─── */
+
+const CUSTOM_GRANTS_DATA = [
+  {
+    name: 'Custom Python Script',
+    tag: 'High Risk',
+    tagColor: '#ef4444',
+    path: '/usr/local/bin/python3 /opt/scripts/*',
+  },
+  {
+    name: 'Git CLI',
+    tag: 'Safe',
+    tagColor: '#10b981',
+    path: '/usr/bin/git — clone, pull, push, status, log',
+  },
+];
+
+function ToolPermissionsSection() {
+  const [fileAcl, setFileAcl] = useState(true);
+  const [terminalAcl, setTerminalAcl] = useState(true);
+  const [networkAcl, setNetworkAcl] = useState(true);
+
+  const selectStyle = {
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat' as const,
+    backgroundPosition: 'right 12px center',
+    paddingRight: '32px',
+  };
+
+  return (
+    <>
+      <SettingsCard title="核心沙箱与内置权限">
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[#007aff]" />
+            <p className="text-[13px] font-medium text-[#000000]">
+              全局风险级别设定 (Global Risk Level)
+            </p>
+          </div>
+          <select
+            className="w-[260px] shrink-0 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[12px] text-[#3c3c43] outline-none focus:border-[#007aff]"
+            style={selectStyle}
+          >
+            <option>Standard 防御模式 (读受控区、写必审批)</option>
+            <option>Strict 锁定模式 (只读)</option>
+            <option>Permissive 宽松模式 (全量访问)</option>
+          </select>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-[#000000]">本地文件操作 (File I/O ACL)</p>
+            <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+              仅允许读写 Workspace 及指定 repo，拦截越权访问
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              className="rounded border border-black/10 px-2 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+            >
+              ◎ 路径白名单
+            </button>
+            <Switch checked={fileAcl} onCheckedChange={setFileAcl} />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-[#000000]">终端命令执行 (Terminal ACL)</p>
+            <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+              拦截 rm -rf、sudo 等高危命令，允许常规构建指令
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              className="rounded border border-black/10 px-2 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+            >
+              ◎ 编辑黑名单
+            </button>
+            <Switch checked={terminalAcl} onCheckedChange={setTerminalAcl} />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-medium text-[#000000]">
+              网络与依赖下载 (Network & Package Managers)
+            </p>
+            <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+              允许 wget、curl、pip、pnpm 进系统的副作用操作
+            </p>
+          </div>
+          <Switch checked={networkAcl} onCheckedChange={setNetworkAcl} />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="自定义工具授权 (Custom Tool Grants)"
+        headerRight={
+          <button
+            type="button"
+            className="rounded-lg bg-[#111] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#333]"
+          >
+            + 添加工具许可
+          </button>
+        }
+      >
+        <div className="py-2">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">快速授权模版 (Quick Templates)</p>
+          <div className="flex flex-wrap gap-2">
+            {['Python 解释器', 'Docker Socket', 'Git CLI', 'Node.js 环境'].map((t) => (
+              <button
+                key={t}
+                type="button"
+                className="rounded-full border border-black/10 px-3 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+              >
+                + {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {CUSTOM_GRANTS_DATA.map((grant) => (
+          <div key={grant.name} className="border-t border-black/[0.04] py-3">
+            <div className="mb-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[13px] font-medium text-[#000000]">{grant.name}</span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  style={{ color: grant.tagColor, background: grant.tagColor + '1a' }}
+                >
+                  {grant.tag}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+                >
+                  范围配置
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-[#ef4444]/20 px-2.5 py-1 text-[12px] text-[#ef4444] hover:bg-[#fef2f2]"
+                >
+                  撤销
+                </button>
+              </div>
+            </div>
+            <code className="font-mono text-[11px] text-[#8e8e93]">{grant.path}</code>
+          </div>
+        ))}
+      </SettingsCard>
+    </>
+  );
+}
+
 
 export default Settings;

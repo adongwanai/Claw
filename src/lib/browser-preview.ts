@@ -26,7 +26,7 @@ function createElectronShim(): ElectronShim {
     },
     platform: 'web',
     isDev: true,
-    __clawxBrowserPreviewShim: true,
+    __ktclawBrowserPreviewShim: true,
   };
 }
 
@@ -40,5 +40,5 @@ export function ensureBrowserPreviewElectronShim(): void {
 export function isBrowserPreviewMode(): boolean {
   if (typeof window === 'undefined') return false;
   const electron = window.electron as ElectronShim | undefined;
-  return electron?.__clawxBrowserPreviewShim === true;
+  return electron?.__ktclawBrowserPreviewShim === true;
 }

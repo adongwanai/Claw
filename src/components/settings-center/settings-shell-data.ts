@@ -91,23 +91,23 @@ export const SETTINGS_SECTION_META: Record<
   },
   'automation-defaults': {
     title: '自动化默认策略',
-    subtitle: '为定时任务、触发器和默认编排策略提供可视化骨架。',
-    kicker: '工作流',
+    subtitle: '定义 Cron 等无人值守工作流的并发资源池和异常熔断逻辑。',
+    kicker: '定时调度限制、错误重试与告警',
   },
   'memory-knowledge': {
-    title: '记忆与知识',
-    subtitle: '保留能力页骨架，后续承接数据浏览器与知识索引视图。',
+    title: 'Memory 记忆与知识库',
+    subtitle: '管理长期记忆存储策略、自动浓缩规则和本地知识目录挂载。',
     kicker: '能力',
   },
   'skills-mcp': {
-    title: 'Skills 与 MCP',
-    subtitle: '呈现技能安装、MCP 连接器与可用状态的统一入口。',
-    kicker: '能力',
+    title: 'Skills 与 MCP 服务',
+    subtitle: '管理内部执行器 (Skills) 和外部协议服务 (mcp-servers)。',
+    kicker: '能力组件拔插',
   },
   'tool-permissions': {
     title: '工具权限',
-    subtitle: '聚焦执行白名单、风险分级和受控运行策略。',
-    kicker: '能力',
+    subtitle: '严格规范哪些工具甚至哪个文件夹允许被智能系统修改。',
+    kicker: '能力沙箱与拦截黑名单',
   },
   monitoring: {
     title: '监控与统计',
@@ -116,8 +116,8 @@ export const SETTINGS_SECTION_META: Record<
   },
   'migration-backup': {
     title: '迁移与备份',
-    subtitle: '延续设计稿中的快照迁移与冷备份工作流。',
-    kicker: '治理',
+    subtitle: '防止配置迷失、意外损毁并支持在主副工作计算机间的转移。',
+    kicker: '配置同步、回滚、系统迁移',
   },
   'feedback-developer': {
     title: '反馈与开发者',

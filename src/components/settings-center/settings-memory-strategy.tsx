@@ -1,57 +1,101 @@
-import { SettingsSectionCard } from './settings-section-card';
+import { useState } from 'react';
+import { Switch } from '@/components/ui/switch';
+
+const selectStyle = {
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat' as const,
+  backgroundPosition: 'right 12px center',
+  paddingRight: '32px',
+};
 
 export function SettingsMemoryStrategy() {
+  const [contextConsolidation, setContextConsolidation] = useState(true);
+  const [nightlyReflection, setNightlyReflection] = useState(true);
+
   return (
-    <section className="space-y-6">
-      <header className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#64748b]">
-          记忆与知识
-        </p>
-        <h1 className="text-[20px] font-semibold text-[#111827]">记忆策略</h1>
-        <p className="text-[13px] text-[#475467]">
-          将热数据与冷数据分层管理，保持摄取流与检索流的稳定性，方便回溯与审计。
-        </p>
-      </header>
-
-      <div className="grid gap-5 lg:grid-cols-3">
-        <SettingsSectionCard
-          title="记忆策略总览"
-          description="统一查看热窗口、冷归档与成本状况"
-        >
-          <div className="space-y-2 text-[13px] text-[#475467]">
-            <p className="text-[13px] font-semibold text-[#0f172a]">策略状态 · 正常</p>
-            <p className="text-[13px]">保留 30 天历史，自动归档冷数据</p>
-            <div className="flex items-center justify-between rounded-[12px] border border-black/[0.06] bg-[#f8fafc] px-3 py-2 text-[12px] text-[#475467]">
-              <span>热数据窗口</span>
-              <span className="font-semibold text-[#0a7aff]">15 天</span>
-            </div>
-            <div className="flex items-center justify-between text-[12px] text-[#475467]">
-              <span>冷归档周期</span>
-              <span>每 24 小时</span>
-            </div>
+    <div className="space-y-4">
+      {/* 全局长期记忆策略 */}
+      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">全局长期记忆策略</h3>
+        <div className="space-y-4">
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-[#000000]">存储底层</p>
+            <select
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              style={selectStyle}
+            >
+              <option>Local SQLite + BM25 全文检索 (默认最轻量)</option>
+              <option>PostgreSQL + pgvector (云原生)</option>
+              <option>Chroma (向量优先)</option>
+            </select>
           </div>
-        </SettingsSectionCard>
+          <div>
+            <p className="mb-2 text-[13px] font-medium text-[#000000]">Embeddings 大小与模型</p>
+            <select
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              style={selectStyle}
+            >
+              <option>text-embedding-3-small (OpenAI, 高性价比)</option>
+              <option>text-embedding-3-large (OpenAI, 高精度)</option>
+              <option>nomic-embed-text (本地, 免费)</option>
+            </select>
+          </div>
+        </div>
+      </section>
 
-        <SettingsSectionCard title="摄取统计" description="观测最近数据流入与处理效果">
-          <div className="space-y-4 text-[13px] text-[#475467]">
-            <div className="space-y-1 rounded-[12px] border border-black/[0.06] bg-[#fdf9f5] px-3 py-2">
-              <p className="text-[13px] font-semibold text-[#111827]">本周新增记忆 150 条</p>
-              <p className="text-[12px] text-[#475467]">均匀分布于 23 个场景</p>
+      {/* 自动浓缩与总结 */}
+      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+        <h3 className="mb-1 text-[15px] font-semibold text-[#000000]">自动浓缩与总结</h3>
+        <div className="divide-y divide-black/[0.04]">
+          <div className="flex items-center justify-between gap-6 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-[#000000]">
+                多轮对话自动滚动压缩 (Context Consolidation)
+              </p>
+              <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                当活跃上下文 &gt; 16k tokens 后，提取核心知识覆盖至长记忆并修剪前端。
+              </p>
             </div>
-            <p className="text-[13px]">平均处理延迟 210 ms</p>
-            <p className="text-[13px]">缓存命中 92%，回压规则已开启</p>
+            <Switch checked={contextConsolidation} onCheckedChange={setContextConsolidation} />
           </div>
-        </SettingsSectionCard>
+          <div className="flex items-center justify-between gap-6 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-[#000000]">
+                每日复盘生成 (Nightly Reflection)
+              </p>
+              <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                利用凌晨系统极低负载时，把昨天的 IM 互动合并梳理到全局画像中。
+              </p>
+            </div>
+            <Switch checked={nightlyReflection} onCheckedChange={setNightlyReflection} />
+          </div>
+        </div>
+      </section>
 
-        <SettingsSectionCard title="检索策略" description="结合重写、索引与上下文缓存">
-          <div className="space-y-2 text-[13px] text-[#475467]">
-            <p className="text-[13px] font-semibold text-[#0f172a]">优先级顺序</p>
-            <p className="text-[13px]">优先使用记忆索引 + 上下文缓存</p>
-            <p className="text-[13px]">命中失败后回退到最新 2 条会话与媒体</p>
-            <p className="text-[13px]">保持 8 条缓存，超过自动清理</p>
+      {/* 挂载本地目录知识 */}
+      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">挂载本地目录知识</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-lg border border-black/10 bg-[#f9f9f9] px-4 py-3">
+            <div>
+              <p className="text-[13px] font-medium text-[#000000]">D:/CompanyDocs/Handbook</p>
+              <p className="mt-0.5 text-[12px] text-[#8e8e93]">143 PDFs, 42 MDs</p>
+            </div>
+            <button
+              type="button"
+              className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#e5e5ea]"
+            >
+              重做索引
+            </button>
           </div>
-        </SettingsSectionCard>
-      </div>
-    </section>
+          <button
+            type="button"
+            className="w-full rounded-lg border border-dashed border-black/10 py-2.5 text-[13px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
+          >
+            + 添加本地监控目录集
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }

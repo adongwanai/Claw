@@ -66,8 +66,8 @@ const STAFF: StaffCard[] = [
 
 export function TeamOverview() {
   return (
-    <div className="-m-6 flex min-h-[calc(100vh-2.5rem)] flex-col bg-[#f2f2f7] p-6">
-      <div className="flex flex-1 flex-col rounded-2xl bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="flex h-full flex-col bg-[#f2f2f7] p-6">
+      <div className="flex flex-1 flex-col overflow-y-auto rounded-2xl bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>

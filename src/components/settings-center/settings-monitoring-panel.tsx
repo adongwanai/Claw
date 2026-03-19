@@ -1,21 +1,21 @@
 import { startTransition, useState } from 'react';
-import { AlertTriangle, ShieldCheck, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch';
 import { SettingsSectionCard } from './settings-section-card';
 
 type MonitoringTabId = 'dashboard' | 'usage' | 'alerts';
 
 const KPI_CARDS = [
-  { label: '总预估花费', value: '$142.50', meta: '较上周 +27% (+$30)', tone: 'text-rose-500' },
+  { label: '总预估花费', value: '$142.50', meta: '↗ 27% (+$30)', tone: 'text-rose-500' },
   { label: '本周花费', value: '$34.12', meta: '上周 $28.00', tone: 'text-[#667085]' },
-  { label: '缓存节省', value: '$89.40', meta: 'Hit Rate: 68%', tone: 'text-emerald-600' },
-  { label: '异常情况', value: '0', meta: '全部服务正常运行', tone: 'text-[#667085]' },
+  { label: '缓存节省 (Cache Savings)', value: '$89.40', meta: 'Hit Rate: 68%', tone: 'text-emerald-600' },
+  { label: '异常情况 (Anomalies)', value: '0', meta: '全部服务正常运行', tone: 'text-[#667085]' },
 ] as const;
 
 const COST_SPIKES = [
-  { name: 'x-radar-collect', value: '$45.20', meta: '60 次执行 · 均价 $0.75/次', accent: 'bg-rose-500' },
-  { name: 'daily-digest-news', value: '$28.90', meta: '30 次执行 · 均价 $0.96/次', accent: 'bg-amber-500' },
-  { name: 'github-issue-triage', value: '$15.40', meta: '120 次执行 · 均价 $0.12/次', accent: 'bg-sky-500' },
+  { name: 'x-radar-collect', value: '$45.20', meta: '60 次执行 · 均价 $0.75/次', borderColor: 'border-rose-500' },
+  { name: 'daily-digest-news', value: '$28.90', meta: '30 次执行 · 均价 $0.96/次', borderColor: 'border-amber-500' },
+  { name: 'github-issue-triage', value: '$15.40', meta: '120 次执行 · 均价 $0.12/次', borderColor: 'border-sky-500' },
 ] as const;
 
 const DAILY_COST = [
@@ -53,40 +53,17 @@ const USAGE_ROWS = [
   { name: '其他 Others (32 个任务)', value: '6.14% (174.6k)', color: '#64748b' },
 ] as const;
 
-const ALERT_ROWS = [
-  {
-    title: 'Quota & Billing Alert',
-    description: '对日均 Token 与预估花费设置静态阈值骨架，用于后续接入真实策略。',
-    icon: Wallet,
-    body: [
-      { label: '日均 Token 警戒阈值', value: '200,000' },
-      { label: '预估费用提醒上限', value: '$1.50 / Day' },
-    ],
-  },
-  {
-    title: '数据清洗与下沉',
-    description: '保留日志留存、归档下沉与孤儿执行件清理等治理入口。',
-    icon: ShieldCheck,
-    body: [
-      { label: '日志及运行调试包保留策略', value: '保留 30 天后转冷存储' },
-      { label: '自动删除孤儿执行件', value: '已启用' },
-    ],
-  },
-  {
-    title: '异常响应升级',
-    description: '当成本异常、失败重试或缓存命中下降时，触发更严格的告警链路。',
-    icon: AlertTriangle,
-    body: [
-      { label: '升级到 IM 通道阈值', value: '2 次 / 小时' },
-      { label: '升级到人工审批阈值', value: '5 次 / 小时' },
-    ],
-  },
-] as const;
+const selectStyle = {
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat' as const,
+  backgroundPosition: 'right 12px center',
+  paddingRight: '32px',
+};
 
 const TABS: Array<{ id: MonitoringTabId; label: string }> = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'usage', label: 'Usage Breakdown' },
-  { id: 'alerts', label: 'Alerts & Policies' },
+  { id: 'dashboard', label: '大盘监控 (Dashboard)' },
+  { id: 'usage', label: '用量分析 (Usage Breakdown)' },
+  { id: 'alerts', label: '告警与策略 (Alerts & Policies)' },
 ];
 
 export function SettingsMonitoringPanel() {
@@ -151,14 +128,14 @@ function DashboardTab() {
           {COST_SPIKES.map((item) => (
             <div
               key={item.name}
-              className="overflow-hidden rounded-[18px] border border-black/[0.06] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+              className={cn(
+                'rounded-[18px] border-2 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]',
+                item.borderColor,
+              )}
             >
-              <div className={cn('h-1 w-full', item.accent)} />
-              <div className="p-5">
-                <div className="text-[15px] font-semibold text-[#111827]">{item.name}</div>
-                <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-[#111827]">{item.value}</div>
-                <div className="mt-2 text-[12px] text-[#8e8e93]">{item.meta}</div>
-              </div>
+              <div className="text-[15px] font-semibold text-[#111827]">{item.name}</div>
+              <div className="mt-2 text-[24px] font-bold tracking-[-0.03em] text-[#111827]">{item.value}</div>
+              <div className="mt-2 text-[12px] text-[#8e8e93]">{item.meta}</div>
             </div>
           ))}
         </div>
@@ -254,16 +231,13 @@ function DashboardTab() {
 function UsageTab() {
   return (
     <section role="tabpanel" aria-label="Usage Breakdown">
-      <SettingsSectionCard
-        title="Usage Breakdown"
-        description="统计范围: 定时任务会话累计 (15 Days)"
-        className="p-6"
-      >
-        <div className="text-[28px] font-bold tracking-[-0.04em] text-[#111827]">
+      <div className="rounded-xl border border-[#c6c6c8] bg-white p-6">
+        <p className="text-[12px] text-[#8e8e93]">统计范围: 定时任务会话累计 (15 Days)</p>
+        <div className="mt-1 text-[28px] font-bold tracking-[-0.04em] text-[#111827]">
           2,845,910 Total Tokens
         </div>
 
-        <div className="grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="mt-6 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
           <div
             className="relative mx-auto h-[280px] w-[280px] rounded-full"
             style={{
@@ -284,7 +258,7 @@ function UsageTab() {
                 className="flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] transition-colors hover:bg-[#f8fafc]"
               >
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: item.color }}
                 />
                 <span className={cn('flex-1', item.name.startsWith('其他') ? 'text-[#8e8e93]' : 'font-medium text-[#111827]')}>
@@ -295,39 +269,78 @@ function UsageTab() {
             ))}
           </div>
         </div>
-      </SettingsSectionCard>
+      </div>
     </section>
   );
 }
 
 function AlertsTab() {
-  return (
-    <section role="tabpanel" aria-label="Alerts & Policies" className="space-y-5">
-      {ALERT_ROWS.map((panel) => {
-        const Icon = panel.icon;
+  const [dailyTokenLimit, setDailyTokenLimit] = useState('200,000');
+  const [costLimit, setCostLimit] = useState('$1.50 / Day');
+  const [retentionPolicy, setRetentionPolicy] = useState('30days');
+  const [autoClean, setAutoClean] = useState(true);
 
-        return (
-          <SettingsSectionCard
-            key={panel.title}
-            title={panel.title}
-            description={panel.description}
-          >
-            <div className="flex items-start gap-4 rounded-2xl bg-[#f8fafc] px-4 py-3">
-              <div className="rounded-xl bg-white p-2 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <Icon className="h-4 w-4 text-[#0a7aff]" />
-              </div>
-              <div className="flex-1 space-y-3">
-                {panel.body.map((row) => (
-                  <div key={row.label} className="flex flex-col gap-1 rounded-xl border border-black/[0.05] bg-white px-4 py-3">
-                    <span className="text-[12px] font-medium text-[#667085]">{row.label}</span>
-                    <span className="text-[14px] text-[#111827]">{row.value}</span>
-                  </div>
-                ))}
-              </div>
+  return (
+    <section role="tabpanel" aria-label="Alerts & Policies" className="space-y-4">
+      {/* 用量告警水位 */}
+      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">
+          用量告警水位 (Quota & Billing Alert)
+        </h3>
+        <div className="space-y-4">
+          <div>
+            <p className="mb-1.5 text-[13px] font-medium text-[#000000]">日均 Token 警戒阈值</p>
+            <input
+              value={dailyTokenLimit}
+              onChange={(e) => setDailyTokenLimit(e.target.value)}
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            />
+            <p className="mt-1.5 text-[12px] text-[#8e8e93]">
+              包含输入和输出。超过后将拒绝无权 Cron 触发器。
+            </p>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[13px] font-medium text-[#000000]">
+              预估经费提醒限制 (基于官方挂牌价)
+            </p>
+            <input
+              value={costLimit}
+              onChange={(e) => setCostLimit(e.target.value)}
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* 数据清洗与下沉 */}
+      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">数据清洗与下沉</h3>
+        <div className="space-y-4">
+          <div>
+            <p className="mb-1.5 text-[13px] font-medium text-[#000000]">日志及运行时调试包保留策略</p>
+            <select
+              value={retentionPolicy}
+              onChange={(e) => setRetentionPolicy(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              style={selectStyle}
+            >
+              <option value="30days">保留 30 天后转离线档</option>
+              <option value="7days">保留 7 天后删除</option>
+              <option value="60days">保留 60 天后转离线档</option>
+              <option value="forever">永久保留</option>
+            </select>
+          </div>
+          <div className="flex items-center justify-between gap-6">
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-medium text-[#000000]">自动删除孤儿执行物</p>
+              <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                清空 7 天前的缓存截图、Browser Session Profile 等。
+              </p>
             </div>
-          </SettingsSectionCard>
-        );
-      })}
+            <Switch checked={autoClean} onCheckedChange={setAutoClean} />
+          </div>
+        </div>
+      </section>
     </section>
   );
 }

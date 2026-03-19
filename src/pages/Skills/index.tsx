@@ -604,14 +604,14 @@ export function Skills() {
 
   if (loading) {
     return (
-      <div className="flex flex-col -m-6 dark:bg-background min-h-[calc(100vh-2.5rem)] items-center justify-center">
+      <div className="flex flex-col h-full dark:bg-background items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col -m-6 dark:bg-background h-[calc(100vh-2.5rem)] overflow-hidden">
+    <div className="flex flex-col h-full dark:bg-background overflow-hidden">
       <div className="w-full max-w-5xl mx-auto flex flex-col h-full p-10 pt-16">
 
         {/* Header */}

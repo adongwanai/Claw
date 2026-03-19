@@ -6,12 +6,12 @@ import { SettingsMemoryStrategy } from './settings-memory-strategy';
 type MemoryTabId = 'strategy' | 'browser';
 
 const MEMORY_TABS: Array<{ id: MemoryTabId; label: string }> = [
-  { id: 'strategy', label: '策略配置' },
-  { id: 'browser', label: '数据浏览器' },
+  { id: 'strategy', label: '策略配置 (Settings)' },
+  { id: 'browser', label: '数据浏览器 (Browser)' },
 ];
 
 export function SettingsMemoryKnowledgePanel() {
-  const [activeTab, setActiveTab] = useState<MemoryTabId>('browser');
+  const [activeTab, setActiveTab] = useState<MemoryTabId>('strategy');
 
   return (
     <div className="space-y-6">

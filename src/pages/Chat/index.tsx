@@ -86,7 +86,7 @@ export function Chat() {
   };
 
   return (
-    <div className={cn('relative -m-6 flex h-[calc(100vh-2.5rem)] min-h-0 bg-white transition-colors duration-500 dark:bg-background')}>
+    <div className={cn('relative flex h-full min-h-0 bg-white transition-colors duration-500 dark:bg-background')}>
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex h-[52px] shrink-0 items-center justify-between gap-4 bg-white px-5 dark:bg-background">
           <div className="flex min-w-0 items-center gap-[6px]">

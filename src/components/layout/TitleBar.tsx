@@ -45,7 +45,11 @@ function WindowsTitleBar() {
   };
 
   return (
-    <div className="drag-region flex h-10 shrink-0 items-center justify-end border-b bg-background">
+    <div className="drag-region flex h-10 shrink-0 items-center justify-between border-b bg-background">
+      {/* Left: App name */}
+      <div className="no-drag flex items-center gap-2 pl-4 text-[13px] font-semibold text-foreground">
+        KTClaw
+      </div>
 
       {/* Right: Window Controls */}
       <div className="no-drag flex h-full">

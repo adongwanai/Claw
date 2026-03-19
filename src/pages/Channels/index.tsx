@@ -114,7 +114,7 @@ export function Channels() {
   const currentGroup = GROUPS.find((g) => g.id === activeGroup) ?? GROUPS[0];
 
   return (
-    <div className="-m-6 flex h-[calc(100vh-2.5rem)] flex-row overflow-hidden bg-[#f2f2f7]">
+    <div className="flex h-full flex-row overflow-hidden bg-[#f2f2f7]">
 
       {/* Panel 1: Channel type list */}
       <div className="flex w-[164px] shrink-0 flex-col border-r border-black/[0.06] bg-white">

@@ -91,7 +91,7 @@ export function TaskKanban() {
   const activeCount = TASKS.length;
 
   return (
-    <div className="-m-6 flex min-h-[calc(100vh-2.5rem)] flex-col bg-[#f2f2f7] p-6">
+    <div className="flex h-full flex-col bg-[#f2f2f7] p-6">
       <div className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
 
         {/* Header */}
