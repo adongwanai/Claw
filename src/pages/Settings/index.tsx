@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Monitor, Moon, Sun, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { SettingsMemoryKnowledgePanel } from '@/components/settings-center/settings-memory-knowledge-panel';
 import { SettingsMigrationPanel } from '@/components/settings-center/settings-migration-panel';
 import { SettingsMigrationWizard } from '@/components/settings-center/settings-migration-wizard';
@@ -26,19 +25,12 @@ import { cn } from '@/lib/utils';
 import { useGatewayStore } from '@/stores/gateway';
 import { useSettingsStore } from '@/stores/settings';
 import { useUpdateStore } from '@/stores/update';
+import type { ReactNode } from 'react';
 
 export function Settings() {
   const { t } = useTranslation(['settings', 'common']);
   const navigate = useNavigate();
   const {
-    theme,
-    setTheme,
-    language,
-    setLanguage,
-    launchAtStartup,
-    setLaunchAtStartup,
-    gatewayAutoStart,
-    setGatewayAutoStart,
     proxyEnabled,
     proxyServer,
     proxyHttpServer,
@@ -183,81 +175,67 @@ export function Settings() {
                 返回工作台
               </button>
               <h1 className="text-[24px] font-semibold text-[#000000] dark:text-foreground">
-                {activeMeta.title} <span className="text-[#3c3c43]">{activeMeta.kicker}</span>
+                {activeMeta.title}{' '}
+                <span className="text-[#3c3c43]">{activeMeta.kicker}</span>
               </h1>
               <p className="mt-2 text-[13px] text-[#3c3c43] dark:text-muted-foreground">
                 {activeMeta.subtitle}
               </p>
             </header>
 
-            <div className="space-y-5">{renderActiveSection({
-              activeSection,
-              theme,
-              setTheme,
-              language,
-              setLanguage,
-              launchAtStartup,
-              setLaunchAtStartup,
-              gatewayStatus,
-              restartGateway,
-              gatewayAutoStart,
-              setGatewayAutoStart,
-              proxyEnabledDraft,
-              setProxyEnabledDraft,
-              proxyServerDraft,
-              setProxyServerDraft,
-              proxyHttpServerDraft,
-              setProxyHttpServerDraft,
-              proxyHttpsServerDraft,
-              setProxyHttpsServerDraft,
-              proxyAllServerDraft,
-              setProxyAllServerDraft,
-              proxyBypassRulesDraft,
-              setProxyBypassRulesDraft,
-              saveProxySettings,
-              savingProxy,
-              currentVersion,
-              autoCheckUpdate,
-              setAutoCheckUpdate,
-              autoDownloadUpdate,
-              setAutoDownloadUpdate,
-              updateSetAutoDownload,
-              devModeUnlocked,
-              setDevModeUnlocked,
-              telemetryEnabled,
-              setTelemetryEnabled,
-              doctorRunning,
-              runDoctor,
-              doctorSummary,
-              openMigrationWizard: () => setMigrationWizardOpen(true),
-              t,
-            })}</div>
+            <div className="space-y-5">
+              {renderActiveSection({
+                activeSection,
+                gatewayStatus,
+                restartGateway,
+                proxyEnabledDraft,
+                setProxyEnabledDraft,
+                proxyServerDraft,
+                setProxyServerDraft,
+                proxyHttpServerDraft,
+                setProxyHttpServerDraft,
+                proxyHttpsServerDraft,
+                setProxyHttpsServerDraft,
+                proxyAllServerDraft,
+                setProxyAllServerDraft,
+                proxyBypassRulesDraft,
+                setProxyBypassRulesDraft,
+                saveProxySettings,
+                savingProxy,
+                currentVersion,
+                autoCheckUpdate,
+                setAutoCheckUpdate,
+                autoDownloadUpdate,
+                setAutoDownloadUpdate,
+                updateSetAutoDownload,
+                devModeUnlocked,
+                setDevModeUnlocked,
+                telemetryEnabled,
+                setTelemetryEnabled,
+                doctorRunning,
+                runDoctor,
+                doctorSummary,
+                openMigrationWizard: () => setMigrationWizardOpen(true),
+                t,
+              })}
+            </div>
           </div>
         </main>
       </div>
 
       {migrationWizardOpen ? (
-        <SettingsMigrationWizard
-          open
-          onOpenChange={setMigrationWizardOpen}
-        />
+        <SettingsMigrationWizard open onOpenChange={setMigrationWizardOpen} />
       ) : null}
     </div>
   );
 }
 
+/* ─── renderActiveSection ─── */
+
 type RenderSectionArgs = {
   activeSection: SettingsSectionId;
-  theme: 'light' | 'dark' | 'system';
-  setTheme: (value: 'light' | 'dark' | 'system') => void;
-  language: string;
-  setLanguage: (value: string) => void;
-  launchAtStartup: boolean;
-  setLaunchAtStartup: (value: boolean) => void;
   gatewayStatus: { state: string; port?: number };
   restartGateway: () => unknown;
-  gatewayAutoStart: boolean;
-  setGatewayAutoStart: (value: boolean) => void;
   proxyEnabledDraft: boolean;
   setProxyEnabledDraft: (value: boolean) => void;
   proxyServerDraft: string;
@@ -292,93 +270,16 @@ type RenderSectionArgs = {
 function renderActiveSection(args: RenderSectionArgs) {
   switch (args.activeSection) {
     case 'general':
-      return (
-        <>
-          <SettingsSectionCard title="外观与语言" description="延续极简浅底的桌面工作台语义，保留核心偏好设置。">
-            <div className="space-y-3">
-              <Label className="text-[15px] font-medium text-[#111827]">主题模式</Label>
-              <div className="flex flex-wrap gap-2">
-                <ThemeButton active={args.theme === 'light'} icon={Sun} label="浅色" onClick={() => args.setTheme('light')} />
-                <ThemeButton active={args.theme === 'dark'} icon={Moon} label="深色" onClick={() => args.setTheme('dark')} />
-                <ThemeButton active={args.theme === 'system'} icon={Monitor} label="跟随系统" onClick={() => args.setTheme('system')} />
-              </div>
-            </div>
-            <div className="space-y-3">
-              <Label className="text-[15px] font-medium text-[#111827]">界面语言</Label>
-              <div className="flex flex-wrap gap-2">
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <Button
-                    key={lang.code}
-                    variant={args.language === lang.code ? 'secondary' : 'outline'}
-                    className={cn(
-                      'rounded-full border-black/10 bg-white text-[#111827] hover:bg-[#f3f4f6]',
-                      args.language === lang.code && 'bg-[#eef2f7]',
-                    )}
-                    onClick={() => args.setLanguage(lang.code)}
-                  >
-                    {lang.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </SettingsSectionCard>
-
-          <SettingsSectionCard title="本地客户端" description="管理开机启动等与本机使用体验直接相关的设置。">
-            <div className="flex items-center justify-between gap-6">
-              <div>
-                <Label className="text-[15px] font-medium text-[#111827]">开机自动启动</Label>
-                <p className="mt-1 text-[13px] text-[#667085]">保持桌面工作台在系统启动后可用。</p>
-              </div>
-              <Switch checked={args.launchAtStartup} onCheckedChange={args.setLaunchAtStartup} />
-            </div>
-          </SettingsSectionCard>
-
-          <SettingsSectionCard title="关于 ClawX">
-            <p className="text-[14px] text-[#667085]">
-              {args.t('settings:about.version', { version: args.currentVersion })}
-            </p>
-          </SettingsSectionCard>
-        </>
-      );
+      return <GeneralSection />;
 
     case 'model-provider':
-      return (
-        <SettingsSectionCard title="模型路由与 Provider" description="沿用现有 Provider 管理能力，并放入新的高保真白卡片层级。">
-          <ProvidersSettings />
-        </SettingsSectionCard>
-      );
+      return <ModelProviderSection gatewayStatus={args.gatewayStatus} restartGateway={args.restartGateway} />;
 
     case 'team-role-strategy':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: '团队模板',
-              description: '将研究、值守、内容等团队形态预置为静态策略骨架。',
-            },
-            {
-              title: '角色职责边界',
-              description: '预留 Owner / Reviewer / Runner 的职责分层与默认权限。',
-            },
-          ]}
-        />
-      );
+      return <TeamRoleSection />;
 
     case 'channel-advanced':
-      return (
-        <PlaceholderSection
-          cards={[
-            {
-              title: '多通道路由',
-              description: '静态展示飞书、Telegram 与本地通知的优先级与兜底关系。',
-            },
-            {
-              title: '重试与熔断策略',
-              description: '为消息通道失败重试、限流和临时禁用提供视觉骨架。',
-            },
-          ]}
-        />
-      );
+      return <ChannelAdvancedSection />;
 
     case 'automation-defaults':
       return (
@@ -440,7 +341,10 @@ function renderActiveSection(args: RenderSectionArgs) {
     case 'feedback-developer':
       return (
         <>
-          <SettingsSectionCard title={args.t('settings:updates.title')} description="延续真实的更新设置，并嵌入新的设置中心卡片层级。">
+          <SettingsSectionCard
+            title={args.t('settings:updates.title')}
+            description="延续真实的更新设置，并嵌入新的设置中心卡片层级。"
+          >
             <UpdateSettings />
             <div className="flex items-center justify-between gap-6">
               <Label>{args.t('settings:updates.autoCheck')}</Label>
@@ -458,7 +362,10 @@ function renderActiveSection(args: RenderSectionArgs) {
             </div>
           </SettingsSectionCard>
 
-          <SettingsSectionCard title={args.t('settings:developer.title')} description="保留开发者模式、Doctor 诊断和遥测开关。">
+          <SettingsSectionCard
+            title={args.t('settings:developer.title')}
+            description="保留开发者模式、Doctor 诊断和遥测开关。"
+          >
             <div className="flex items-center justify-between gap-6">
               <Label>{args.t('settings:advanced.devMode')}</Label>
               <Switch checked={args.devModeUnlocked} onCheckedChange={args.setDevModeUnlocked} />
@@ -471,11 +378,25 @@ function renderActiveSection(args: RenderSectionArgs) {
             {args.devModeUnlocked ? (
               <div className="space-y-4 rounded-2xl bg-[#f8fafc] px-4 py-4">
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" className="rounded-full" onClick={() => void args.runDoctor('diagnose')} disabled={args.doctorRunning !== null}>
-                    {args.doctorRunning === 'diagnose' ? args.t('common:status.running') : args.t('settings:developer.runDoctor')}
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => void args.runDoctor('diagnose')}
+                    disabled={args.doctorRunning !== null}
+                  >
+                    {args.doctorRunning === 'diagnose'
+                      ? args.t('common:status.running')
+                      : args.t('settings:developer.runDoctor')}
                   </Button>
-                  <Button variant="outline" className="rounded-full" onClick={() => void args.runDoctor('fix')} disabled={args.doctorRunning !== null}>
-                    {args.doctorRunning === 'fix' ? args.t('common:status.running') : args.t('settings:developer.runDoctorFix')}
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => void args.runDoctor('fix')}
+                    disabled={args.doctorRunning !== null}
+                  >
+                    {args.doctorRunning === 'fix'
+                      ? args.t('common:status.running')
+                      : args.t('settings:developer.runDoctorFix')}
                   </Button>
                 </div>
                 {args.doctorSummary ? (
@@ -483,7 +404,9 @@ function renderActiveSection(args: RenderSectionArgs) {
                 ) : null}
               </div>
             ) : (
-              <p className="text-[13px] text-[#667085]">启用开发者模式后，可运行 OpenClaw Doctor 和高级诊断动作。</p>
+              <p className="text-[13px] text-[#667085]">
+                启用开发者模式后，可运行 OpenClaw Doctor 和高级诊断动作。
+              </p>
             )}
           </SettingsSectionCard>
         </>
@@ -494,31 +417,569 @@ function renderActiveSection(args: RenderSectionArgs) {
   }
 }
 
-function ThemeButton({
-  active,
-  icon: Icon,
-  label,
-  onClick,
+/* ─── Primitive helpers ─── */
+
+function SettingsCard({
+  title,
+  headerRight,
+  children,
 }: {
-  active: boolean;
-  icon: typeof Sun;
-  label: string;
-  onClick: () => void;
+  title: string;
+  headerRight?: ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <Button
-      variant={active ? 'secondary' : 'outline'}
-      className={cn(
-        'rounded-full border-black/10 bg-white text-[#111827] hover:bg-[#f3f4f6]',
-        active && 'bg-[#eef2f7]',
-      )}
-      onClick={onClick}
-    >
-      <Icon className="mr-2 h-4 w-4" />
-      {label}
-    </Button>
+    <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-[15px] font-semibold text-[#000000]">{title}</h3>
+        {headerRight}
+      </div>
+      <div className="divide-y divide-black/[0.04]">{children}</div>
+    </section>
   );
 }
+
+function SettingsRow({
+  label,
+  desc,
+  right,
+}: {
+  label: string;
+  desc?: string;
+  right?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-[48px] items-center justify-between gap-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-[#000000]">{label}</p>
+        {desc && <p className="mt-0.5 text-[12px] text-[#8e8e93]">{desc}</p>}
+      </div>
+      {right && <div className="shrink-0">{right}</div>}
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  desc,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  desc?: string;
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-medium text-[#000000]">{label}</p>
+        {desc && <p className="mt-0.5 text-[12px] text-[#8e8e93]">{desc}</p>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
+  );
+}
+
+function InputField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="py-3">
+      <p className="mb-1.5 text-[13px] font-medium text-[#000000]">{label}</p>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff] focus:ring-1 focus:ring-[#007aff]/20"
+      />
+    </div>
+  );
+}
+
+/* ─── Section: General (07.1) ─── */
+
+function GeneralSection() {
+  const { theme, setTheme, language, setLanguage, launchAtStartup, setLaunchAtStartup } =
+    useSettingsStore();
+
+  const [showToolCalls, setShowToolCalls] = useState(false);
+  const [emojiAvatar, setEmojiAvatar] = useState(true);
+  const [hideAvatarBg, setHideAvatarBg] = useState(false);
+  const [minimizeToTray, setMinimizeToTray] = useState(true);
+  const [brandName, setBrandName] = useState('KTClaw Control');
+  const [brandSubtitle, setBrandSubtitle] = useState('智能编排中枢');
+  const [myName, setMyName] = useState('Commander');
+
+  return (
+    <>
+      {/* 账号与安全 */}
+      <SettingsCard title="账号与安全">
+        <SettingsRow
+          label="手机号"
+          right={<span className="text-[13px] text-[#8e8e93]">177****7838</span>}
+        />
+        <SettingsRow
+          label="注销账号"
+          desc="注销账号将删除您的账户和所有数据"
+          right={
+            <button
+              type="button"
+              className="rounded-lg border border-[#ef4444] px-3.5 py-1.5 text-[13px] text-[#ef4444] transition-colors hover:bg-[#fef2f2]"
+            >
+              注销
+            </button>
+          }
+        />
+      </SettingsCard>
+
+      {/* 外观与行为 */}
+      <SettingsCard title="外观与行为">
+        {/* Language dropdown */}
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">界面语言</p>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 12px center',
+              paddingRight: '32px',
+            }}
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[12px] text-[#8e8e93]">切换后需重启应用。</p>
+        </div>
+
+        {/* Theme mode */}
+        <SettingsRow
+          label="主题模式"
+          desc="选择橙白浅色或 Neon Noir 深色模式。"
+          right={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={cn(
+                  'h-10 w-10 rounded-full border-2 transition-all',
+                  theme === 'light' ? 'border-black/25 scale-110' : 'border-black/[0.04]',
+                )}
+                style={{
+                  background:
+                    'conic-gradient(from 90deg, #f97316 0deg 180deg, #f3f4f6 180deg 360deg)',
+                }}
+                title="浅色模式"
+              />
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={cn(
+                  'h-10 w-10 rounded-full border-2 transition-all',
+                  theme === 'dark' ? 'border-white/30 scale-110' : 'border-black/[0.04]',
+                )}
+                style={{
+                  background:
+                    'conic-gradient(from 90deg, #1c1c1e 0deg 180deg, #7c3aed 180deg 360deg)',
+                }}
+                title="深色模式"
+              />
+            </div>
+          }
+        />
+
+        <ToggleRow
+          label="开机自启"
+          desc="登录时自动启动 AutoClaw。"
+          checked={launchAtStartup}
+          onCheckedChange={setLaunchAtStartup}
+        />
+        <ToggleRow
+          label="显示工具调用"
+          desc="在对话消息中展示模型的工具调用详情块。"
+          checked={showToolCalls}
+          onCheckedChange={setShowToolCalls}
+        />
+        <ToggleRow
+          label="仅以 Emoji 作为头像"
+          desc="关闭彩色背景，仅显示 Emoji 和玻璃质感"
+          checked={emojiAvatar}
+          onCheckedChange={setEmojiAvatar}
+        />
+        <ToggleRow
+          label="隐藏侧栏头像块背景"
+          desc="使用全透明样式悬浮展示个人 Logo"
+          checked={hideAvatarBg}
+          onCheckedChange={setHideAvatarBg}
+        />
+        <ToggleRow
+          label="关闭时隐藏到托盘"
+          desc="点击顶部关闭按钮时不退出进程，维持 Cron 和通道在线"
+          checked={minimizeToTray}
+          onCheckedChange={setMinimizeToTray}
+        />
+      </SettingsCard>
+
+      {/* 品牌与身份 */}
+      <SettingsCard title="品牌与身份">
+        <InputField label="工作台名称" value={brandName} onChange={setBrandName} />
+        <InputField label="副标题" value={brandSubtitle} onChange={setBrandSubtitle} />
+        <InputField label="我的名字指代" value={myName} onChange={setMyName} />
+      </SettingsCard>
+
+      {/* 退出登录 */}
+      <div className="py-2 text-center">
+        <button
+          type="button"
+          className="text-[13px] text-[#8e8e93] underline-offset-2 transition-colors hover:text-[#000000] hover:underline"
+        >
+          退出登录
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ─── Section: Model & Provider (07.2) ─── */
+
+const STATIC_PROVIDERS = [
+  { name: 'OpenAI', connected: true, keySnippet: 'sk-proj-****Fq29', action: 'speed-edit' },
+  { name: 'Google Gemini', connected: true, keySnippet: 'AIzaSyB****L8U', action: 'speed-edit' },
+  { name: 'Anthropic', connected: true, keySnippet: 'sk-ant-****pQ7x', action: 'speed-edit' },
+  { name: 'DeepSeek', connected: false, keySnippet: '未配置 API Key', action: 'add' },
+  {
+    name: 'Ollama (Local LM)',
+    connected: false,
+    keySnippet: '未启动本地服务 (127.0.0.1:11434)',
+    action: 'setup',
+  },
+] as const;
+
+function ModelProviderSection({
+  gatewayStatus,
+  restartGateway,
+}: {
+  gatewayStatus: { state: string; port?: number };
+  restartGateway: () => unknown;
+}) {
+  const [contextLimit, setContextLimit] = useState(32000);
+  const isConnected = gatewayStatus.state === 'running';
+  const port = gatewayStatus.port ?? 18789;
+
+  return (
+    <>
+      {/* 默认路由与偏好 */}
+      <SettingsCard title="默认路由与偏好">
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">全局默认模型</p>
+          <div className="flex items-center gap-2">
+            <select className="flex-1 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]">
+              <option>gpt-4o (OpenAI)</option>
+              <option>claude-sonnet-4-6 (Anthropic)</option>
+              <option>gemini-2.0-flash (Google)</option>
+            </select>
+            <span className="shrink-0 rounded-full bg-[#10b981] px-2.5 py-1 text-[11px] font-medium text-white">
+              当前选择
+            </span>
+          </div>
+        </div>
+        <div className="py-3">
+          <p className="mb-3 text-[13px] font-medium text-[#000000]">对话上下文压缩阈值</p>
+          <input
+            type="range"
+            min={8000}
+            max={128000}
+            step={1000}
+            value={contextLimit}
+            onChange={(e) => setContextLimit(Number(e.target.value))}
+            className="w-full accent-[#007aff]"
+          />
+          <div className="mt-1 text-right text-[12px] text-[#8e8e93]">
+            {contextLimit.toLocaleString()} Tokens
+          </div>
+        </div>
+      </SettingsCard>
+
+      {/* 云端服务商配置 */}
+      <SettingsCard title="云端服务商配置 (Cloud Providers)">
+        {STATIC_PROVIDERS.map((p) => (
+          <div key={p.name} className="flex items-center justify-between gap-3 py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <span
+                className={cn(
+                  'h-2 w-2 shrink-0 rounded-full',
+                  p.connected ? 'bg-[#10b981]' : 'bg-[#d1d5db]',
+                )}
+              />
+              <div className="min-w-0">
+                <p className="text-[13px] font-medium text-[#000000]">{p.name}</p>
+                <p className="text-[11px] text-[#8e8e93]">{p.keySnippet}</p>
+              </div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {p.action === 'speed-edit' && (
+                <>
+                  <button
+                    type="button"
+                    className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+                  >
+                    测速
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+                  >
+                    编辑
+                  </button>
+                </>
+              )}
+              {p.action === 'add' && (
+                <button
+                  type="button"
+                  className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+                >
+                  + 添加
+                </button>
+              )}
+              {p.action === 'setup' && (
+                <button
+                  type="button"
+                  className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+                >
+                  设置
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </SettingsCard>
+
+      {/* Gateway 配置 */}
+      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[15px] font-semibold text-[#000000]">Gateway 配置</h3>
+            <span
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[11px] font-medium',
+                isConnected ? 'bg-[#dcfce7] text-[#059669]' : 'text-[#ef4444]',
+              )}
+            >
+              {isConnected ? '已连接' : '未连接'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+              onClick={() => restartGateway()}
+            >
+              重新连接
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-[#ef4444] px-2.5 py-1 text-[12px] text-white transition-colors hover:bg-[#dc2626]"
+            >
+              重置连接
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+            >
+              诊断
+            </button>
+          </div>
+        </div>
+        <div className="divide-y divide-black/[0.04]">
+          <div className="flex items-center justify-between gap-4 py-3">
+            <div>
+              <p className="text-[13px] font-medium text-[#000000]">端口 (Port)</p>
+              <p className="mt-0.5 text-[12px] text-[#8e8e93]">
+                修改端口后 Gateway 将自动重启，请确保目标端口未被其他程序占用。
+              </p>
+            </div>
+            <span className="shrink-0 rounded-lg border border-black/10 bg-[#f9f9f9] px-3 py-1.5 font-mono text-[12px] text-[#3c3c43]">
+              ws://127.0.0.1:{port}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 自定义模型 */}
+      <SettingsCard
+        title="自定义模型 (Custom Models)"
+        headerRight={
+          <button
+            type="button"
+            className="rounded-lg border border-black/10 px-3 py-1.5 text-[12px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7]"
+          >
+            + 添加自定义模型
+          </button>
+        }
+      >
+        <div className="rounded-lg border border-dashed border-black/10 py-8 text-center text-[13px] text-[#8e8e93]">
+          暂无自定义模型 (No custom model)
+        </div>
+      </SettingsCard>
+
+      {/* Connection tips */}
+      <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-5 py-4 text-[13px]">
+        <p className="mb-2 font-semibold text-[#1d4ed8]">连接异常时，可按以下方式尝试修复：</p>
+        <ol className="space-y-1.5 text-[#1e40af]">
+          <li>
+            1. <strong>重新连接</strong> —
+            主动断开并重连 WebSocket，适用于网络短暂抖动后的快速恢复。
+          </li>
+          <li>
+            2. <strong>重置连接</strong> —
+            清除本地缓存的 Gateway Token 并重新握手认证，适用于 Token 不匹配报错。
+          </li>
+          <li>
+            3. <strong>诊断</strong> — 运行{' '}
+            <code className="rounded bg-[#dbeafe] px-1 font-mono text-[12px]">
+              openclaw doctor --json
+            </code>{' '}
+            检查环境变量、端口占用和权限。
+          </li>
+        </ol>
+      </div>
+    </>
+  );
+}
+
+/* ─── Section: Team & Role Strategy (08.1) ─── */
+
+function TeamRoleSection() {
+  const [autoSpawn, setAutoSpawn] = useState(true);
+  const [modelInherit, setModelInherit] = useState(true);
+  const [strictIsolation, setStrictIsolation] = useState(true);
+
+  return (
+    <>
+      {/* 组织运行模板 */}
+      <SettingsCard title="组织运行模板">
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">当前默认架构方案</p>
+          <select className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]">
+            <option>三省六部制（主脑调度，专业分身执行）</option>
+            <option>单脑独立（主脑全权处理所有任务）</option>
+            <option>扁平协作（所有 Agent 平级并行）</option>
+          </select>
+          <p className="mt-2 text-[12px] text-[#8e8e93]">
+            在"团队 Map"面板中直观可视化当前激活的子智能体。
+          </p>
+        </div>
+      </SettingsCard>
+
+      {/* 派生规则 */}
+      <SettingsCard title="派生规则">
+        <ToggleRow
+          label="允许运行时自动生成新角色"
+          desc="主脑判断人手不够时，无需弹窗确认即可启动全新人设的分身。"
+          checked={autoSpawn}
+          onCheckedChange={setAutoSpawn}
+        />
+        <ToggleRow
+          label="默认模型继承"
+          desc="所有派生出的子 Agent 默认沿用主脑的 Providers 配置，禁止单独越权发起私有计费模型调用。"
+          checked={modelInherit}
+          onCheckedChange={setModelInherit}
+        />
+      </SettingsCard>
+
+      {/* 隔离与共享 */}
+      <SettingsCard title="隔离与共享">
+        <ToggleRow
+          label="严格显式传参（隔离态）"
+          desc="子 Agent 看不到主对话，只能看到派发给它的任务参数，保证 Token 高效且防串线。"
+          checked={strictIsolation}
+          onCheckedChange={setStrictIsolation}
+        />
+      </SettingsCard>
+    </>
+  );
+}
+
+/* ─── Section: Channel Advanced Config (08.2) ─── */
+
+const STATIC_ROUTES = [
+  { channel: '飞书全渠道', agent: '+ KTClaw 主脑', agentColor: '#10b981' },
+  { channel: 'Discord（Support 群组）', agent: '🐕 小运营顾进', agentColor: '#3b82f6' },
+];
+
+function ChannelAdvancedSection() {
+  const [groupRate, setGroupRate] = useState('5');
+
+  return (
+    <>
+      {/* 群聊发言默认策略 */}
+      <SettingsCard title="群聊发言默认策略">
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">默认群聊行为模式</p>
+          <select className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]">
+            <option>@触发（仅被 @ 时回复）</option>
+            <option>全量监听（所有消息都响应）</option>
+            <option>静默（不主动发言）</option>
+          </select>
+        </div>
+      </SettingsCard>
+
+      {/* 路由分发矩阵 */}
+      <SettingsCard title="路由分发矩阵">
+        {STATIC_ROUTES.map((r) => (
+          <div key={r.channel} className="flex items-center gap-3 py-3">
+            <div className="flex-1 rounded-lg border border-black/10 bg-[#f9f9f9] px-3 py-2 text-[13px] font-medium text-[#000000]">
+              {r.channel}
+            </div>
+            <span className="shrink-0 text-[12px] text-[#8e8e93]">→</span>
+            <span className="shrink-0 text-[12px] text-[#8e8e93]">分配给</span>
+            <div
+              className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[12px] font-medium"
+              style={{ color: r.agentColor }}
+            >
+              {r.agent}
+            </div>
+          </div>
+        ))}
+        <div className="py-2">
+          <button
+            type="button"
+            className="w-full rounded-lg border border-dashed border-black/10 py-2 text-[13px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
+          >
+            + 添加路由规则
+          </button>
+        </div>
+      </SettingsCard>
+
+      {/* 风控防骚扰 */}
+      <SettingsCard title="风控防骚扰">
+        <div className="py-3">
+          <p className="mb-2 text-[13px] font-medium text-[#000000]">群聊每分钟发言上限</p>
+          <input
+            type="number"
+            value={groupRate}
+            onChange={(e) => setGroupRate(e.target.value)}
+            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+          />
+          <p className="mt-1.5 text-[12px] text-[#8e8e93]">超出后进入 5 分钟的静默冷却。</p>
+        </div>
+      </SettingsCard>
+    </>
+  );
+}
+
+/* ─── PlaceholderSection (kept for unused sections) ─── */
 
 function PlaceholderSection({
   cards,

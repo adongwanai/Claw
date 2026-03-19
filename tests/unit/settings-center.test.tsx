@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import Settings from '@/pages/Settings';
 
 const { settingsState, gatewayState, updateState } = vi.hoisted(() => ({
@@ -55,9 +56,6 @@ vi.mock('@/stores/update', () => ({
   useUpdateStore: (selector: (state: typeof updateState) => unknown) => selector(updateState),
 }));
 
-vi.mock('@/components/settings/ProvidersSettings', () => ({
-  ProvidersSettings: () => <div>Providers Settings Mock</div>,
-}));
 
 vi.mock('@/components/settings/UpdateSettings', () => ({
   UpdateSettings: () => <div>Update Settings Mock</div>,
@@ -104,14 +102,18 @@ describe('Settings center', () => {
   });
 
   it('renders grouped secondary navigation and the monitoring module from the approved board', () => {
-    render(<Settings />);
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>
+    );
 
     expect(screen.getAllByText('基础').length).toBeGreaterThan(0);
     expect(screen.getAllByText('工作流').length).toBeGreaterThan(0);
     expect(screen.getAllByText('能力').length).toBeGreaterThan(0);
     expect(screen.getAllByText('治理').length).toBeGreaterThan(0);
 
-    expect(screen.getByRole('button', { name: /监控与统计/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /监控与统计/ }));
     expect(screen.getByRole('tab', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByText('总预估花费')).toBeInTheDocument();
 
@@ -126,7 +128,7 @@ describe('Settings center', () => {
     expect(screen.getByRole('button', { name: /启动迁移向导/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /模型与 Provider/ }));
-    expect(screen.getByText('Providers Settings Mock')).toBeInTheDocument();
+    expect(screen.getByText('默认路由与偏好')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /记忆与知识/ }));
     expect(screen.getByRole('tab', { name: '数据浏览器' })).toBeInTheDocument();

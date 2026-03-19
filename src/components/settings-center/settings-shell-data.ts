@@ -80,14 +80,14 @@ export const SETTINGS_SECTION_META: Record<
     kicker: 'API Key 配置、大语言模型选择',
   },
   'team-role-strategy': {
-    title: '团队与角色策略',
-    subtitle: '以静态草案形式呈现团队模板、角色职责和协作边界。',
-    kicker: '工作流',
+    title: '团队架构',
+    subtitle: '管理如何自动派生系统子 AI，并给不同类任务指定默认角色处理。',
+    kicker: '角色分配、上下文共享边界',
   },
   'channel-advanced': {
     title: '通道高级配置',
-    subtitle: '展示消息通道的路由、限流和故障兜底策略。',
-    kicker: '工作流',
+    subtitle: '管理飞书、企业微信、Telegram 等多宿主环境的收发言策略。',
+    kicker: 'IM 集成、静默规则、消息路由',
   },
   'automation-defaults': {
     title: '自动化默认策略',
