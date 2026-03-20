@@ -6,7 +6,6 @@ import { toast } from 'sonner';
 import { SettingsMemoryKnowledgePanel } from '@/components/settings-center/settings-memory-knowledge-panel';
 import { SettingsMigrationPanel } from '@/components/settings-center/settings-migration-panel';
 import { SettingsMigrationWizard } from '@/components/settings-center/settings-migration-wizard';
-import { UpdateSettings } from '@/components/settings/UpdateSettings';
 import { SettingsMonitoringPanel } from '@/components/settings-center/settings-monitoring-panel';
 import { SettingsNav } from '@/components/settings-center/settings-nav';
 import { SettingsSectionCard } from '@/components/settings-center/settings-section-card';
@@ -17,7 +16,6 @@ import {
   type SettingsSectionId,
 } from '@/components/settings-center/settings-shell-data';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { SUPPORTED_LANGUAGES } from '@/i18n';
 import { invokeIpc, toUserMessage } from '@/lib/api-client';
