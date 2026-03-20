@@ -130,15 +130,13 @@ tail -30 continue/progress.txt
 - **文件**：`src/pages/Chat/FolderSelectorPopover.tsx`（新建）、`src/pages/Chat/ChatInput.tsx`
 - **实现**：工具栏文件夹按钮，popover 提供新建+最近文件夹子菜单，选中后显示绿色 chip
 
-#### 4. 快捷操作栏（Quick Actions）
-- **文件**：`src/pages/Chat/index.tsx`（空会话状态）
-- **目标**：空会话时展示快捷操作按钮（类似 LobsterAI QuickActionBar）
-- **参考**：`reference/LobsterAI-main/src/renderer/components/quick-actions/QuickActionBar.tsx`
+#### 4. 快捷操作栏（Quick Actions）✅ 已完成 (2026-03-20)
+- **文件**：`src/components/workbench/workbench-empty-state.tsx`
+- **实现**：6 个快捷 pill（解释代码、写单测、代码审查、优化性能、SQL 生成、文档生成）
 
-#### 5. 会话批量管理
+#### 5. 会话批量管理 ✅ 已完成 (2026-03-20)
 - **文件**：`src/components/layout/Sidebar.tsx`
-- **目标**：长按/右键进入批量选择模式，支持批量删除
-- **参考**：`reference/LobsterAI-main/src/renderer/components/cowork/CoworkSessionList.tsx`
+- **实现**：右键上下文菜单（批量选择/删除），批量模式工具栏，createPortal 上下文菜单
 
 ### P1 — 下一周期
 
@@ -148,20 +146,18 @@ tail -30 continue/progress.txt
   + `reference/LobsterAI-main/src/main/libs/coworkMemoryJudge.ts`（LLM 判断）
 - **实现位置**：`electron/api/routes/memory.ts` 新增 POST /api/memory/extract
 
-#### 7. MCP 服务器管理页面
-- **文件**：`src/pages/Skills/index.tsx`（新增 MCP tab）
-- **目标**：列出已配置的 MCP 服务器，支持启用/禁用/添加/删除
-- **参考**：`reference/LobsterAI-main/src/renderer/components/mcp/McpManager.tsx`
-- **后端**：`reference/LobsterAI-main/src/main/libs/mcpServerManager.ts`
+#### 7. MCP 服务器管理页面 ✅ 已完成 (2026-03-20)
+- **文件**：`src/pages/Skills/McpTab.tsx`（新建）、`src/pages/Skills/index.tsx`（集成 tab 切换）
+- **后端**：`electron/api/routes/mcp.ts`（GET/POST/PATCH/DELETE /api/mcp）
+- **实现**：服务器列表、启用/禁用切换、添加/编辑/删除、transport 类型（stdio/sse/http）
 
-#### 8. 定时任务运行历史
-- **文件**：`src/pages/Cron/index.tsx`（Pipelines Tab 增强）
-- **目标**：展示每个任务的历史运行记录（时间、状态、耗时、token 用量）
-- **参考**：`reference/LobsterAI-main/src/renderer/components/scheduledTasks/AllRunsHistory.tsx`
+#### 8. 定时任务运行历史 ✅ 已完成 (2026-03-20)
+- **文件**：`src/pages/Cron/index.tsx`（Pipelines Tab）、`electron/api/routes/cron.ts`
+- **实现**：行内展开式历史记录，GET /api/cron/runs/:jobId 读取 jsonl 日志，显示时间/状态/耗时/摘要
 
-#### 9. 头像偏好持久化
+#### 9. 头像偏好持久化 ✅ 已完成 (2026-03-20)
 - **文件**：`src/components/layout/Sidebar.tsx`（AvatarPopup）
-- **目标**：头像选择持久化到 settings store
+- **实现**：localStorage（clawx-user-avatar / clawx-user-nickname），Sidebar 头像按钮显示选中 emoji
 
 ### P2 — 后续
 

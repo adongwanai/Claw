@@ -930,3 +930,37 @@ Next: P1 任务
 - 自动记忆提取 POST /api/memory/extract
 - MCP 服务器管理页面（Skills 新增 tab）
 - 定时任务运行历史
+
+[2026-03-20 session-2: P0剩余 + P1全量完成]
+Focus: 快捷操作栏 / 会话批量管理 / MCP管理 / Cron历史 / 头像持久化
+
+What changed:
+1. src/components/workbench/workbench-empty-state.tsx — 快捷操作 pill 栏（6项，解释代码/写单测/代码审查/优化性能/SQL生成/文档生成）
+2. src/components/layout/Sidebar.tsx — 右键上下文菜单（portal）进入批量选择模式，批量删除工具栏；头像/昵称 localStorage 持久化；avatar button 展示 emoji
+3. electron/api/routes/mcp.ts — 新建：GET/POST/PATCH/DELETE /api/mcp，存储 ~/.openclaw/mcp-servers.json
+4. electron/api/server.ts — 注册 handleMcpRoutes
+5. src/pages/Skills/McpTab.tsx — 新建：服务器列表 + FormModal（stdio/sse/http）+ 启用切换 + 增删改
+6. src/pages/Skills/index.tsx — 新增 activeTab 状态，技能/MCP 服务器 pill 切换，McpTab 集成
+7. electron/api/routes/cron.ts — 新增 GET /api/cron/runs/:jobId（读 .jsonl 日志，最多50条倒序）
+8. src/pages/Cron/index.tsx — Pipelines Tab 行内展开 RunHistoryPanel，显示时间/状态/耗时/摘要
+
+TypeScript: npx tsc --noEmit 0 errors（每个功能完成后单独验证）
+
+Decisions:
+- McpTab 以 pill 切换嵌入 Skills 页面而非独立路由，减少导航层级
+- RunHistoryPanel 使用 lazy import hostApiFetch，避免模块循环
+- 头像持久化选用 localStorage 而非 settingsStore，不需要写后端、成本最低
+- Cron runs 端点直接复用已有 readCronRunLog()，不重复造轮子
+
+P1 完成状态:
+- ✅ MCP 服务器管理（前端 + 后端）
+- ✅ 定时任务运行历史（GET /api/cron/runs/:jobId + UI）
+- ✅ 头像偏好持久化（localStorage）
+- ✅ 快捷操作栏（P0遗留，已补完）
+- ✅ 会话批量管理（P0遗留，已补完）
+
+Next: P2 任务（可选）
+- 主题定制
+- 应用自动更新
+- 图片附件上传
+- 自动记忆提取 POST /api/memory/extract

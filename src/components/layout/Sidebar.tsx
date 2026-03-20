@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -31,7 +32,8 @@ export function Sidebar() {
   const sidebarCollapsed = useSettingsStore((state) => state.sidebarCollapsed);
   const setSidebarCollapsed = useSettingsStore((state) => state.setSidebarCollapsed);
   const [avatarPopupOpen, setAvatarPopupOpen] = useState(false);
-  const [nickname, setNickname] = useState('Administrator');
+  const [nickname, setNickname] = useState(() => localStorage.getItem('clawx-user-nickname') || 'Administrator');
+  const [selectedAvatar, setSelectedAvatar] = useState(() => localStorage.getItem('clawx-user-avatar') || '🐱');
   const [notifOpen, setNotifOpen] = useState(false);
 
   const sessions = useChatStore((s) => s.sessions);
@@ -81,6 +83,37 @@ export function Sidebar() {
   const isOnChat = useLocation().pathname === '/';
   const { t } = useTranslation(['common', 'chat']);
   const [sessionToDelete, setSessionToDelete] = useState<{ key: string; label: string } | null>(null);
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ key: string; label: string; x: number; y: number } | null>(null);
+
+  const toggleSelect = useCallback((key: string) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  }, []);
+
+  const exitBatchMode = useCallback(() => {
+    setBatchMode(false);
+    setSelectedKeys(new Set());
+  }, []);
+
+  const handleBatchDelete = useCallback(async () => {
+    for (const key of selectedKeys) {
+      await deleteSession(key);
+    }
+    exitBatchMode();
+  }, [selectedKeys, deleteSession, exitBatchMode]);
+
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handler = () => setContextMenu(null);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [contextMenu]);
 
   const groupLabels = {
     clones: '分身',
@@ -172,46 +205,92 @@ export function Sidebar() {
           }
         >
           {orderedSessions.length > 0 ? (
-            orderedSessions.map((session) => {
-              const sessionTitle = getSessionLabel(session.key, session.displayName, session.label);
-              const isActive = isOnChat && currentSessionKey === session.key;
-
-              return (
-                <div key={session.key} className="group relative">
-                  <button
-                    onClick={() => {
-                      switchSession(session.key);
-                      navigate('/');
-                    }}
-                    className={cn(
-                      'flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-left text-[14px] transition-[background-color] duration-150',
-                      'text-[#000000] hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]',
-                      isActive && 'bg-white font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_0.5px_rgba(0,0,0,0.04)]',
-                    )}
-                  >
-                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">✦</span>
-                    <span className="min-w-0 flex-1 truncate">{sessionTitle}</span>
-                  </button>
-
-                  <button
-                    aria-label="Delete session"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSessionToDelete({
-                        key: session.key,
-                        label: sessionTitle,
-                      });
-                    }}
-                    className={cn(
-                      'absolute right-2 top-2 flex items-center justify-center rounded p-1 transition-opacity',
-                      'opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
-                    )}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+            <>
+              {/* Batch mode toolbar */}
+              {batchMode && (
+                <div className="mb-1.5 flex items-center justify-between rounded-lg bg-[#007aff]/10 px-3 py-2">
+                  <span className="text-[12px] font-medium text-[#007aff]">{selectedKeys.size} 已选</span>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleBatchDelete}
+                      disabled={selectedKeys.size === 0}
+                      className="rounded-md bg-[#ef4444] px-2.5 py-1 text-[11px] font-medium text-white disabled:opacity-40 hover:bg-[#dc2626]"
+                    >
+                      删除
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exitBatchMode}
+                      className="rounded-md border border-black/10 bg-white px-2.5 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+                    >
+                      取消
+                    </button>
+                  </div>
                 </div>
-              );
-            })
+              )}
+
+              {orderedSessions.map((session) => {
+                const sessionTitle = getSessionLabel(session.key, session.displayName, session.label);
+                const isActive = isOnChat && currentSessionKey === session.key;
+                const isSelected = selectedKeys.has(session.key);
+
+                return (
+                  <div
+                    key={session.key}
+                    className="group relative"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ key: session.key, label: sessionTitle, x: e.clientX, y: e.clientY });
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        if (batchMode) { toggleSelect(session.key); return; }
+                        switchSession(session.key);
+                        navigate('/');
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-left text-[14px] transition-[background-color] duration-150',
+                        'text-[#000000] hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]',
+                        isActive && !batchMode && 'bg-white font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_0.5px_rgba(0,0,0,0.04)]',
+                        batchMode && isSelected && 'bg-[#007aff]/10',
+                      )}
+                    >
+                      {batchMode ? (
+                        <span className={cn(
+                          'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-bold transition-colors',
+                          isSelected
+                            ? 'border-[#007aff] bg-[#007aff] text-white'
+                            : 'border-black/20 bg-white',
+                        )}>
+                          {isSelected && '✓'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">✦</span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{sessionTitle}</span>
+                    </button>
+
+                    {!batchMode && (
+                      <button
+                        aria-label="Delete session"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSessionToDelete({ key: session.key, label: sessionTitle });
+                        }}
+                        className={cn(
+                          'absolute right-2 top-2 flex items-center justify-center rounded p-1 transition-opacity',
+                          'opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-destructive/10 hover:text-destructive',
+                        )}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </>
           ) : (
             <>
               <button
@@ -322,8 +401,8 @@ export function Sidebar() {
               type="button"
               aria-label="选择头像"
               onClick={() => setAvatarPopupOpen(true)}
-              className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] transition-colors hover:ring-2 hover:ring-[#007aff]/40"
-            />
+              className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-[#007aff]/40"
+            >{selectedAvatar}</button>
             <span className="flex-1 truncate text-[13px] font-medium">{nickname}</span>
             <div className="relative">
               <button
@@ -357,8 +436,8 @@ export function Sidebar() {
             type="button"
             aria-label="选择头像"
             onClick={() => setAvatarPopupOpen(true)}
-            className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] transition-colors hover:ring-2 hover:ring-[#007aff]/40"
-          />
+            className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-[#007aff]/40"
+          >{selectedAvatar}</button>
         )}
       </div>
 
@@ -375,7 +454,9 @@ export function Sidebar() {
       {avatarPopupOpen && (
         <AvatarPopup
           nickname={nickname}
-          onNicknameChange={setNickname}
+          avatar={selectedAvatar}
+          onNicknameChange={(v) => { setNickname(v); localStorage.setItem('clawx-user-nickname', v); }}
+          onAvatarChange={(v) => { setSelectedAvatar(v); localStorage.setItem('clawx-user-avatar', v); }}
           onClose={() => setAvatarPopupOpen(false)}
         />
       )}
@@ -395,6 +476,39 @@ export function Sidebar() {
         }}
         onCancel={() => setSessionToDelete(null)}
       />
+
+      {/* Right-click context menu */}
+      {contextMenu && createPortal(
+        <div
+          className="fixed z-[200] min-w-[148px] overflow-hidden rounded-xl border border-[#c6c6c8] bg-white py-1 shadow-xl"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#000000] hover:bg-[#f2f2f7]"
+            onClick={() => {
+              setBatchMode(true);
+              toggleSelect(contextMenu.key);
+              setContextMenu(null);
+            }}
+          >
+            ☑ 批量选择
+          </button>
+          <div className="mx-3 my-0.5 border-t border-[#f2f2f7]" />
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[#ef4444] hover:bg-[#fef2f2]"
+            onClick={() => {
+              setSessionToDelete({ key: contextMenu.key, label: contextMenu.label });
+              setContextMenu(null);
+            }}
+          >
+            🗑 删除
+          </button>
+        </div>,
+        document.body,
+      )}
     </aside>
   );
 }
@@ -489,14 +603,18 @@ function NotificationPanel({
 
 function AvatarPopup({
   nickname,
+  avatar,
   onNicknameChange,
+  onAvatarChange,
   onClose,
 }: {
   nickname: string;
+  avatar: string;
   onNicknameChange: (v: string) => void;
+  onAvatarChange: (v: string) => void;
   onClose: () => void;
 }) {
-  const [selectedAvatar, setSelectedAvatar] = useState('🐱');
+  const [selectedAvatar, setSelectedAvatar] = useState(avatar);
   const [draft, setDraft] = useState(nickname);
 
   return (
@@ -564,6 +682,7 @@ function AvatarPopup({
             type="button"
             onClick={() => {
               if (draft.trim()) onNicknameChange(draft.trim());
+              onAvatarChange(selectedAvatar);
               onClose();
             }}
             className="w-full rounded-full bg-[#007aff] py-2 text-[13px] font-semibold text-white hover:bg-[#0062cc]"

@@ -349,6 +349,80 @@ function formatDuration(ms?: number): string {
   return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
 }
 
+interface RunEntry {
+  sessionId?: string;
+  status: string;
+  summary?: string;
+  error?: string;
+  durationMs?: number;
+  ts?: number;
+  model?: string;
+  provider?: string;
+}
+
+function RunHistoryPanel({ jobId, onClose }: { jobId: string; onClose: () => void }) {
+  const [runs, setRuns] = useState<RunEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    import('@/lib/host-api').then(({ hostApiFetch }) =>
+      hostApiFetch<{ runs: RunEntry[] }>(`/api/cron/runs/${encodeURIComponent(jobId)}`)
+        .then((data) => setRuns(data.runs ?? []))
+        .catch(() => setRuns([]))
+        .finally(() => setLoading(false))
+    );
+  }, [jobId]);
+
+  return (
+    <tr>
+      <td colSpan={6} className="bg-[#f9fafb] px-8 pb-4 pt-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[12px] font-semibold text-[#3c3c43]">执行历史</span>
+          <button type="button" onClick={onClose} className="text-[11px] text-[#8e8e93] hover:text-[#3c3c43]">收起</button>
+        </div>
+        {loading ? (
+          <p className="text-[12px] text-[#8e8e93]">加载中...</p>
+        ) : runs.length === 0 ? (
+          <p className="text-[12px] text-[#c6c6c8]">暂无历史记录</p>
+        ) : (
+          <table className="w-full border-collapse text-[12px]">
+            <thead>
+              <tr className="border-b border-black/[0.06]">
+                {['执行时间', '状态', '耗时', '摘要'].map((h) => (
+                  <th key={h} className="pb-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.4px] text-[#c6c6c8]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((r, i) => {
+                const isOk = (r.status || '').toLowerCase() !== 'error';
+                const summary = r.summary || r.error || (isOk ? '执行完成' : '执行失败');
+                return (
+                  <tr key={r.sessionId ?? i} className="border-b border-black/[0.04]">
+                    <td className="py-2 pr-4 text-[#3c3c43]">
+                      {r.ts ? new Date(r.ts).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {isOk ? (
+                        <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-medium text-[#059669]">成功</span>
+                      ) : (
+                        <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 text-[10px] font-medium text-[#ef4444]">失败</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-[#8e8e93]">{formatDuration(r.durationMs)}</td>
+                    <td className="py-2 max-w-[320px] truncate text-[#3c3c43]" title={summary}>{summary}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </td>
+    </tr>
+  );
+}
+
 function PipelinesTab({
   jobs,
   loading,
@@ -358,6 +432,8 @@ function PipelinesTab({
   loading: boolean;
   onTrigger: (id: string) => void;
 }) {
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+
   const ran = jobs.filter((j) => j.lastRun);
   const succeeded = ran.filter((j) => j.lastRun?.success).length;
   const failed = ran.filter((j) => !j.lastRun?.success).length;
@@ -404,43 +480,62 @@ function PipelinesTab({
             <tbody>
               {sorted.map((job) => {
                 const run = job.lastRun;
+                const isExpanded = expandedJobId === job.id;
                 return (
-                  <tr key={job.id} className="group border-b border-black/[0.04] transition-colors hover:bg-[#f9f9f9]">
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
-                        <span className={cn('h-2 w-2 shrink-0 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
-                        <span className="font-medium text-[#000000]">{job.name}</span>
-                      </div>
-                      {run?.error && (
-                        <p className="mt-0.5 truncate pl-4 text-[11px] text-[#ef4444]">{run.error}</p>
-                      )}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <code className="rounded bg-[#f2f2f7] px-1.5 py-0.5 font-mono text-[11px] text-[#3c3c43]">
-                        {formatSchedule(job.schedule)}
-                      </code>
-                    </td>
-                    <td className="py-3 pr-4 text-[#3c3c43]">{run ? formatTime(run.time) : <span className="text-[#c6c6c8]">从未执行</span>}</td>
-                    <td className="py-3 pr-4 font-mono text-[#3c3c43]">{run ? formatDuration(run.duration) : '—'}</td>
-                    <td className="py-3 pr-4">
-                      {!run ? (
-                        <span className="text-[12px] text-[#c6c6c8]">—</span>
-                      ) : run.success ? (
-                        <span className="rounded-full bg-[#dcfce7] px-2.5 py-0.5 text-[11px] font-medium text-[#059669]">成功</span>
-                      ) : (
-                        <span className="rounded-full bg-[#fee2e2] px-2.5 py-0.5 text-[11px] font-medium text-[#ef4444]">失败</span>
-                      )}
-                    </td>
-                    <td className="py-3">
-                      <button
-                        type="button"
-                        onClick={() => onTrigger(job.id)}
-                        className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[#f2f2f7]"
-                      >
-                        ▶ 执行
-                      </button>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={job.id} className="group border-b border-black/[0.04] transition-colors hover:bg-[#f9f9f9]">
+                      <td className="py-3 pr-4">
+                        <div className="flex items-center gap-2">
+                          <span className={cn('h-2 w-2 shrink-0 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
+                          <span className="font-medium text-[#000000]">{job.name}</span>
+                        </div>
+                        {run?.error && (
+                          <p className="mt-0.5 truncate pl-4 text-[11px] text-[#ef4444]">{run.error}</p>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <code className="rounded bg-[#f2f2f7] px-1.5 py-0.5 font-mono text-[11px] text-[#3c3c43]">
+                          {formatSchedule(job.schedule)}
+                        </code>
+                      </td>
+                      <td className="py-3 pr-4 text-[#3c3c43]">{run ? formatTime(run.time) : <span className="text-[#c6c6c8]">从未执行</span>}</td>
+                      <td className="py-3 pr-4 font-mono text-[#3c3c43]">{run ? formatDuration(run.duration) : '—'}</td>
+                      <td className="py-3 pr-4">
+                        {!run ? (
+                          <span className="text-[12px] text-[#c6c6c8]">—</span>
+                        ) : run.success ? (
+                          <span className="rounded-full bg-[#dcfce7] px-2.5 py-0.5 text-[11px] font-medium text-[#059669]">成功</span>
+                        ) : (
+                          <span className="rounded-full bg-[#fee2e2] px-2.5 py-0.5 text-[11px] font-medium text-[#ef4444]">失败</span>
+                        )}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                          <button
+                            type="button"
+                            onClick={() => onTrigger(job.id)}
+                            className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+                          >
+                            ▶ 执行
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
+                            className={cn('rounded-md border px-2.5 py-1 text-[12px] transition-colors', isExpanded ? 'border-[#007aff]/30 bg-[#007aff]/5 text-[#007aff]' : 'border-black/10 text-[#3c3c43] hover:bg-[#f2f2f7]')}
+                          >
+                            {isExpanded ? '▲ 收起' : '历史'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <RunHistoryPanel
+                        key={`history-${job.id}`}
+                        jobId={job.id}
+                        onClose={() => setExpandedJobId(null)}
+                      />
+                    )}
+                  </>
                 );
               })}
             </tbody>

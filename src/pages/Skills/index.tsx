@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 import type { Skill } from '@/types/skill';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
+import { McpTab } from './McpTab';
 
 
 
@@ -409,6 +410,7 @@ export function Skills() {
   } = useSkillsStore();
   const { t } = useTranslation('skills');
   const gatewayStatus = useGatewayStore((state) => state.status);
+  const [activeTab, setActiveTab] = useState<'skills' | 'mcp'>('skills');
   const [searchQuery, setSearchQuery] = useState('');
   const [installQuery, setInstallQuery] = useState('');
   const [installSheetOpen, setInstallSheetOpen] = useState(false);
@@ -648,8 +650,41 @@ export function Skills() {
           </div>
         )}
 
+        {/* Page Tab Switcher */}
+        <div className="flex items-center gap-1 mb-5 shrink-0 bg-black/5 dark:bg-white/5 rounded-xl p-1 self-start">
+          <button
+            onClick={() => setActiveTab('skills')}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all",
+              activeTab === 'skills'
+                ? "bg-white dark:bg-white/10 text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {t('title')}
+          </button>
+          <button
+            onClick={() => setActiveTab('mcp')}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[13px] font-medium transition-all",
+              activeTab === 'mcp'
+                ? "bg-white dark:bg-white/10 text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            MCP 服务器
+          </button>
+        </div>
+
+        {/* MCP Tab Content */}
+        {activeTab === 'mcp' && (
+          <div className="flex-1 overflow-hidden min-h-0">
+            <McpTab />
+          </div>
+        )}
+
         {/* Sub Navigation and Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-black/10 dark:border-white/10 pb-4 mb-4 shrink-0 gap-4">
+        {activeTab === 'skills' && <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-black/10 dark:border-white/10 pb-4 mb-4 shrink-0 gap-4">
           <div className="flex items-center flex-wrap gap-4 text-[14px]">
             <div className="relative group flex items-center bg-black/5 dark:bg-white/5 rounded-full px-3 py-1.5 focus-within:bg-black/10 transition-colors border border-transparent focus-within:border-black/10 dark:focus-within:border-white/10 mr-2">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -731,10 +766,10 @@ export function Skills() {
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
           </div>
-        </div>
+        </div>}
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto pr-2 pb-10 min-h-0 -mr-2">
+        {activeTab === 'skills' && <div className="flex-1 overflow-y-auto pr-2 pb-10 min-h-0 -mr-2">
           {error && (
             <div className="mb-4 p-4 rounded-xl border border-destructive/50 bg-destructive/10 text-destructive text-sm font-medium flex items-center gap-2">
               <AlertCircle className="h-5 w-5 shrink-0" />
@@ -806,7 +841,7 @@ export function Skills() {
               ))
             )}
           </div>
-        </div>
+        </div>}
       </div>
 
       <Sheet open={installSheetOpen} onOpenChange={setInstallSheetOpen}>

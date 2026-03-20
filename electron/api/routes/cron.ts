@@ -444,5 +444,34 @@ export async function handleCronRoutes(
     return true;
   }
 
+  // GET /api/cron/runs/:jobId — historical run log for a specific job
+  const runsMatch = url.pathname.match(/^\/api\/cron\/runs\/([^/]+)$/);
+  if (runsMatch && req.method === 'GET') {
+    const jobId = decodeURIComponent(runsMatch[1]);
+    try {
+      const rawLimit = Number(url.searchParams.get('limit') || '50');
+      const limit = Math.min(Math.max(Math.floor(rawLimit), 1), 200);
+      const entries = await readCronRunLog(jobId);
+      const runs = entries
+        .map((e) => ({
+          sessionId: e.sessionId,
+          status: e.status ?? 'ok',
+          summary: e.summary,
+          error: e.error,
+          durationMs: e.durationMs,
+          ts: normalizeTimestampMs(e.ts) ?? normalizeTimestampMs(e.runAtMs),
+          model: e.model,
+          provider: e.provider,
+        }))
+        .filter((r) => r.ts != null)
+        .sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0))
+        .slice(0, limit);
+      sendJson(res, 200, { runs });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
   return false;
 }

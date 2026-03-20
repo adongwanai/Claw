@@ -682,6 +682,80 @@
       "subtasks": []
     }
   ],
-  "last_updated": "2026-03-19T00:00:00+08:00",
-  "current_focus": "PIXEL-ALIGN-002"
+    {
+      "id": "FEATURE-001",
+      "title": "P0-4 快捷操作栏（Quick Actions）",
+      "type": "build",
+      "status": "done",
+      "priority": "P0",
+      "depends_on": [],
+      "description": "空会话状态展示快捷操作 pill 按钮",
+      "acceptance_criteria": [
+        "src/components/workbench/workbench-empty-state.tsx 新增 quickActions 数组（6 项）",
+        "pill 按钮点击直接 sendMessage，disabled 时不可点"
+      ],
+      "notes": "Completed 2026-03-20. 6 quick actions: 解释代码/写单测/代码审查/优化性能/SQL生成/文档生成。npx tsc --noEmit 0 errors."
+    },
+    {
+      "id": "FEATURE-002",
+      "title": "P0-5 会话批量管理",
+      "type": "build",
+      "status": "done",
+      "priority": "P0",
+      "depends_on": [],
+      "description": "Sidebar 右键上下文菜单进入批量模式，支持批量删除会话",
+      "acceptance_criteria": [
+        "右键 session 条目弹出 portal 菜单（批量选择 / 删除）",
+        "批量模式工具栏显示计数、Delete、Cancel",
+        "批量删除顺序执行 deleteSession"
+      ],
+      "notes": "Completed 2026-03-20. 使用 createPortal 渲染上下文菜单到 document.body，z-[200]。"
+    },
+    {
+      "id": "FEATURE-003",
+      "title": "P1-7 MCP 服务器管理页面",
+      "type": "build",
+      "status": "done",
+      "priority": "P1",
+      "depends_on": [],
+      "description": "Skills 页面新增 MCP 服务器 tab，完整 CRUD",
+      "acceptance_criteria": [
+        "electron/api/routes/mcp.ts: GET/POST/PATCH/DELETE /api/mcp",
+        "src/pages/Skills/McpTab.tsx: 列表/启用/添加/编辑/删除，FormModal",
+        "src/pages/Skills/index.tsx: activeTab 切换（技能 / MCP 服务器）"
+      ],
+      "notes": "Completed 2026-03-20. 存储路径 ~/.openclaw/mcp-servers.json，支持 stdio/sse/http transport。"
+    },
+    {
+      "id": "FEATURE-004",
+      "title": "P1-8 定时任务运行历史",
+      "type": "build",
+      "status": "done",
+      "priority": "P1",
+      "depends_on": [],
+      "description": "Cron Pipelines Tab 展示每个任务的历史运行记录",
+      "acceptance_criteria": [
+        "electron/api/routes/cron.ts 新增 GET /api/cron/runs/:jobId",
+        "PipelinesTab 行内展开 RunHistoryPanel，显示时间/状态/耗时/摘要"
+      ],
+      "notes": "Completed 2026-03-20. 读取 ~/.openclaw/cron/runs/{jobId}.jsonl，最多返回 50 条，按时间倒序。"
+    },
+    {
+      "id": "FEATURE-005",
+      "title": "P1-9 头像偏好持久化",
+      "type": "build",
+      "status": "done",
+      "priority": "P1",
+      "depends_on": [],
+      "description": "Sidebar AvatarPopup 头像和昵称持久化到 localStorage",
+      "acceptance_criteria": [
+        "selectedAvatar / nickname 初始值从 localStorage 读取",
+        "保存后写入 clawx-user-avatar / clawx-user-nickname",
+        "Sidebar 头像按钮展示选中 emoji"
+      ],
+      "notes": "Completed 2026-03-20. Sidebar 两处头像按钮（展开/收起态）均已显示 emoji。"
+    }
+  ],
+  "last_updated": "2026-03-20T00:00:00+08:00",
+  "current_focus": "FEATURE-005"
 }
