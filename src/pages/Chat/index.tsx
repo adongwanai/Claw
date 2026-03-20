@@ -4,10 +4,12 @@
  * via gateway:rpc IPC. The page now acts as the main KaiTianClaw
  * workbench surface while retaining the existing chat runtime wiring.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSettingsStore } from '@/stores/settings';
 import { AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { useChatStore, type RawMessage } from '@/stores/chat';
+import { hostApiFetch } from '@/lib/host-api';
+import { toast } from 'sonner';
 import { useGatewayStore } from '@/stores/gateway';
 import { useAgentsStore } from '@/stores/agents';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
@@ -94,6 +96,31 @@ export function Chat() {
 
   const isEmpty = messages.length === 0 && !sending;
 
+  const [extracting, setExtracting] = useState(false);
+  const handleExtractMemory = useCallback(async () => {
+    if (extracting || messages.length < 2) return;
+    setExtracting(true);
+    try {
+      const payload = messages.map((m) => ({
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      }));
+      const res = await hostApiFetch<{ ok: boolean; skipped?: boolean; extracted?: string }>('/api/memory/extract', {
+        method: 'POST',
+        body: JSON.stringify({ messages: payload, sessionKey: currentSessionKey ?? '', label: currentAgentName }),
+      });
+      if (res.skipped) {
+        toast.info('对话内容较短，跳过提取');
+      } else {
+        toast.success('记忆已提取并写入今日日志');
+      }
+    } catch {
+      toast.error('记忆提取失败');
+    } finally {
+      setExtracting(false);
+    }
+  }, [extracting, messages, currentSessionKey, currentAgentName]);
+
   const handleSendMessage = (
     text: string,
     attachments?: Parameters<typeof sendMessage>[1],
@@ -143,6 +170,17 @@ export function Chat() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {!isEmpty && messages.length >= 2 && (
+              <button
+                type="button"
+                onClick={() => void handleExtractMemory()}
+                disabled={extracting || sending}
+                className="rounded-lg border border-black/10 bg-white px-3 py-[5px] text-[13px] font-medium text-black shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-[1px] hover:bg-[#f9f9f9] hover:border-black/15 hover:shadow-[0_2px_4px_rgba(0,0,0,0.06)] active:scale-[0.98] disabled:opacity-50"
+                title="将本次对话要点提取到记忆库"
+              >
+                {extracting ? '提取中…' : '🧠 记忆'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setRightPanelMode(rightPanelMode === 'files' ? null : 'files')}

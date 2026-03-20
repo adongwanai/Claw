@@ -99,6 +99,7 @@ function App() {
   const location = useLocation();
   const initSettings = useSettingsStore((state) => state.init);
   const theme = useSettingsStore((state) => state.theme);
+  const accentColor = useSettingsStore((state) => state.accentColor);
   const language = useSettingsStore((state) => state.language);
   const setupComplete = useSettingsStore((state) => state.setupComplete);
   const initGateway = useGatewayStore((state) => state.init);
@@ -144,6 +145,12 @@ function App() {
       }
     };
   }, [navigate]);
+
+  // Apply accent color CSS variable
+  useEffect(() => {
+    const color = accentColor || '#007aff';
+    document.documentElement.style.setProperty('--ac', color);
+  }, [accentColor]);
 
   // Apply theme
   useEffect(() => {

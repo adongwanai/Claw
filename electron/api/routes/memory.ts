@@ -5,7 +5,7 @@ import { join, basename, dirname } from 'path';
 import { homedir } from 'os';
 import { execSync } from 'child_process';
 import type { HostApiContext } from '../context';
-import { sendJson } from '../route-utils';
+import { sendJson, parseJsonBody } from '../route-utils';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -441,6 +441,64 @@ export async function handleMemoryRoutes(
       await mkdir(dirname(fullPath), { recursive: true });
       await writeFile(fullPath, content, 'utf-8');
       sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { error: String(err) });
+    }
+    return true;
+  }
+
+  // POST /api/memory/extract — heuristic extraction from conversation
+  if (url.pathname === '/api/memory/extract' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{
+        messages?: Array<{ role: string; content: unknown }>;
+        sessionKey?: string;
+        label?: string;
+      }>(req);
+
+      const rawMessages = Array.isArray(body?.messages) ? body.messages : [];
+      const sessionKey = typeof body?.sessionKey === 'string' ? body.sessionKey.trim() : '';
+      const label = typeof body?.label === 'string' ? body.label.trim() : '';
+
+      // Need at least a user + assistant exchange
+      const assistantMessages = rawMessages.filter(
+        (m) => m.role === 'assistant' && typeof m.content === 'string' && (m.content as string).length > 80,
+      );
+
+      if (assistantMessages.length === 0) {
+        sendJson(res, 200, { ok: true, skipped: true, reason: 'no_substantial_content' });
+        return true;
+      }
+
+      // Build markdown section
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      const timeStr = now.toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const title = label || sessionKey || '对话';
+      const lines: string[] = [`## ${dateStr} ${timeStr} | ${title}`, ''];
+
+      // Extract meaningful lines from each assistant turn (up to last 6)
+      for (const msg of assistantMessages.slice(-6)) {
+        const text = (msg.content as string).replace(/```[\s\S]*?```/g, '[代码块]').replace(/\n+/g, ' ').trim();
+        const snippet = text.slice(0, 240) + (text.length > 240 ? '…' : '');
+        if (snippet) lines.push(`- ${snippet}`);
+      }
+      lines.push('');
+
+      const extracted = lines.join('\n');
+      const workspacePath = getWorkspaceDir();
+      const memDir = join(workspacePath, 'memory');
+      await mkdir(memDir, { recursive: true });
+      const targetPath = join(memDir, `${dateStr}.md`);
+
+      let existing = '';
+      try { existing = await readFile(targetPath, 'utf-8'); } catch { /* new file */ }
+      if (!existing.startsWith('# ')) {
+        existing = `# 对话记忆提取 — ${dateStr}\n\n${existing}`;
+      }
+      await writeFile(targetPath, `${existing}${extracted}`, 'utf-8');
+
+      sendJson(res, 200, { ok: true, extracted, filePath: targetPath });
     } catch (err) {
       sendJson(res, 500, { error: String(err) });
     }

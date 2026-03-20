@@ -161,9 +161,10 @@ tail -30 continue/progress.txt
 
 ### P2 — 后续
 
-10. **主题定制** — 自定义颜色主题
-11. **应用自动更新** — 参考 `reference/LobsterAI-main/src/main/libs/appUpdateInstaller.ts`
-12. **图片附件** — Chat 输入框支持图片上传，参考 LobsterAI CoworkPromptInput
+10. **主题色自定义** ✅ 已完成 (2026-03-20) — settings store `accentColor` + CSS `--ac` 变量 + 6色预设 + 自定义色轮；App.tsx 统一注入 CSS 变量
+11. **应用自动更新** — update store 已完整（checkForUpdates/downloadUpdate/installUpdate），Settings UI 已有 autoCheckUpdate/autoDownloadUpdate toggle
+12. **图片附件** ✅ 已完成（ChatInput 文件 staging + ChatMessage lightbox 图片预览）
+13. **自动记忆提取** ✅ 已完成 (2026-03-20) — POST /api/memory/extract（启发式，写入 memory/YYYY-MM-DD.md）；Chat 顶栏「🧠 记忆」按钮（≥2条消息时显示）
 
 ---
 

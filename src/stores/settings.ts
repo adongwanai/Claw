@@ -14,6 +14,7 @@ type UpdateChannel = 'stable' | 'beta' | 'dev';
 interface SettingsState {
   // General
   theme: Theme;
+  accentColor: string;
   language: string;
   startMinimized: boolean;
   launchAtStartup: boolean;
@@ -48,6 +49,7 @@ interface SettingsState {
   // Actions
   init: () => Promise<void>;
   setTheme: (theme: Theme) => void;
+  setAccentColor: (color: string) => void;
   setLanguage: (language: string) => void;
   setStartMinimized: (value: boolean) => void;
   setLaunchAtStartup: (value: boolean) => void;
@@ -75,6 +77,7 @@ interface SettingsState {
 
 const defaultSettings = {
   theme: 'system' as Theme,
+  accentColor: '#007aff',
   language: resolveSupportedLanguage(typeof navigator !== 'undefined' ? navigator.language : undefined),
   startMinimized: false,
   launchAtStartup: false,
@@ -125,6 +128,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
 
       setTheme: (theme) => set({ theme }),
+      setAccentColor: (accentColor) => set({ accentColor }),
       setLanguage: (language) => {
         const resolvedLanguage = resolveSupportedLanguage(language);
         i18n.changeLanguage(resolvedLanguage);

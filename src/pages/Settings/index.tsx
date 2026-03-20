@@ -476,7 +476,7 @@ function InputField({
 /* ─── Section: General (07.1) ─── */
 
 function GeneralSection() {
-  const { theme, setTheme, language, setLanguage, launchAtStartup, setLaunchAtStartup } =
+  const { theme, setTheme, accentColor, setAccentColor, language, setLanguage, launchAtStartup, setLaunchAtStartup } =
     useSettingsStore();
 
   const [showToolCalls, setShowToolCalls] = useState(false);
@@ -565,6 +565,43 @@ function GeneralSection() {
                     'conic-gradient(from 90deg, #1c1c1e 0deg 180deg, #7c3aed 180deg 360deg)',
                 }}
                 title="深色模式"
+              />
+            </div>
+          }
+        />
+
+        {/* Accent color */}
+        <SettingsRow
+          label="主题色"
+          desc="选择主色调，影响按钮、链接、选中态等全局高亮色。"
+          right={
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { color: '#007aff', label: '蓝色' },
+                { color: '#10b981', label: '绿色' },
+                { color: '#8b5cf6', label: '紫色' },
+                { color: '#f97316', label: '橙色' },
+                { color: '#ef4444', label: '红色' },
+                { color: '#06b6d4', label: '青色' },
+              ].map(({ color, label }) => (
+                <button
+                  key={color}
+                  type="button"
+                  title={label}
+                  onClick={() => setAccentColor(color)}
+                  className={cn(
+                    'h-7 w-7 rounded-full border-2 transition-all hover:scale-110',
+                    accentColor === color ? 'border-black/40 scale-110' : 'border-black/[0.08]',
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+              <input
+                type="color"
+                value={accentColor || '#007aff'}
+                onChange={(e) => setAccentColor(e.target.value)}
+                className="h-7 w-7 cursor-pointer rounded-full border border-black/10"
+                title="自定义颜色"
               />
             </div>
           }

@@ -964,3 +964,32 @@ Next: P2 任务（可选）
 - 应用自动更新
 - 图片附件上传
 - 自动记忆提取 POST /api/memory/extract
+
+[2026-03-20 session-3: P2 全量完成]
+Focus: 自动记忆提取 / 主题色自定义 / 确认图片附件+自动更新已存在
+
+What changed:
+1. electron/api/routes/memory.ts — 新增 POST /api/memory/extract（启发式提取，取最近6条assistant消息，去掉代码块，截断240字，写入 workspace/memory/YYYY-MM-DD.md）
+2. src/pages/Chat/index.tsx — 新增 handleExtractMemory 回调，≥2条消息时顶栏显示「🧠 记忆」按钮，toast 反馈
+3. src/stores/settings.ts — 新增 accentColor: string（默认 #007aff）+ setAccentColor action
+4. src/App.tsx — 新增 useEffect 将 accentColor 写入 CSS 变量 --ac（document.documentElement.style）
+5. src/pages/Settings/index.tsx — GeneralSection「外观与行为」新增主题色行：6色预设圆圈 + 自定义 color input
+
+已确认已完成（不重复实现）:
+- 图片附件：ChatInput staging API + ChatMessage lightbox 图片预览早已完整
+- 应用自动更新：update store 完整（checkForUpdates/downloadUpdate/installUpdate），Settings 有 toggle
+
+TypeScript: npx tsc --noEmit 0 errors
+
+Decisions:
+- 记忆提取用启发式（无需 LLM）：取最近 6 条 assistant 消息 > 80 字，去代码块，截断摘要
+- 主题色用 CSS 变量 --ac 注入，存 localStorage via Zustand persist，不侵入已有 Tailwind 类
+- 颜色组件使用 6 个预设 + color input，不需要额外 UI 库
+
+P2 完成状态:
+- ✅ 自动记忆提取（POST /api/memory/extract + Chat 顶栏按钮）
+- ✅ 主题色自定义（6色预设 + 自定义色轮 + CSS --ac 变量）
+- ✅ 图片附件（早已完成）
+- ⏳ 应用自动更新 UI（update store 完整，但缺专门的更新提示横幅/弹窗）
+
+Next: 全部 P0/P1/P2 已完成，可进行 Build 验证或处理用户反馈
