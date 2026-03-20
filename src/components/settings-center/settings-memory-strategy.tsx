@@ -21,7 +21,7 @@ export function SettingsMemoryStrategy() {
           <div>
             <p className="mb-2 text-[13px] font-medium text-[#000000]">存储底层</p>
             <select
-              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
               style={selectStyle}
             >
               <option>Local SQLite + BM25 全文检索 (默认最轻量)</option>
@@ -32,7 +32,7 @@ export function SettingsMemoryStrategy() {
           <div>
             <p className="mb-2 text-[13px] font-medium text-[#000000]">Embeddings 大小与模型</p>
             <select
-              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
               style={selectStyle}
             >
               <option>text-embedding-3-small (OpenAI, 高性价比)</option>

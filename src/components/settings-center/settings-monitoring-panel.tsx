@@ -293,7 +293,7 @@ function AlertsTab() {
             <input
               value={dailyTokenLimit}
               onChange={(e) => setDailyTokenLimit(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             />
             <p className="mt-1.5 text-[12px] text-[#8e8e93]">
               包含输入和输出。超过后将拒绝无权 Cron 触发器。
@@ -306,7 +306,7 @@ function AlertsTab() {
             <input
               value={costLimit}
               onChange={(e) => setCostLimit(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             />
           </div>
         </div>
@@ -321,7 +321,7 @@ function AlertsTab() {
             <select
               value={retentionPolicy}
               onChange={(e) => setRetentionPolicy(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
               style={selectStyle}
             >
               <option value="30days">保留 30 天后转离线档</option>

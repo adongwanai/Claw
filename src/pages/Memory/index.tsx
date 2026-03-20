@@ -175,7 +175,7 @@ function HealthCheckItem({ check }: { check: MemoryHealthCheck }) {
       {open && (
         <div className="border-t border-black/[0.04] px-4 pb-3 pt-2">
           <p className="text-[12px] leading-5 text-[#3c3c43]">{check.description}</p>
-          {check.action && <p className="mt-1.5 text-[11px] text-[#007aff]">→ {check.action}</p>}
+          {check.action && <p className="mt-1.5 text-[11px] text-clawx-ac">→ {check.action}</p>}
           {check.affectedFiles && check.affectedFiles.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1">
               {check.affectedFiles.map((f) => (
@@ -220,7 +220,7 @@ function OverviewTab({
               type="button"
               onClick={onReindex}
               disabled={reindexing}
-              className="flex items-center gap-1.5 rounded-lg bg-[#007aff] px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-clawx-ac px-3 py-1.5 text-[12px] font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               <RotateCw className={cn('h-3 w-3', reindexing && 'animate-spin')} />
               {reindexing ? '重建中…' : '重建索引'}
@@ -364,13 +364,13 @@ function BrowserTab({
           placeholder="搜索文件…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] outline-none focus:border-[#007aff]"
+          className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] outline-none focus:border-clawx-ac"
         />
         <div className="flex gap-1">
           {(['date', 'name', 'size'] as SortKey[]).map((k) => (
             <button key={k} type="button" onClick={() => setSort(k)}
               className={cn('flex-1 rounded-md py-1 text-[11px] font-medium transition-colors',
-                sort === k ? 'bg-[#007aff] text-white' : 'bg-white text-[#8e8e93] hover:bg-[#f2f2f7]')}>
+                sort === k ? 'bg-clawx-ac text-white' : 'bg-white text-[#8e8e93] hover:bg-[#f2f2f7]')}>
               {k === 'date' ? '时间' : k === 'name' ? '名称' : '大小'}
             </button>
           ))}
@@ -383,7 +383,7 @@ function BrowserTab({
             <button key={f.relativePath} type="button" onClick={() => handleSelect(f)}
               className={cn('w-full rounded-xl px-3 py-2.5 text-left transition-colors',
                 selected?.relativePath === f.relativePath
-                  ? 'bg-[#007aff] text-white'
+                  ? 'bg-clawx-ac text-white'
                   : 'bg-white hover:bg-[#f2f2f7]')}>
               <div className="flex items-center gap-2">
                 <span className="text-[13px]" style={{ color: selected?.relativePath === f.relativePath ? 'white' : CATEGORY_COLOR[f.category] }}>●</span>
@@ -427,7 +427,7 @@ function BrowserTab({
                       <X className="h-3 w-3" /> 取消
                     </button>
                     <button type="button" onClick={handleSave} disabled={saving}
-                      className="flex items-center gap-1 rounded-lg bg-[#007aff] px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50">
+                      className="flex items-center gap-1 rounded-lg bg-clawx-ac px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50">
                       <Save className="h-3 w-3" /> {saving ? '保存中…' : '保存'}
                     </button>
                   </>
@@ -492,7 +492,7 @@ function GuideTab({ config }: { config: MemoryConfig }) {
             <span>文本 {Math.round((tw / total) * 100)}%</span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-[#e5e5ea]">
-            <div className="h-full rounded-full bg-[#007aff]" style={{ width: `${(vw / total) * 100}%` }} />
+            <div className="h-full rounded-full bg-clawx-ac" style={{ width: `${(vw / total) * 100}%` }} />
           </div>
           <div className="mt-3 space-y-1.5 text-[12px] text-[#3c3c43]">
             <div className="flex justify-between">
@@ -607,7 +607,7 @@ export function Memory() {
           <button key={key} type="button" onClick={() => setTab(key)}
             className={cn('flex items-center gap-1.5 border-b-2 px-3 py-3 text-[13px] font-medium transition-colors',
               tab === key
-                ? 'border-[#007aff] text-[#007aff]'
+                ? 'border-clawx-ac text-clawx-ac'
                 : 'border-transparent text-[#8e8e93] hover:text-[#3c3c43]')}>
             <Icon className="h-3.5 w-3.5" />
             {label}

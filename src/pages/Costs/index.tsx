@@ -133,7 +133,7 @@ export function Costs() {
             className={cn(
               'border-b-2 pb-3 pt-3 text-[13px] font-medium transition-colors',
               activeTab === tab.id
-                ? 'border-[#007aff] text-[#007aff]'
+                ? 'border-clawx-ac text-clawx-ac'
                 : 'border-transparent text-[#8e8e93] hover:text-[#000000]',
             )}
           >
@@ -258,7 +258,7 @@ function RealtimeTab({
                   <span className="w-[180px] truncate text-[13px] font-medium text-[#000000]">{model}</span>
                   <div className="flex-1">
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#f2f2f7]">
-                      <div className="h-full rounded-full bg-[#007aff]" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-clawx-ac" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                   <span className="w-[60px] text-right text-[12px] text-[#8e8e93]">{pct}%</span>
@@ -277,7 +277,10 @@ function RealtimeTab({
           <span className="text-[13px] font-semibold text-[#000000]">最近记录 ({entries.length})</span>
         </div>
         {entries.length === 0 && !loading ? (
-          <div className="py-8 text-center text-[13px] text-[#8e8e93]">暂无用量数据</div>
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <span className="text-[28px] opacity-30">💸</span>
+            <span className="text-[13px] text-[#8e8e93]">暂无用量数据</span>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
@@ -460,7 +463,7 @@ function AlertsTab() {
             <input
               value={dailyTokenLimit}
               onChange={(e) => setDailyTokenLimit(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             />
             <p className="mt-1.5 text-[12px] text-[#8e8e93]">超过后将拒绝无权 Cron 触发器。</p>
           </div>
@@ -469,7 +472,7 @@ function AlertsTab() {
             <input
               value={costLimit}
               onChange={(e) => setCostLimit(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             />
           </div>
         </div>
@@ -483,7 +486,7 @@ function AlertsTab() {
             <select
               value={retentionPolicy}
               onChange={(e) => setRetentionPolicy(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             >
               <option value="30days">保留 30 天后转离线档</option>
               <option value="7days">保留 7 天后删除</option>

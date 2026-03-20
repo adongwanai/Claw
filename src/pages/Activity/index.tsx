@@ -184,7 +184,7 @@ export function Activity() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="搜索日志..."
-            className="flex-1 rounded-lg border border-black/10 bg-[#f9f9f9] px-3 py-1.5 text-[12px] text-[#000000] outline-none focus:border-[#007aff] focus:bg-white"
+            className="flex-1 rounded-lg border border-black/10 bg-[#f9f9f9] px-3 py-1.5 text-[12px] text-[#000000] outline-none focus:border-clawx-ac focus:bg-white"
           />
           <span className="shrink-0 text-[12px] text-[#8e8e93]">{filtered.length} 条</span>
         </div>
@@ -196,8 +196,9 @@ export function Activity() {
               {error}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-[13px] text-[#8e8e93]">
-              {loading ? '加载中...' : '暂无日志'}
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+              <span className="text-[28px] opacity-30">📋</span>
+              <span className="text-[13px] text-[#8e8e93]">{loading ? '加载中...' : '暂无日志'}</span>
             </div>
           ) : (
             <div className="divide-y divide-black/[0.04]">

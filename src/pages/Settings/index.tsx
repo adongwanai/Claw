@@ -467,7 +467,7 @@ function InputField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff] focus:ring-1 focus:ring-[#007aff]/20"
+        className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac focus:ring-1 focus:ring-clawx-ac/20"
       />
     </div>
   );
@@ -517,7 +517,7 @@ function GeneralSection() {
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat',
@@ -694,7 +694,7 @@ function ModelProviderSection({
         <div className="py-3">
           <p className="mb-2 text-[13px] font-medium text-[#000000]">全局默认模型</p>
           <div className="flex items-center gap-2">
-            <select className="flex-1 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]">
+            <select className="flex-1 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac">
               <option>gpt-4o (OpenAI)</option>
               <option>claude-sonnet-4-6 (Anthropic)</option>
               <option>gemini-2.0-flash (Google)</option>
@@ -713,7 +713,7 @@ function ModelProviderSection({
             step={1000}
             value={contextLimit}
             onChange={(e) => setContextLimit(Number(e.target.value))}
-            className="w-full accent-[#007aff]"
+            className="w-full" style={{ accentColor: 'var(--ac)' }}
           />
           <div className="mt-1 text-right text-[12px] text-[#8e8e93]">
             {contextLimit.toLocaleString()} Tokens
@@ -824,7 +824,7 @@ function ModelProviderSection({
                 type="number"
                 value={portDraft}
                 onChange={(e) => setPortDraft(e.target.value)}
-                className="w-[100px] rounded-lg border border-black/10 bg-[#f9f9f9] px-3 py-1.5 font-mono text-[12px] text-[#3c3c43] outline-none focus:border-[#007aff] focus:bg-white"
+                className="w-[100px] rounded-lg border border-black/10 bg-[#f9f9f9] px-3 py-1.5 font-mono text-[12px] text-[#3c3c43] outline-none focus:border-clawx-ac focus:bg-white"
               />
               <button
                 type="button"
@@ -900,7 +900,7 @@ function TeamRoleSection() {
       <SettingsCard title="组织运行模板">
         <div className="py-3">
           <p className="mb-2 text-[13px] font-medium text-[#000000]">当前默认架构方案</p>
-          <select className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]">
+          <select className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac">
             <option>三省六部制（主脑调度，专业分身执行）</option>
             <option>单脑独立（主脑全权处理所有任务）</option>
             <option>扁平协作（所有 Agent 平级并行）</option>
@@ -956,7 +956,7 @@ function ChannelAdvancedSection() {
       <SettingsCard title="群聊发言默认策略">
         <div className="py-3">
           <p className="mb-2 text-[13px] font-medium text-[#000000]">默认群聊行为模式</p>
-          <select className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]">
+          <select className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac">
             <option>@触发（仅被 @ 时回复）</option>
             <option>全量监听（所有消息都响应）</option>
             <option>静默（不主动发言）</option>
@@ -999,7 +999,7 @@ function ChannelAdvancedSection() {
             type="number"
             value={groupRate}
             onChange={(e) => setGroupRate(e.target.value)}
-            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
           />
           <p className="mt-1.5 text-[12px] text-[#8e8e93]">超出后进入 5 分钟的静默冷却。</p>
         </div>
@@ -1033,7 +1033,7 @@ function AutomationDefaultsSection() {
           <select
             value={workerSlots}
             onChange={(e) => setWorkerSlots(e.target.value)}
-            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             style={selectStyle}
           >
             <option value="2">2 并发 (轻量)</option>
@@ -1048,7 +1048,7 @@ function AutomationDefaultsSection() {
             type="number"
             value={maxDailyRuns}
             onChange={(e) => setMaxDailyRuns(e.target.value)}
-            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
           />
           <p className="mt-1.5 text-[12px] text-[#8e8e93]">防止死循环剧烈消耗配额。</p>
         </div>
@@ -1138,7 +1138,7 @@ function SkillsMcpSection() {
               className={cn(
                 'rounded-full px-3 py-1 text-[12px] font-medium transition-colors',
                 activeFilter === tab.label
-                  ? 'bg-[#007aff] text-white'
+                  ? 'bg-clawx-ac text-white'
                   : 'border border-black/10 text-[#3c3c43] hover:bg-[#f2f2f7]',
               )}
             >
@@ -1170,7 +1170,7 @@ function SkillsMcpSection() {
         ))}
 
         <div className="py-3 text-center">
-          <button type="button" className="text-[13px] text-[#007aff] hover:underline">
+          <button type="button" className="text-[13px] text-clawx-ac hover:underline">
             浏览技能市场...
           </button>
         </div>
@@ -1185,7 +1185,7 @@ function SkillsMcpSection() {
             </button>
             <button
               type="button"
-              className="rounded-lg bg-[#007aff] px-3 py-1 text-[12px] font-medium text-white hover:bg-[#0056b3]"
+              className="rounded-lg bg-clawx-ac px-3 py-1 text-[12px] font-medium text-white hover:bg-[#0056b3]"
             >
               + 添加服务
             </button>
@@ -1282,13 +1282,13 @@ function ToolPermissionsSection() {
       <SettingsCard title="核心沙箱与内置权限">
         <div className="flex items-center justify-between gap-4 py-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-[#007aff]" />
+            <span className="h-2 w-2 shrink-0 rounded-full bg-clawx-ac" />
             <p className="text-[13px] font-medium text-[#000000]">
               全局风险级别设定 (Global Risk Level)
             </p>
           </div>
           <select
-            className="w-[260px] shrink-0 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[12px] text-[#3c3c43] outline-none focus:border-[#007aff]"
+            className="w-[260px] shrink-0 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[12px] text-[#3c3c43] outline-none focus:border-clawx-ac"
             style={selectStyle}
           >
             <option>Standard 防御模式 (读受控区、写必审批)</option>

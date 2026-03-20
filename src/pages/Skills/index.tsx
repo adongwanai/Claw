@@ -359,7 +359,7 @@ function SkillDetailDialog({ skill, isOpen, onClose, onToggle, onUninstall, onOp
                 onClick={handleSaveConfig}
                 className={cn(
                   "flex-1 h-[42px] text-[13px] rounded-full font-semibold shadow-sm border border-transparent transition-all",
-                  "bg-[#0a84ff] hover:bg-[#007aff] text-white"
+                  "bg-[#0a84ff] hover:bg-clawx-ac text-white"
                 )}
                 disabled={isSaving}
               >
@@ -560,7 +560,7 @@ export function Skills() {
   useEffect(() => {
     invokeIpc<string>('openclaw:getSkillsDir')
       .then((dir) => setSkillsDirPath(dir as string))
-      .catch(console.error);
+      .catch(() => {});
   }, []);
 
   useEffect(() => {

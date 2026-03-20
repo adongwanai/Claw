@@ -53,7 +53,7 @@ function AgentNode({
       className={cn(
         'rounded-2xl bg-white p-5 text-center shadow-[0_1px_4px_rgba(0,0,0,0.06)] cursor-pointer transition-all hover:-translate-y-0.5',
         isRoot
-          ? 'w-[184px] border-2 border-[#007aff] shadow-[0_2px_16px_rgba(0,122,255,0.12)] hover:shadow-[0_4px_20px_rgba(0,122,255,0.18)]'
+          ? 'w-[184px] border-2 border-clawx-ac shadow-[0_2px_16px_rgba(0,122,255,0.12)] hover:shadow-[0_4px_20px_rgba(0,122,255,0.18)]'
           : 'w-[160px] border border-black/[0.06] hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]',
       )}
     >
@@ -71,8 +71,8 @@ function AgentNode({
       </p>
       <p className="text-[12px] text-[#8e8e93]">{agent.id}</p>
       <div className="mt-2 flex items-center justify-center gap-2 text-[12px]">
-        <span className={cn('flex items-center gap-1', isActive ? 'text-[#007aff]' : 'text-[#8e8e93]')}>
-          <span className={cn('h-[6px] w-[6px] rounded-full', isActive ? 'bg-[#007aff]' : 'bg-[#d1d5db]')} />
+        <span className={cn('flex items-center gap-1', isActive ? 'text-clawx-ac' : 'text-[#8e8e93]')}>
+          <span className={cn('h-[6px] w-[6px] rounded-full', isActive ? 'bg-clawx-ac' : 'bg-[#d1d5db]')} />
           {isActive ? '活跃' : '待命'}
         </span>
         {agent.channelTypes.length > 0 && (
@@ -158,7 +158,7 @@ export function TeamMap() {
         {/* Legend top-right */}
         <div className="absolute right-5 top-4 flex items-center gap-4 text-[12px] text-[#3c3c43]">
           <span className="flex items-center gap-1.5">
-            <span className="h-[7px] w-[7px] rounded-full bg-[#007aff]" />
+            <span className="h-[7px] w-[7px] rounded-full bg-clawx-ac" />
             活跃
           </span>
           <span className="flex items-center gap-1.5">

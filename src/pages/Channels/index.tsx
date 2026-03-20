@@ -239,7 +239,7 @@ export function Channels() {
                   <button
                     type="button"
                     onClick={() => void connectChannel(selected.id)}
-                    className="rounded-md bg-[#007aff] px-2.5 py-1 text-[12px] text-white hover:bg-[#0056b3]"
+                    className="rounded-md bg-clawx-ac px-2.5 py-1 text-[12px] text-white hover:bg-[#0056b3]"
                   >
                     {selected.status === 'connecting' ? '连接中...' : '连接'}
                   </button>
@@ -307,7 +307,7 @@ export function Channels() {
                               ⚡ {msg.toolCall.name}{' '}
                               <span className="text-[#8e8e93]">({msg.toolCall.duration})</span>
                             </span>
-                            <span className="text-[11px] text-[#007aff]">▾ 展开详情</span>
+                            <span className="text-[11px] text-clawx-ac">▾ 展开详情</span>
                           </div>
                         </div>
                       )}
@@ -356,7 +356,7 @@ export function Channels() {
               <select
                 value={addType}
                 onChange={(e) => setAddType(e.target.value as ChannelType)}
-                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+                className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
               >
                 {CHANNEL_TYPES.map((ct) => (
                   <option key={ct.id} value={ct.id}>{ct.icon} {ct.label}</option>
@@ -369,7 +369,7 @@ export function Channels() {
                 value={addName}
                 onChange={(e) => setAddName(e.target.value)}
                 placeholder="例如：研发中心飞书群"
-                className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+                className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
               />
             </div>
             <div className="flex gap-2">
@@ -384,7 +384,7 @@ export function Channels() {
                 type="button"
                 onClick={() => void handleAdd()}
                 disabled={addLoading || !addName.trim()}
-                className="flex-1 rounded-xl bg-[#007aff] py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50"
+                className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50"
               >
                 {addLoading ? '添加中...' : '确认添加'}
               </button>

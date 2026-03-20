@@ -208,8 +208,8 @@ export function Sidebar() {
             <>
               {/* Batch mode toolbar */}
               {batchMode && (
-                <div className="mb-1.5 flex items-center justify-between rounded-lg bg-[#007aff]/10 px-3 py-2">
-                  <span className="text-[12px] font-medium text-[#007aff]">{selectedKeys.size} 已选</span>
+                <div className="mb-1.5 flex items-center justify-between rounded-lg bg-clawx-ac/10 px-3 py-2">
+                  <span className="text-[12px] font-medium text-clawx-ac">{selectedKeys.size} 已选</span>
                   <div className="flex gap-1.5">
                     <button
                       type="button"
@@ -254,14 +254,14 @@ export function Sidebar() {
                         'flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-left text-[14px] transition-[background-color] duration-150',
                         'text-[#000000] hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]',
                         isActive && !batchMode && 'bg-white font-medium shadow-[0_1px_2px_rgba(0,0,0,0.04),0_0_0_0.5px_rgba(0,0,0,0.04)]',
-                        batchMode && isSelected && 'bg-[#007aff]/10',
+                        batchMode && isSelected && 'bg-clawx-ac/10',
                       )}
                     >
                       {batchMode ? (
                         <span className={cn(
                           'inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 text-[10px] font-bold transition-colors',
                           isSelected
-                            ? 'border-[#007aff] bg-[#007aff] text-white'
+                            ? 'border-clawx-ac bg-clawx-ac text-white'
                             : 'border-black/20 bg-white',
                         )}>
                           {isSelected && '✓'}
@@ -401,7 +401,7 @@ export function Sidebar() {
               type="button"
               aria-label="选择头像"
               onClick={() => setAvatarPopupOpen(true)}
-              className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-[#007aff]/40"
+              className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-clawx-ac/40"
             >{selectedAvatar}</button>
             <span className="flex-1 truncate text-[13px] font-medium">{nickname}</span>
             <div className="relative">
@@ -436,7 +436,7 @@ export function Sidebar() {
             type="button"
             aria-label="选择头像"
             onClick={() => setAvatarPopupOpen(true)}
-            className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-[#007aff]/40"
+            className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-clawx-ac/40"
           >{selectedAvatar}</button>
         )}
       </div>
@@ -546,7 +546,7 @@ function NotificationPanel({
     success: '#10b981',
     warn: '#f59e0b',
     error: '#ef4444',
-    info: '#007aff',
+    info: 'var(--ac)',
   };
 
   return (
@@ -653,7 +653,7 @@ function AvatarPopup({
               className={cn(
                 'flex flex-col items-center gap-1 rounded-xl py-2 text-[22px] transition-colors',
                 selectedAvatar === opt.emoji
-                  ? 'bg-[#007aff]/10 ring-1 ring-[#007aff]/40'
+                  ? 'bg-clawx-ac/10 ring-1 ring-clawx-ac/40'
                   : 'hover:bg-[#f2f2f7]',
               )}
             >
@@ -672,7 +672,7 @@ function AvatarPopup({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="输入昵称..."
-            className="w-full rounded-lg border border-black/10 bg-[#f2f2f7] px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff] focus:bg-white"
+            className="w-full rounded-lg border border-black/10 bg-[#f2f2f7] px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac focus:bg-white"
           />
         </div>
 
@@ -685,7 +685,7 @@ function AvatarPopup({
               onAvatarChange(selectedAvatar);
               onClose();
             }}
-            className="w-full rounded-full bg-[#007aff] py-2 text-[13px] font-semibold text-white hover:bg-[#0062cc]"
+            className="w-full rounded-full bg-clawx-ac py-2 text-[13px] font-semibold text-white hover:bg-[#0062cc]"
           >
             保存
           </button>

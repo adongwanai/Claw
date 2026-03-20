@@ -146,10 +146,18 @@ function App() {
     };
   }, [navigate]);
 
-  // Apply accent color CSS variable
+  // Apply accent color CSS variables (--ac for hex, --ac-rgb for Tailwind opacity modifiers)
   useEffect(() => {
     const color = accentColor || '#007aff';
     document.documentElement.style.setProperty('--ac', color);
+    // Parse hex to RGB channel format: "R G B"
+    const hex = color.replace('#', '');
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+      document.documentElement.style.setProperty('--ac-rgb', `${r} ${g} ${b}`);
+    }
   }, [accentColor]);
 
   // Apply theme

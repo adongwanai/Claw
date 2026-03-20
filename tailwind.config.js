@@ -15,6 +15,7 @@ module.exports = {
     },
     extend: {
       colors: {
+        'clawx-ac': 'rgb(var(--ac-rgb) / <alpha-value>)',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

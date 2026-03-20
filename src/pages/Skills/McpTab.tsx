@@ -97,7 +97,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
               onChange={(e) => setName(e.target.value)}
               disabled={!!initial}
               placeholder="my-mcp-server"
-              className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 text-[13px] outline-none focus:border-[#007aff] disabled:bg-[#f2f2f7] disabled:text-[#8e8e93]"
+              className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 text-[13px] outline-none focus:border-clawx-ac disabled:bg-[#f2f2f7] disabled:text-[#8e8e93]"
             />
           </div>
 
@@ -109,7 +109,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
                   key={t}
                   type="button"
                   onClick={() => setTransport(t)}
-                  className={cn('rounded-lg px-3 py-1.5 text-[12px] font-medium border transition-colors', transport === t ? 'border-[#007aff] bg-[#007aff]/10 text-[#007aff]' : 'border-[#c6c6c8] text-[#3c3c43] hover:bg-[#f2f2f7]')}
+                  className={cn('rounded-lg px-3 py-1.5 text-[12px] font-medium border transition-colors', transport === t ? 'border-clawx-ac bg-clawx-ac/10 text-clawx-ac' : 'border-[#c6c6c8] text-[#3c3c43] hover:bg-[#f2f2f7]')}
                 >
                   {t}
                 </button>
@@ -125,7 +125,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
                   value={command}
                   onChange={(e) => setCommand(e.target.value)}
                   placeholder="uvx / npx / python"
-                  className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-[#007aff]"
+                  className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-clawx-ac"
                 />
               </div>
               <div>
@@ -134,7 +134,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
                   value={argsRaw}
                   onChange={(e) => setArgsRaw(e.target.value)}
                   placeholder="mcp-server-github --port 8080"
-                  className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-[#007aff]"
+                  className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-clawx-ac"
                 />
               </div>
             </>
@@ -145,7 +145,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="http://localhost:8080/sse"
-                className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-[#007aff]"
+                className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-clawx-ac"
               />
             </div>
           )}
@@ -157,7 +157,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
               onChange={(e) => setEnvRaw(e.target.value)}
               rows={3}
               placeholder={'GITHUB_TOKEN=ghp_xxx\nAPI_KEY=sk-xxx'}
-              className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-[#007aff] resize-none"
+              className="w-full rounded-xl border border-[#c6c6c8] bg-white px-3 py-2 font-mono text-[13px] outline-none focus:border-clawx-ac resize-none"
             />
           </div>
         </div>
@@ -167,7 +167,7 @@ function FormModal({ initial, onClose, onSave }: FormModalProps) {
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="rounded-xl bg-[#007aff] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0056cc] disabled:opacity-50"
+            className="rounded-xl bg-clawx-ac px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0056cc] disabled:opacity-50"
           >
             {saving ? '保存中...' : '保存'}
           </button>
@@ -248,7 +248,7 @@ export function McpTab() {
           <button
             type="button"
             onClick={() => { setEditing(null); setFormOpen(true); }}
-            className="flex items-center gap-1.5 rounded-xl bg-[#007aff] px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[#0056cc]"
+            className="flex items-center gap-1.5 rounded-xl bg-clawx-ac px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[#0056cc]"
           >
             <Plus className="h-3.5 w-3.5" />
             添加服务器
@@ -275,7 +275,7 @@ export function McpTab() {
           <button
             type="button"
             onClick={() => { setEditing(null); setFormOpen(true); }}
-            className="mt-2 flex items-center gap-1.5 rounded-xl bg-[#007aff] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0056cc]"
+            className="mt-2 flex items-center gap-1.5 rounded-xl bg-clawx-ac px-4 py-2 text-[13px] font-medium text-white hover:bg-[#0056cc]"
           >
             <Plus className="h-4 w-4" />
             添加服务器

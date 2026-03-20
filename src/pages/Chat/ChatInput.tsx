@@ -183,7 +183,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
       }
 
       // Stage all files via IPC
-      console.log('[pickFiles] Staging files:', result.filePaths);
       const staged = await hostApiFetch<Array<{
         id: string;
         fileName: string;
@@ -195,8 +194,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
         method: 'POST',
         body: JSON.stringify({ filePaths: result.filePaths }),
       });
-      console.log('[pickFiles] Stage result:', staged?.map(s => ({ id: s?.id, fileName: s?.fileName, mimeType: s?.mimeType, fileSize: s?.fileSize, stagedPath: s?.stagedPath, hasPreview: !!s?.preview })));
-
       // Update each placeholder with real data
       setAttachments(prev => {
         let updated = [...prev];
@@ -210,7 +207,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
                 : a,
             );
           } else {
-            console.warn(`[pickFiles] No staged data for tempId=${tempId} at index ${i}`);
             updated = updated.map(a =>
               a.id === tempId
                 ? { ...a, status: 'error' as const, error: 'Staging failed' }
@@ -221,7 +217,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
         return updated;
       });
     } catch (err) {
-      console.error('[pickFiles] Failed to stage files:', err);
+      // Silently fail — attachments already marked as 'error' above
       // Mark any stuck 'staging' attachments as 'error' so the user can remove them
       // and the send button isn't permanently blocked
       setAttachments(prev => prev.map(a =>
@@ -248,9 +244,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
       }]);
 
       try {
-        console.log(`[stageBuffer] Reading file: ${file.name} (${file.type}, ${file.size} bytes)`);
         const base64 = await readFileAsBase64(file);
-        console.log(`[stageBuffer] Base64 length: ${base64?.length ?? 'null'}`);
         const staged = await hostApiFetch<{
           id: string;
           fileName: string;
@@ -266,12 +260,11 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
             mimeType: file.type || 'application/octet-stream',
           }),
         });
-        console.log(`[stageBuffer] Staged: id=${staged?.id}, path=${staged?.stagedPath}, size=${staged?.fileSize}`);
         setAttachments(prev => prev.map(a =>
           a.id === tempId ? { ...staged, status: 'ready' as const } : a,
         ));
       } catch (err) {
-        console.error(`[stageBuffer] Error staging ${file.name}:`, err);
+        // Silently fail — attachment already marked as 'error'
         setAttachments(prev => prev.map(a =>
           a.id === tempId
             ? { ...a, status: 'error' as const, error: String(err) }
@@ -298,13 +291,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
     // but keep attachments available for the async send
     const textToSend = input.trim();
     const attachmentsToSend = readyAttachments.length > 0 ? readyAttachments : undefined;
-    console.log(`[handleSend] text="${textToSend.substring(0, 50)}", attachments=${attachments.length}, ready=${readyAttachments.length}, sending=${!!attachmentsToSend}`);
-    if (attachmentsToSend) {
-      console.log('[handleSend] Attachment details:', attachmentsToSend.map(a => ({
-        id: a.id, fileName: a.fileName, mimeType: a.mimeType, fileSize: a.fileSize,
-        stagedPath: a.stagedPath, status: a.status, hasPreview: !!a.preview,
-      })));
-    }
     setInput('');
     setAttachments([]);
     if (textareaRef.current) {

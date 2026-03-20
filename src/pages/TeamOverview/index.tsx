@@ -74,7 +74,7 @@ function CreateAgentModal({ onClose, onCreate }: { onClose: () => void; onCreate
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
             placeholder="例如：数据分析师"
-            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-[#007aff]"
+            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
           />
         </div>
         <div className="flex gap-2">
@@ -83,7 +83,7 @@ function CreateAgentModal({ onClose, onCreate }: { onClose: () => void; onCreate
             type="button"
             onClick={() => void handleSubmit()}
             disabled={loading || !name.trim()}
-            className="flex-1 rounded-xl bg-[#007aff] py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50"
+            className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50"
           >
             {loading ? '创建中...' : '确认创建'}
           </button>
@@ -199,7 +199,7 @@ function AgentCard({
           <div className="flex items-center gap-1.5">
             <p className="truncate text-[15px] font-semibold text-[#000000]">{agent.name}</p>
             {agent.isDefault && (
-              <span className="shrink-0 rounded-full bg-[#f0f7ff] px-1.5 py-0.5 text-[10px] font-medium text-[#007aff]">默认</span>
+              <span className="shrink-0 rounded-full bg-[#f0f7ff] px-1.5 py-0.5 text-[10px] font-medium text-clawx-ac">默认</span>
             )}
           </div>
           <p className="truncate text-[12px] text-[#8e8e93]">{agent.id}</p>

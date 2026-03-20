@@ -65,7 +65,7 @@ export function ContextRail() {
 
       {/* Agent Profile */}
       <div className="flex flex-col items-center px-5 py-6">
-        <div className="mb-3 flex h-[80px] w-[80px] items-center justify-center rounded-full bg-[#007aff] text-[32px] text-white shadow-[0_4px_16px_rgba(0,122,255,0.25)]">
+        <div className="mb-3 flex h-[80px] w-[80px] items-center justify-center rounded-full bg-clawx-ac text-[32px] text-white shadow-[0_4px_16px_rgba(0,122,255,0.25)]">
           ✦
         </div>
         <p className="text-[16px] font-semibold text-[#000000]">{currentAgent?.name ?? 'KTClaw 主脑'}</p>

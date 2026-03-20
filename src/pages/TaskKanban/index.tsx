@@ -228,7 +228,7 @@ export function TaskKanban() {
                 </div>
                 <div className={cn(
                   'flex min-h-[120px] flex-1 flex-col gap-3 rounded-xl p-3 transition-colors',
-                  isOver ? 'bg-[#f0f7ff] ring-2 ring-[#007aff]/30' : 'bg-[#f9f9f9]',
+                  isOver ? 'bg-[#f0f7ff] ring-2 ring-clawx-ac/30' : 'bg-[#f9f9f9]',
                 )}>
                   {colTickets.length === 0 ? (
                     <div className="flex items-center justify-center py-8 text-[13px] text-[#c6c6c8]">
@@ -366,7 +366,7 @@ function CreateModal({
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             placeholder="简短描述任务目�?.."
-            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-[#007aff]"
+            className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
           />
         </div>
         <div className="mb-3">
@@ -376,7 +376,7 @@ function CreateModal({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="详细说明..."
             rows={3}
-            className="w-full resize-none rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-[#007aff]"
+            className="w-full resize-none rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
           />
         </div>
         <div className="mb-3">
@@ -407,7 +407,7 @@ function CreateModal({
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             >
               <option value="">Unassigned</option>
               {agents.map((a) => (
@@ -600,7 +600,7 @@ function ApprovalsSection({
                   <button
                     type="button"
                     onClick={() => setWizard(item)}
-                    className="rounded-lg bg-[#007aff] px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#005fd6]"
+                    className="rounded-lg bg-clawx-ac px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#005fd6]"
                   >
                     �ش�����
                   </button>
@@ -611,7 +611,7 @@ function ApprovalsSection({
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
                       placeholder="Reject reason..."
-                      className="w-[140px] rounded-lg border border-black/10 px-2 py-1 text-[12px] outline-none focus:border-[#007aff]"
+                      className="w-[140px] rounded-lg border border-black/10 px-2 py-1 text-[12px] outline-none focus:border-clawx-ac"
                     />
                     <button
                       type="button"

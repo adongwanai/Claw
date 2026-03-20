@@ -117,7 +117,7 @@ export function Cron() {
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
-              className="rounded-lg bg-[#007aff] px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[#0056b3]"
+              className="rounded-lg bg-clawx-ac px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[#0056b3]"
             >
               + 新建任务
             </button>
@@ -172,20 +172,20 @@ export function Cron() {
             <h2 className="mb-4 text-[16px] font-semibold text-[#000000]">新建定时任务</h2>
             <div className="mb-3">
               <p className="mb-1.5 text-[13px] font-medium text-[#000000]">任务名称</p>
-              <input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="例如：每日晨报" className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-[#007aff]" />
+              <input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="例如：每日晨报" className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac" />
             </div>
             <div className="mb-3">
               <p className="mb-1.5 text-[13px] font-medium text-[#000000]">任务指令</p>
-              <textarea value={createMessage} onChange={(e) => setCreateMessage(e.target.value)} placeholder="发送给 Agent 的指令内容..." rows={3} className="w-full resize-none rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-[#007aff]" />
+              <textarea value={createMessage} onChange={(e) => setCreateMessage(e.target.value)} placeholder="发送给 Agent 的指令内容..." rows={3} className="w-full resize-none rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac" />
             </div>
             <div className="mb-5">
               <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Cron 表达式</p>
-              <input value={createSchedule} onChange={(e) => setCreateSchedule(e.target.value)} placeholder="0 7 * * *" className="w-full rounded-lg border border-black/10 px-3 py-2 font-mono text-[13px] outline-none focus:border-[#007aff]" />
+              <input value={createSchedule} onChange={(e) => setCreateSchedule(e.target.value)} placeholder="0 7 * * *" className="w-full rounded-lg border border-black/10 px-3 py-2 font-mono text-[13px] outline-none focus:border-clawx-ac" />
               <p className="mt-1 text-[11px] text-[#8e8e93]">标准 5 段 cron 表达式，例如 <code>0 7 * * *</code> = 每天 07:00</p>
             </div>
             <div className="flex gap-2">
               <button type="button" onClick={() => setCreateOpen(false)} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">取消</button>
-              <button type="button" onClick={() => void handleCreate()} disabled={createLoading || !createName.trim() || !createMessage.trim()} className="flex-1 rounded-xl bg-[#007aff] py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50">
+              <button type="button" onClick={() => void handleCreate()} disabled={createLoading || !createName.trim() || !createMessage.trim()} className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50">
                 {createLoading ? '创建中...' : '确认创建'}
               </button>
             </div>
@@ -314,7 +314,7 @@ function ScheduleTab({ jobs }: { jobs: CronJob[] }) {
               {upcoming.map((job) => (
                 <div key={job.id} className="border-b border-black/[0.04] px-4 py-3">
                   <p className="truncate text-[13px] font-medium text-[#000000]">{job.name}</p>
-                  <p className="mt-0.5 text-[11px] text-[#007aff]">{formatTime(job.nextRun)}</p>
+                  <p className="mt-0.5 text-[11px] text-clawx-ac">{formatTime(job.nextRun)}</p>
                   <p className="mt-0.5 font-mono text-[10px] text-[#c6c6c8]">{formatSchedule(job.schedule)}</p>
                 </div>
               ))}
@@ -452,7 +452,7 @@ function PipelinesTab({
       {/* Stats bar */}
       <div className="flex shrink-0 items-center gap-6 border-b border-black/[0.06] px-8 py-4">
         <StatPill label="任务总数" value={String(jobs.length)} color="#3c3c43" />
-        <StatPill label="已执行" value={String(ran.length)} color="#007aff" />
+        <StatPill label="已执行" value={String(ran.length)} color="var(--ac)" />
         <StatPill label="成功" value={String(succeeded)} color="#10b981" />
         <StatPill label="失败" value={String(failed)} color={failed > 0 ? '#ef4444' : '#c6c6c8'} />
         {successRate !== null && (
@@ -521,7 +521,7 @@ function PipelinesTab({
                           <button
                             type="button"
                             onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                            className={cn('rounded-md border px-2.5 py-1 text-[12px] transition-colors', isExpanded ? 'border-[#007aff]/30 bg-[#007aff]/5 text-[#007aff]' : 'border-black/10 text-[#3c3c43] hover:bg-[#f2f2f7]')}
+                            className={cn('rounded-md border px-2.5 py-1 text-[12px] transition-colors', isExpanded ? 'border-clawx-ac/30 bg-clawx-ac/5 text-clawx-ac' : 'border-black/10 text-[#3c3c43] hover:bg-[#f2f2f7]')}
                           >
                             {isExpanded ? '▲ 收起' : '历史'}
                           </button>

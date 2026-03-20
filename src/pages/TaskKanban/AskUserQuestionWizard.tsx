@@ -240,7 +240,7 @@ export function AskUserQuestionWizard({ approval, onRespond, onDismiss }: Props)
               onChange={(event) => setFallbackAnswer(event.target.value)}
               placeholder="Type your response..."
               rows={8}
-              className="mt-6 w-full rounded-xl border px-4 py-3 text-[14px] outline-none focus:border-[#007aff]"
+              className="mt-6 w-full rounded-xl border px-4 py-3 text-[14px] outline-none focus:border-clawx-ac"
               style={{ borderColor: BORDER, background: SECONDARY_BG }}
             />
           </>
@@ -294,7 +294,7 @@ export function AskUserQuestionWizard({ approval, onRespond, onDismiss }: Props)
                   setOtherAnswers((prev) => ({ ...prev, [currentKey]: event.target.value }))
                 }
                 placeholder="Type a custom answer..."
-                className="w-full rounded-xl border bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#007aff]"
+                className="w-full rounded-xl border bg-white px-3 py-2.5 text-[14px] outline-none focus:border-clawx-ac"
                 style={{ borderColor: BORDER }}
               />
             </div>

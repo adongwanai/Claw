@@ -249,7 +249,7 @@ const createComponents = (resolveLocalFilePath?: (href: string, text: string) =>
     <li className="my-0.5 leading-6" {...props}>{children}</li>
   ),
   blockquote: ({ children, ...props }: any) => (
-    <blockquote className="border-l-4 border-[#007aff] pl-4 py-1 my-2 bg-[#007aff]/5 rounded-r-lg" {...props}>
+    <blockquote className="border-l-4 border-clawx-ac pl-4 py-1 my-2 bg-clawx-ac/5 rounded-r-lg" {...props}>
       {children}
     </blockquote>
   ),
@@ -312,7 +312,7 @@ const createComponents = (resolveLocalFilePath?: (href: string, text: string) =>
         <a
           href={toFileHref(filePath)}
           onClick={handleClick}
-          className="text-[#007aff] hover:text-[#0056cc] underline decoration-[#007aff]/40 hover:decoration-[#007aff] transition-colors cursor-pointer inline-flex items-center gap-1"
+          className="text-clawx-ac hover:text-clawx-ac/80 underline decoration-clawx-ac/40 hover:decoration-clawx-ac transition-colors cursor-pointer inline-flex items-center gap-1"
           title={filePath}
           {...props}
         >
@@ -338,7 +338,7 @@ const createComponents = (resolveLocalFilePath?: (href: string, text: string) =>
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleExternal}
-          className="text-[#007aff] hover:text-[#0056cc] underline decoration-[#007aff]/40 hover:decoration-[#007aff] transition-colors"
+          className="text-clawx-ac hover:text-clawx-ac/80 underline decoration-clawx-ac/40 hover:decoration-clawx-ac transition-colors"
           {...props}
         >
           {children}
@@ -351,7 +351,7 @@ const createComponents = (resolveLocalFilePath?: (href: string, text: string) =>
         href={hrefValue}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-[#007aff] hover:text-[#0056cc] underline decoration-[#007aff]/40 hover:decoration-[#007aff] transition-colors"
+        className="text-clawx-ac hover:text-[#0056cc] underline decoration-clawx-ac/40 hover:decoration-clawx-ac transition-colors"
         {...props}
       >
         {children}

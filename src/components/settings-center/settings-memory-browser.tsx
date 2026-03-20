@@ -128,7 +128,7 @@ export function SettingsMemoryBrowser() {
               )}
             >
               <div className="flex w-full items-center gap-1.5">
-                <FileText className="h-3 w-3 shrink-0 text-[#007aff]" />
+                <FileText className="h-3 w-3 shrink-0 text-clawx-ac" />
                 <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#000000]">{file.name}</span>
               </div>
               <span className="pl-4 text-[11px] text-[#8e8e93]">
@@ -168,7 +168,7 @@ export function SettingsMemoryBrowser() {
                       type="button"
                       onClick={() => void saveFile()}
                       disabled={saving}
-                      className="flex h-6 items-center gap-1 rounded bg-[#007aff] px-2 text-[11px] font-medium text-white hover:bg-[#0062cc] disabled:opacity-50"
+                      className="flex h-6 items-center gap-1 rounded bg-clawx-ac px-2 text-[11px] font-medium text-white hover:bg-[#0062cc] disabled:opacity-50"
                     >
                       <Save className="h-3 w-3" /> {saving ? '保存中...' : '保存'}
                     </button>
@@ -192,7 +192,7 @@ export function SettingsMemoryBrowser() {
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
-                  className="h-full min-h-[400px] w-full resize-none rounded-xl border border-black/[0.06] bg-[#fafafa] px-5 py-4 font-mono text-[13px] text-[#000000] outline-none focus:border-[#007aff]"
+                  className="h-full min-h-[400px] w-full resize-none rounded-xl border border-black/[0.06] bg-[#fafafa] px-5 py-4 font-mono text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
                   spellCheck={false}
                 />
               ) : (

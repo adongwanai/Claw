@@ -58,7 +58,7 @@ export function WorkbenchEmptyState(_props: WorkbenchEmptyStateProps) {
             type="button"
             onClick={() => isGatewayRunning && sendMessage(action.prompt)}
             disabled={!isGatewayRunning}
-            className="rounded-full border border-black/[0.08] bg-white px-4 py-1.5 text-[13px] font-medium text-[#3c3c43] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-[1px] hover:border-[#007aff]/30 hover:bg-[#007aff]/5 hover:text-[#007aff] hover:shadow-[0_4px_12px_rgba(0,122,255,0.1)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full border border-black/[0.08] bg-white px-4 py-1.5 text-[13px] font-medium text-[#3c3c43] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-[1px] hover:border-clawx-ac/30 hover:bg-clawx-ac/5 hover:text-clawx-ac hover:shadow-[0_4px_12px_rgba(0,122,255,0.1)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {action.label}
           </button>
