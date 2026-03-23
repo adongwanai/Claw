@@ -67,3 +67,4 @@ docs/pr-session-notes-*.md
 .superpowers/
 .specstory/
 .gstack/
+.npm-cache/
