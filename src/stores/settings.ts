@@ -43,6 +43,17 @@ interface SettingsState {
   remoteRpcEnabled: boolean;
   p2pSyncEnabled: boolean;
 
+  // Identity / Brand
+  brandName: string;
+  brandSubtitle: string;
+  myName: string;
+
+  // Appearance toggles
+  showToolCalls: boolean;
+  emojiAvatar: boolean;
+  hideAvatarBg: boolean;
+  minimizeToTray: boolean;
+
   // Setup
   setupComplete: boolean;
 
@@ -71,6 +82,13 @@ interface SettingsState {
   setDevModeUnlocked: (value: boolean) => void;
   setRemoteRpcEnabled: (value: boolean) => void;
   setP2pSyncEnabled: (value: boolean) => void;
+  setBrandName: (value: string) => void;
+  setBrandSubtitle: (value: string) => void;
+  setMyName: (value: string) => void;
+  setShowToolCalls: (value: boolean) => void;
+  setEmojiAvatar: (value: boolean) => void;
+  setHideAvatarBg: (value: boolean) => void;
+  setMinimizeToTray: (value: boolean) => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
 }
@@ -100,6 +118,13 @@ const defaultSettings = {
   remoteRpcEnabled: false,
   p2pSyncEnabled: false,
   setupComplete: false,
+  brandName: 'KTClaw Control',
+  brandSubtitle: '智能编排中枢',
+  myName: 'Commander',
+  showToolCalls: false,
+  emojiAvatar: true,
+  hideAvatarBg: false,
+  minimizeToTray: true,
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -189,6 +214,13 @@ export const useSettingsStore = create<SettingsState>()(
       setRemoteRpcEnabled: (remoteRpcEnabled) => set({ remoteRpcEnabled }),
       setP2pSyncEnabled: (p2pSyncEnabled) => set({ p2pSyncEnabled }),
       markSetupComplete: () => set({ setupComplete: true }),
+      setBrandName: (brandName) => set({ brandName }),
+      setBrandSubtitle: (brandSubtitle) => set({ brandSubtitle }),
+      setMyName: (myName) => set({ myName }),
+      setShowToolCalls: (showToolCalls) => set({ showToolCalls }),
+      setEmojiAvatar: (emojiAvatar) => set({ emojiAvatar }),
+      setHideAvatarBg: (hideAvatarBg) => set({ hideAvatarBg }),
+      setMinimizeToTray: (minimizeToTray) => set({ minimizeToTray }),
       resetSettings: () => set(defaultSettings),
     }),
     {

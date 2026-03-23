@@ -34,38 +34,6 @@ const STATUS_LABEL: Record<string, string> = {
   disconnected: '未连接',
 };
 
-/* ─── Demo messages (IM preview) ─── */
-
-interface Message {
-  id: string;
-  type: 'system' | 'human' | 'agent';
-  sender?: string;
-  avatar?: string;
-  avatarBg?: string;
-  time: string;
-  content: string;
-  toolCall?: { name: string; duration: string };
-  toolResult?: string;
-}
-
-const MESSAGES: Message[] = [
-  { id: 'sys1', type: 'system', time: '今天 09:00', content: '飞书机器人「KTClaw主脑」已加入群聊' },
-  {
-    id: 'm1', type: 'human', sender: '李明（人类）', avatar: '李', avatarBg: '#8e8e93', time: '09:01',
-    content: '@KTClaw 帮我查一下昨天晚上的构建日志，好像有个服务 OOM 了。',
-  },
-  {
-    id: 'm2', type: 'agent', sender: 'KTClaw', avatar: '✦', avatarBg: '#10b981', time: '09:02',
-    content: '好的，我这就去排查昨天 20:00-08:00 的 Kubernetes 集群日志。',
-    toolCall: { name: 'query_k8s_logs', duration: '3.2s' },
-    toolResult: '查到了。昨晚 23:45 payment-service-v2 发生了 OOMKilled。需要我找回当时的慢 SQL 记录吗？',
-  },
-  {
-    id: 'm3', type: 'agent', sender: '沉思小助手', avatar: '🔍', avatarBg: '#3b82f6', time: '09:03',
-    content: '我自动补充一下：根据历史缺陷知识库，payment-service-v2 在上个月也发生过类似 OOM（相关工单：#BUG-4421）。',
-  },
-];
-
 /* ─── Main component ─── */
 
 export function Channels() {
@@ -114,6 +82,22 @@ export function Channels() {
       setTestResult({ id, ok: true, msg: '测试消息已发送' });
     } catch (e) {
       setTestResult({ id, ok: false, msg: String(e) });
+    }
+    setTimeout(() => setTestResult(null), 4000);
+  };
+
+  const handleSend = async () => {
+    if (!composerValue.trim() || !selected) return;
+    const text = composerValue.trim();
+    setComposerValue('');
+    try {
+      await hostApiFetch(`/api/channels/${encodeURIComponent(selected.id)}/send`, {
+        method: 'POST',
+        body: JSON.stringify({ text }),
+      });
+      setTestResult({ id: selected.id, ok: true, msg: `已发送：${text}` });
+    } catch (e) {
+      setTestResult({ id: selected.id, ok: false, msg: String(e) });
     }
     setTimeout(() => setTestResult(null), 4000);
   };
@@ -304,50 +288,9 @@ export function Channels() {
               </div>
             )}
 
-            {/* IM preview messages */}
-            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-4">
-              {MESSAGES.map((msg) => {
-                if (msg.type === 'system') {
-                  return (
-                    <div key={msg.id} className="flex items-center justify-center">
-                      <span className="rounded-full bg-[#f2f2f7] px-3 py-1 text-[11px] text-[#8e8e93]">
-                        + {msg.content} · {msg.time}
-                      </span>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={msg.id} className="flex items-start gap-3">
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[16px] text-white"
-                      style={{ background: msg.avatarBg }}
-                    >
-                      {msg.avatar}
-                    </div>
-                    <div className="flex flex-1 flex-col">
-                      <div className="mb-1 flex items-baseline gap-2">
-                        <span className="text-[13px] font-semibold text-[#000000]">{msg.sender}</span>
-                        <span className="text-[11px] text-[#8e8e93]">{msg.time}</span>
-                      </div>
-                      <p className="text-[14px] leading-[1.6] text-[#1c1c1e]">{msg.content}</p>
-                      {msg.toolCall && (
-                        <div className="mt-2 rounded-lg border border-black/[0.06] bg-[#f9f9f9] px-3 py-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-[12px] text-[#3c3c43]">
-                              ⚡ {msg.toolCall.name}{' '}
-                              <span className="text-[#8e8e93]">({msg.toolCall.duration})</span>
-                            </span>
-                            <span className="text-[11px] text-clawx-ac">▾ 展开详情</span>
-                          </div>
-                        </div>
-                      )}
-                      {msg.toolResult && (
-                        <p className="mt-2 text-[14px] leading-[1.6] text-[#1c1c1e]">{msg.toolResult}</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            {/* Channel activity panel */}
+            <div className="flex flex-1 flex-col overflow-y-auto px-5 py-4">
+              <ChannelActivityPanel channel={selected} />
             </div>
 
             {/* Composer */}
@@ -364,10 +307,16 @@ export function Channels() {
                 <input
                   value={composerValue}
                   onChange={(e) => setComposerValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); } }}
                   placeholder={`在 ${selected.name} 发送消息...`}
                   className="flex-1 bg-transparent text-[14px] text-[#000000] outline-none placeholder:text-[#8e8e93]"
                 />
-                <button type="button" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-white shadow-sm transition-colors hover:bg-[#059669]">
+                <button
+                  type="button"
+                  onClick={() => void handleSend()}
+                  disabled={!composerValue.trim()}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-white shadow-sm transition-colors hover:bg-[#059669] disabled:opacity-40"
+                >
                   ▶
                 </button>
               </div>
@@ -427,3 +376,74 @@ export function Channels() {
 }
 
 export default Channels;
+
+/* ─── Channel Activity Panel ─── */
+
+import type { Channel } from '@/types/channel';
+
+function ChannelActivityPanel({ channel }: { channel: Channel }) {
+  const isConnected = channel.status === 'connected';
+  const isError = channel.status === 'error';
+
+  const lastActivity = channel.lastActivity
+    ? new Date(channel.lastActivity).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      {/* Status card */}
+      <div className={cn(
+        'rounded-xl border px-4 py-3',
+        isConnected ? 'border-[#10b981]/20 bg-[#f0fdf4]' :
+        isError ? 'border-[#ef4444]/20 bg-[#fef2f2]' :
+        'border-black/[0.06] bg-[#f9f9f9]',
+      )}>
+        <div className="flex items-center gap-2">
+          <span className={cn('h-2 w-2 rounded-full', STATUS_DOT[channel.status])} />
+          <span className={cn('text-[13px] font-medium',
+            isConnected ? 'text-[#059669]' : isError ? 'text-[#ef4444]' : 'text-[#8e8e93]',
+          )}>
+            {STATUS_LABEL[channel.status]}
+          </span>
+        </div>
+        {lastActivity && (
+          <p className="mt-1 text-[12px] text-[#8e8e93]">最近活动：{lastActivity}</p>
+        )}
+        {channel.error && (
+          <p className="mt-1 text-[12px] text-[#ef4444]">{channel.error}</p>
+        )}
+      </div>
+
+      {/* Info rows */}
+      <div className="rounded-xl border border-black/[0.06] bg-white">
+        {[
+          { label: '频道 ID', value: channel.id },
+          { label: '类型', value: channel.type.toUpperCase() },
+          channel.accountId ? { label: '账号 ID', value: channel.accountId } : null,
+        ].filter(Boolean).map((row) => (
+          <div key={row!.label} className="flex items-center justify-between border-b border-black/[0.04] px-4 py-2.5 last:border-b-0">
+            <span className="text-[12px] text-[#8e8e93]">{row!.label}</span>
+            <span className="font-mono text-[12px] text-[#3c3c43]">{row!.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Message placeholder */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#c6c6c8] py-10 text-center">
+        {isConnected ? (
+          <>
+            <span className="text-[28px]">💬</span>
+            <p className="text-[13px] text-[#8e8e93]">等待消息中</p>
+            <p className="text-[12px] text-[#c6c6c8]">频道已连接，消息将在此显示</p>
+          </>
+        ) : (
+          <>
+            <span className="text-[28px] opacity-40">💬</span>
+            <p className="text-[13px] text-[#8e8e93]">频道未连接</p>
+            <p className="text-[12px] text-[#c6c6c8]">连接后可在此查看消息记录</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

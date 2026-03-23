@@ -352,6 +352,41 @@ export async function handleChannelRoutes(
     return true;
   }
 
+  // POST /api/channels/:id/send — send a custom message via the gateway
+  const sendMatch = url.pathname.match(/^\/api\/channels\/([^/]+)\/send$/);
+  if (sendMatch && req.method === 'POST') {
+    const channelId = decodeURIComponent(sendMatch[1]);
+    try {
+      const body = await parseJsonBody<{ text: string }>(req);
+      if (!body.text?.trim()) {
+        sendJson(res, 400, { success: false, error: 'text is required' });
+        return true;
+      }
+      const status = ctx.gatewayManager.getStatus();
+      if (status.state !== 'running') {
+        sendJson(res, 503, { success: false, error: 'Gateway is not running' });
+        return true;
+      }
+      const port = status.port ?? 3000;
+      const http = await import('node:http');
+      const payload = JSON.stringify({ channelId, text: body.text.trim() });
+      await new Promise<void>((resolve, reject) => {
+        const req2 = http.request(
+          { hostname: '127.0.0.1', port, path: '/api/channel/send', method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } },
+          (r) => { r.resume(); r.on('end', resolve); },
+        );
+        req2.on('error', reject);
+        req2.write(payload);
+        req2.end();
+      });
+      sendJson(res, 200, { success: true, message: '消息已发送' });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
   void ctx;
   return false;
 }

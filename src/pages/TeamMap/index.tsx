@@ -2,7 +2,7 @@
  * Team Map Page — Frame 03b
  * 团队层级拓扑图：Org chart 显示 Agent 层级关系
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useAgentsStore } from '@/stores/agents';
 import { useChatStore } from '@/stores/chat';
@@ -142,6 +142,8 @@ function EmptyState() {
 
 export function TeamMap() {
   const [activeTab, setActiveTab] = useState<'Teams' | 'Hierarchy'>('Hierarchy');
+  const [scale, setScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { agents, loading, fetchAgents, defaultAgentId } = useAgentsStore();
   const sessionLastActivity = useChatStore((s) => s.sessionLastActivity);
@@ -150,6 +152,10 @@ export function TeamMap() {
 
   const rootAgent = agents.find((a) => a.id === defaultAgentId) ?? agents[0] ?? null;
   const childAgents = agents.filter((a) => a.id !== rootAgent?.id);
+
+  const zoomIn = () => setScale((s) => Math.min(2, +(s + 0.2).toFixed(1)));
+  const zoomOut = () => setScale((s) => Math.max(0.4, +(s - 0.2).toFixed(1)));
+  const zoomFit = () => setScale(1);
 
   return (
     <div className="flex h-full flex-col bg-[#f2f2f7] p-6">
@@ -165,54 +171,70 @@ export function TeamMap() {
             <span className="h-[7px] w-[7px] rounded-full bg-[#8e8e93]" />
             待命
           </span>
+          {scale !== 1 && (
+            <span className="text-[11px] text-[#c6c6c8]">{Math.round(scale * 100)}%</span>
+          )}
           {loading && (
             <span className="text-[#c6c6c8]">加载中...</span>
           )}
         </div>
 
-        {/* Org chart */}
-        {!loading && !rootAgent ? (
-          <EmptyState />
-        ) : (
-          <div className="flex flex-1 flex-col items-center justify-center pb-16 pt-8">
-            {/* Root node */}
-            {rootAgent && (
-              <AgentNode
-                agent={rootAgent}
-                idx={0}
-                isRoot
-                isActive={isRecentlyActive(sessionLastActivity[rootAgent.mainSessionKey])}
-              />
-            )}
-
-            {/* Connector lines */}
-            {childAgents.length > 0 && rootAgent && (
-              <ConnectorLines childCount={childAgents.length} />
-            )}
-
-            {/* Children row */}
-            {childAgents.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-6">
-                {childAgents.map((agent, idx) => (
+        {/* Content */}
+        {activeTab === 'Hierarchy' ? (
+          !loading && !rootAgent ? (
+            <EmptyState />
+          ) : (
+            <div
+              ref={containerRef}
+              className="flex flex-1 items-center justify-center overflow-auto pb-16 pt-8"
+            >
+              <div
+                className="flex flex-col items-center transition-transform duration-200"
+                style={{ transform: `scale(${scale})`, transformOrigin: 'center top' }}
+              >
+                {rootAgent && (
                   <AgentNode
-                    key={agent.id}
-                    agent={agent}
-                    idx={idx}
-                    isRoot={false}
-                    isActive={isRecentlyActive(sessionLastActivity[agent.mainSessionKey])}
+                    agent={rootAgent}
+                    idx={0}
+                    isRoot
+                    isActive={isRecentlyActive(sessionLastActivity[rootAgent.mainSessionKey])}
                   />
-                ))}
+                )}
+                {childAgents.length > 0 && rootAgent && (
+                  <ConnectorLines childCount={childAgents.length} />
+                )}
+                {childAgents.length > 0 && (
+                  <div className="flex flex-wrap justify-center gap-6">
+                    {childAgents.map((agent, idx) => (
+                      <AgentNode
+                        key={agent.id}
+                        agent={agent}
+                        idx={idx}
+                        isRoot={false}
+                        isActive={isRecentlyActive(sessionLastActivity[agent.mainSessionKey])}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )
+        ) : (
+          <TeamsView agents={agents} loading={loading} sessionLastActivity={sessionLastActivity} />
         )}
 
         {/* Zoom controls (bottom-left) */}
         <div className="absolute bottom-4 left-4 flex flex-col gap-1">
-          {['+', '−', '⛶'].map((icon) => (
+          {([
+            { icon: '+', action: zoomIn, title: '放大' },
+            { icon: '−', action: zoomOut, title: '缩小' },
+            { icon: '⛶', action: zoomFit, title: '重置' },
+          ] as const).map(({ icon, action, title }) => (
             <button
               key={icon}
               type="button"
+              title={title}
+              onClick={action}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-[14px] text-[#3c3c43] shadow-sm transition-colors hover:bg-[#f2f2f7]"
             >
               {icon}
@@ -240,6 +262,64 @@ export function TeamMap() {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Teams view (channel-grouped cards) ─── */
+
+function TeamsView({
+  agents,
+  loading,
+  sessionLastActivity,
+}: {
+  agents: AgentSummary[];
+  loading: boolean;
+  sessionLastActivity: Record<string, number>;
+}) {
+  if (loading) {
+    return <div className="flex flex-1 items-center justify-center text-[13px] text-[#8e8e93]">加载中...</div>;
+  }
+  if (agents.length === 0) {
+    return <EmptyState />;
+  }
+
+  // Group agents by their channel types
+  const channelGroups = new Map<string, AgentSummary[]>();
+  channelGroups.set('全部', agents);
+  for (const agent of agents) {
+    for (const ch of agent.channelTypes) {
+      const prev = channelGroups.get(ch) ?? [];
+      channelGroups.set(ch, [...prev, agent]);
+    }
+  }
+  if (channelGroups.get('全部')?.length === agents.length && channelGroups.size === 1) {
+    // No channel assignments — just show all
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto px-8 py-6 pb-16">
+      <div className="space-y-6">
+        {[...channelGroups.entries()].map(([group, groupAgents]) => (
+          <div key={group}>
+            <div className="mb-3 flex items-center gap-2">
+              <span className="text-[12px] font-semibold uppercase tracking-[0.5px] text-[#8e8e93]">{group}</span>
+              <span className="rounded-full bg-[#f2f2f7] px-2 py-0.5 text-[11px] text-[#8e8e93]">{groupAgents.length}</span>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-4">
+              {groupAgents.map((agent, idx) => (
+                <AgentNode
+                  key={agent.id}
+                  agent={agent}
+                  idx={idx}
+                  isRoot={false}
+                  isActive={isRecentlyActive(sessionLastActivity[agent.mainSessionKey])}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -520,16 +520,12 @@ function InputField({
 /* ─── Section: General (07.1) ─── */
 
 function GeneralSection() {
-  const { theme, setTheme, accentColor, setAccentColor, language, setLanguage, launchAtStartup, setLaunchAtStartup } =
-    useSettingsStore();
-
-  const [showToolCalls, setShowToolCalls] = useState(false);
-  const [emojiAvatar, setEmojiAvatar] = useState(true);
-  const [hideAvatarBg, setHideAvatarBg] = useState(false);
-  const [minimizeToTray, setMinimizeToTray] = useState(true);
-  const [brandName, setBrandName] = useState('KTClaw Control');
-  const [brandSubtitle, setBrandSubtitle] = useState('智能编排中枢');
-  const [myName, setMyName] = useState('Commander');
+  const {
+    theme, setTheme, accentColor, setAccentColor, language, setLanguage, launchAtStartup, setLaunchAtStartup,
+    brandName, setBrandName, brandSubtitle, setBrandSubtitle, myName, setMyName,
+    showToolCalls, setShowToolCalls, emojiAvatar, setEmojiAvatar,
+    hideAvatarBg, setHideAvatarBg, minimizeToTray, setMinimizeToTray,
+  } = useSettingsStore();
 
   return (
     <>

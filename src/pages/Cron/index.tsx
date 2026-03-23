@@ -2,7 +2,7 @@
  * Cron Page — Frame 06
  * 定时任务 / Cron 总览：自动化执行调度
  */
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useCronStore } from '@/stores/cron';
 import type { CronJob } from '@/types/cron';
@@ -32,33 +32,64 @@ function formatTime(iso?: string): string {
   }
 }
 
-/* ─── Static schedule data (周历 demo) ─── */
+/* ─── Schedule helpers ─── */
 
-interface ScheduleTask {
-  agent: string;
-  agentIcon: string;
-  name: string;
-  time: string;
-  color: string;
-  bg: string;
+const DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
+// ISO weekday: 1=Mon … 7=Sun; cron dow: 0=Sun, 1=Mon … 6=Sat, 7=Sun
+
+/** Parse cron DOW field → set of ISO weekdays (1-7) */
+function parseCronDow(expr: string): Set<number> {
+  const all = new Set([1, 2, 3, 4, 5, 6, 7]);
+  if (!expr || expr === '*' || expr === '?') return all;
+  const result = new Set<number>();
+  for (const part of expr.split(',')) {
+    if (part.includes('-')) {
+      const [lo, hi] = part.split('-').map(Number);
+      for (let d = lo; d <= hi; d++) result.add(d === 0 || d === 7 ? 7 : d);
+    } else if (part === '*') {
+      return all;
+    } else {
+      const n = Number(part);
+      result.add(n === 0 ? 7 : n);
+    }
+  }
+  return result;
 }
 
-const DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+/** Which ISO weekdays (1-7) does this job run on? */
+function jobWeekdays(job: CronJob): Set<number> {
+  const sched = job.schedule;
+  if (typeof sched === 'string') {
+    const parts = sched.trim().split(/\s+/);
+    if (parts.length >= 5) return parseCronDow(parts[4]);
+    return new Set([1, 2, 3, 4, 5, 6, 7]);
+  }
+  if (sched.kind === 'cron') {
+    const parts = sched.expr.trim().split(/\s+/);
+    if (parts.length >= 5) return parseCronDow(parts[4]);
+  }
+  // 'every' and 'at' schedules run every day
+  return new Set([1, 2, 3, 4, 5, 6, 7]);
+}
 
-const MONKEY: Omit<ScheduleTask, 'name' | 'time'> = { agent: 'Monkey', agentIcon: '🤖', color: '#f97316', bg: '#fff7ed' };
-const SECURITY: Omit<ScheduleTask, 'name' | 'time'> = { agent: '安全审核', agentIcon: '⚠️', color: '#8b5cf6', bg: '#f5f3ff' };
-const KTCLAW_DARK: Omit<ScheduleTask, 'name' | 'time'> = { agent: 'KTClaw主脑', agentIcon: '✦', color: '#ffffff', bg: '#1c1c1e' };
-const KTCLAW_LIGHT: Omit<ScheduleTask, 'name' | 'time'> = { agent: 'KTClaw主脑', agentIcon: '✦', color: '#3c3c43', bg: '#ffffff' };
-const SICHEN: Omit<ScheduleTask, 'name' | 'time'> = { agent: '沉思小助手', agentIcon: '🔍', color: '#059669', bg: '#f0fdf4' };
+/** Extract hour from cron expression (or return undefined) */
+function jobHour(job: CronJob): number | undefined {
+  const sched = job.schedule;
+  const expr = typeof sched === 'string' ? sched : sched.kind === 'cron' ? sched.expr : null;
+  if (!expr) return undefined;
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length < 2) return undefined;
+  const h = Number(parts[1]);
+  return Number.isFinite(h) ? h : undefined;
+}
 
-function repeat5<T>(task: T): (T | null)[] { return [task, task, task, task, task, null]; }
-
-type TimeBlock = { hour: string; entries: (ScheduleTask | null)[][] };
-
-const TIME_BLOCKS: TimeBlock[] = [
-  { hour: '05:00', entries: [repeat5({ ...MONKEY, name: 'monkey-discovery', time: '05:00' }), repeat5({ ...SECURITY, name: 'auth-watchman', time: '05:30' }), repeat5({ ...KTCLAW_DARK, name: 'vault-snapshot', time: '05:50' })] },
-  { hour: '06:00', entries: [repeat5({ ...KTCLAW_DARK, name: 'builder-briefing', time: '06:00' })] },
-  { hour: '07:00', entries: [repeat5({ ...SICHEN, name: 'outpost-mirror', time: '07:00' }), [null, { ...KTCLAW_LIGHT, name: 'robin-weekly-brief', time: '07:30' }, null, null, null, null]] },
+const JOB_COLORS = [
+  { color: '#3b82f6', bg: '#eff6ff' },
+  { color: '#f97316', bg: '#fff7ed' },
+  { color: '#10b981', bg: '#f0fdf4' },
+  { color: '#8b5cf6', bg: '#f5f3ff' },
+  { color: '#ec4899', bg: '#fdf2f8' },
+  { color: '#f59e0b', bg: '#fffbeb' },
 ];
 
 const TABS = ['总览 Overview', '排期表 Schedule', '流水线 Pipelines'] as const;
@@ -258,47 +289,76 @@ function OverviewTab({
 /* ─── Schedule Tab ─── */
 
 function ScheduleTab({ jobs }: { jobs: CronJob[] }) {
-  // Build a simple "next runs" list from real jobs that have nextRun
   const upcoming = jobs
     .filter((j) => j.enabled && j.nextRun)
     .sort((a, b) => new Date(a.nextRun!).getTime() - new Date(b.nextRun!).getTime())
-    .slice(0, 8);
+    .slice(0, 10);
+
+  // Build per-day job lists (ISO weekday 1=Mon … 7=Sun → index 0-6)
+  const dayJobs: CronJob[][] = Array.from({ length: 7 }, () => []);
+  for (const job of jobs) {
+    const days = jobWeekdays(job);
+    for (const d of days) {
+      dayJobs[d - 1].push(job);
+    }
+  }
+
+  const hasAnyJob = jobs.length > 0;
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Left: static weekly grid (demo) */}
-      <div className="flex w-[64px] shrink-0 flex-col">
-        <div className="h-[42px] shrink-0" />
-        {TIME_BLOCKS.map((block) => (
-          <div key={block.hour} className="relative">
-            <div className="flex min-h-[120px] flex-col justify-start pl-4 pt-2">
-              <span className="text-[12px] font-medium text-[#8e8e93]">{block.hour}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-1 flex-col overflow-auto border-l border-black/[0.04]">
+      {/* Weekly grid */}
+      <div className="flex flex-1 flex-col overflow-auto">
+        {/* Day headers */}
         <div className="flex shrink-0 border-b border-black/[0.06]">
-          {DAYS.map((day) => (
-            <div key={day} className="flex-1 py-3 text-center text-[12px] font-medium text-[#8e8e93]">{day}</div>
+          {DAYS.map((day, i) => (
+            <div key={day} className={cn('flex-1 py-3 text-center text-[12px] font-medium', i < 5 ? 'text-[#3c3c43]' : 'text-[#c6c6c8]')}>
+              {day}
+            </div>
           ))}
         </div>
-        {TIME_BLOCKS.map((block) => (
-          <div key={block.hour} className="flex shrink-0 border-b border-black/[0.04]">
-            {DAYS.map((_, dayIdx) => (
-              <div key={dayIdx} className="flex flex-1 flex-col gap-2 border-r border-black/[0.04] p-2">
-                {block.entries.map((row, rowIdx) => {
-                  const task = row[dayIdx];
-                  if (!task) return <div key={rowIdx} className="invisible h-[60px]" />;
-                  return <ScheduleCard key={rowIdx} task={task} />;
-                })}
+
+        {/* Job cells */}
+        <div className="flex flex-1 overflow-y-auto">
+          {!hasAnyJob ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
+              <span className="text-[32px]">📅</span>
+              <p className="text-[13px] text-[#8e8e93]">暂无定时任务</p>
+              <p className="text-[12px] text-[#c6c6c8]">创建任务后将显示在对应星期列</p>
+            </div>
+          ) : (
+            DAYS.map((day, dayIdx) => (
+              <div key={day} className="flex flex-1 flex-col gap-2 border-r border-black/[0.04] p-2">
+                {dayJobs[dayIdx].length === 0 ? (
+                  <div className="flex flex-1 items-center justify-center">
+                    <span className="text-[11px] text-[#e5e5ea]">—</span>
+                  </div>
+                ) : (
+                  dayJobs[dayIdx].map((job, i) => {
+                    const { color, bg } = JOB_COLORS[i % JOB_COLORS.length];
+                    const hour = jobHour(job);
+                    return (
+                      <div
+                        key={job.id}
+                        className="rounded-lg px-2.5 py-2"
+                        style={{ background: bg, borderLeft: `3px solid ${color}` }}
+                      >
+                        <p className="text-[12px] font-semibold leading-tight text-[#1c1c1e]">{job.name}</p>
+                        <p className="mt-0.5 text-[10px]" style={{ color }}>
+                          {hour !== undefined ? `${String(hour).padStart(2, '0')}:00` : formatSchedule(job.schedule)}
+                        </p>
+                        <span className={cn('mt-1 inline-block h-1.5 w-1.5 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            ))}
-          </div>
-        ))}
+            ))
+          )}
+        </div>
       </div>
 
-      {/* Right: upcoming real jobs panel */}
+      {/* Right: upcoming panel */}
       <div className="flex w-[220px] shrink-0 flex-col border-l border-black/[0.06] bg-[#f9f9f9]">
         <div className="border-b border-black/[0.06] px-4 py-3">
           <p className="text-[12px] font-semibold text-[#3c3c43]">即将执行</p>
@@ -322,20 +382,6 @@ function ScheduleTab({ jobs }: { jobs: CronJob[] }) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function ScheduleCard({ task }: { task: ScheduleTask }) {
-  const isDark = task.bg === '#1c1c1e';
-  return (
-    <div className="rounded-lg px-2.5 py-2 text-left" style={{ background: task.bg, borderLeft: `3px solid ${task.color}` }}>
-      <div className="mb-0.5 flex items-center gap-1">
-        <span className="text-[10px]">{task.agentIcon}</span>
-        <span className="text-[10px] font-medium" style={{ color: isDark ? '#9ca3af' : task.color }}>{task.agent}</span>
-      </div>
-      <p className="text-[12px] font-semibold leading-tight" style={{ color: isDark ? '#ffffff' : '#1c1c1e' }}>{task.name}</p>
-      <p className="mt-0.5 text-[11px]" style={{ color: isDark ? '#6b7280' : '#8e8e93' }}>{task.time}</p>
     </div>
   );
 }
@@ -482,8 +528,8 @@ function PipelinesTab({
                 const run = job.lastRun;
                 const isExpanded = expandedJobId === job.id;
                 return (
-                  <>
-                    <tr key={job.id} className="group border-b border-black/[0.04] transition-colors hover:bg-[#f9f9f9]">
+                  <Fragment key={job.id}>
+                    <tr className="group border-b border-black/[0.04] transition-colors hover:bg-[#f9f9f9]">
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2">
                           <span className={cn('h-2 w-2 shrink-0 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
@@ -535,7 +581,7 @@ function PipelinesTab({
                         onClose={() => setExpandedJobId(null)}
                       />
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
