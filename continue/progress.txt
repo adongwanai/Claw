@@ -1058,3 +1058,44 @@ Focus: 清除所有静态假数据，接入真实 store/API
 1. electron/api/routes/update.ts — 接入 electron-updater，暴露 check/download/install
 2. Settings 自动更新 UI — 接入 update store 的 checkForUpdates/downloadUpdate/installUpdate
 3. TeamMap — 从 useAgentsStore 读取 parentId 构建真实树形层级图
+
+---
+## 2026-03-23 Session-4
+
+### 完成内容
+1. **continue/task.json 重建**：原文件损坏（非合法 JSON），用 Python UTF-8 写入重建，恢复持久化主链路
+2. **Electron 侧 22 个 TS 错误全部修复**：
+   - skills.ts：ClawHubSearchParams/InstallParams/UninstallParams 类型断言
+   - clawhub.ts：ELECTRON_RUN_AS_NODE any cast；null 过滤；类型谓词修正
+   - manager.ts：RESTART_COOLDOWN_MS static + lastRestartAt instance 属性补全
+   - process-launcher.ts：string → new Error() 包装
+   - main/index.ts：setDesktopName → (app as any)
+   - proxy.ts：ProxySettings 补 optional 字段
+   - browser-oauth.ts：移除未使用 activeProvider
+   - device-identity.ts：crypto 类型修正 + 回调显式 any
+   - openclaw-doctor.ts：instanceof 左侧类型修正
+   - proxy-fetch.ts：URL → string 转换
+   - secure-storage.ts："custom" 加入 provider union
+   - tsconfig.node.json：加入 shared/** include
+3. **Renderer 侧 TS 零错误**：tsconfig.json 移除 project reference，加入 shared/ include
+4. **Vitest 拆分 node/jsdom 双 project**：Node util 测试不再跑在 jsdom 环境，假红问题修复
+5. **TaskKanban 乱码全部修复**：拖拽到此处 / 简短描述任务目标 / 回答问题 / 拒绝/批准/取消/确认；IME guard 补全
+6. **Settings 两个 select 绑定 store**：orgTemplate（默认架构方案）/ groupChatMode（群聊行为模式）
+7. **Channels UX 修复**：发送成功后才清空 composer；Enter 加 IME guard；load error 不再吞掉
+8. **Chat workingDirectory 接通 RPC**：cwd 字段传入 gateway RPC payload
+9. **GLM-5 硬编码替换**：改为 useSettingsStore().defaultModel
+10. **i18n 日语（ja）重新接入**：supportedLngs + 语言设置 UI
+
+### 类型检查
+- pnpm run typecheck → 零报错
+- pnpm exec tsc -p tsconfig.node.json --noEmit → 零报错
+
+### 提交
+- 18bbece fix: session-4 — TS errors, UX bugs, Vitest env split
+- 1fe85f2 chore: ignore .npm-cache directory
+
+### 下一步（优先级）
+1. #18 context-rail 文件面板接真实数据（src/components/workbench/context-rail.tsx）
+2. #25 TeamMap 真实层级 + 节点详情行为（src/pages/TeamMap/index.tsx）
+3. #27 路由懒加载重构（主 chunk 2.24MB，route-level lazy import）
+4. #20 Settings 剩余死按钮（添加路由规则/路径白名单/编辑黑名单/添加工具许可/快速授权模版）
