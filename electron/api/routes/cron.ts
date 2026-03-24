@@ -285,6 +285,8 @@ function transformCronJob(job: GatewayCronJob) {
     message,
     schedule: job.schedule,
     target,
+    delivery: job.delivery,
+    sessionTarget: job.sessionTarget,
     enabled: job.enabled,
     createdAt: new Date(job.createdAtMs).toISOString(),
     updatedAt: new Date(job.updatedAtMs).toISOString(),

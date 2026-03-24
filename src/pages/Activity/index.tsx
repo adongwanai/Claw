@@ -49,7 +49,7 @@ function detectTimestamp(line: string): string | null {
 
 function splitTitleAndDetail(message: string): { title: string; detail: string } {
   const normalized = message.trim();
-  if (!normalized) return { title: 'Log event', detail: '' };
+  if (!normalized) return { title: '日志事件', detail: '' };
 
   const dashIndex = normalized.indexOf(' - ');
   if (dashIndex > 0) {
@@ -146,21 +146,34 @@ function parseLogContent(content: string): ActivityEntry[] {
         timestamp,
         level,
         category: detectCategory(raw, level),
-        title: structured.title || 'Log event',
+        title: structured.title || '日志事件',
         detail: structured.detail,
       };
     });
 }
 
 function formatTimestamp(timestamp: string | null): string {
-  if (!timestamp) return 'No timestamp';
+  if (!timestamp) return '无时间戳';
   const parsed = new Date(timestamp);
   if (Number.isNaN(parsed.getTime())) return timestamp;
-  return parsed.toLocaleString();
+  return parsed.toLocaleString('zh-CN');
 }
 
-function titleCase(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function formatCategoryLabel(value: EventCategory): string {
+  switch (value) {
+    case 'system':
+      return '系统';
+    case 'agent':
+      return '分身';
+    case 'cron':
+      return '定时任务';
+    case 'channel':
+      return '频道';
+    case 'error':
+      return '错误';
+    default:
+      return value;
+  }
 }
 
 export function Activity() {
@@ -247,10 +260,10 @@ export function Activity() {
   return (
     <div className="flex h-full flex-col bg-[#f2f2f7]">
       <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-[#c6c6c8] bg-white px-5">
-        <h1 className="text-[15px] font-semibold text-[#000000]">Activity logs</h1>
+        <h1 className="text-[15px] font-semibold text-[#000000]">活动日志</h1>
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-[#6b7280]">
-            {isLive ? 'Auto-refresh every 5s' : 'Auto-refresh paused'}
+            {isLive ? '每 5 秒自动刷新' : '自动刷新已暂停'}
           </span>
           <button
             type="button"
@@ -263,7 +276,7 @@ export function Activity() {
                 : 'bg-[#f2f2f7] text-[#3c3c43] hover:bg-[#e6e6eb]',
             )}
           >
-            {isLive ? 'Live: On' : 'Live: Off'}
+            {isLive ? '实时刷新：开启' : '实时刷新：关闭'}
           </button>
           <button
             type="button"
@@ -271,18 +284,18 @@ export function Activity() {
             disabled={loading}
             className="rounded-lg px-3 py-1.5 text-[13px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7] disabled:opacity-60"
           >
-            Refresh
+            刷新
           </button>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-5">
         <div className="grid gap-3 md:grid-cols-3">
-          <SummaryCard title="Total entries" value={String(totalCount)} subtitle="Raw lines parsed" />
-          <SummaryCard title="Errors" value={String(errorCount)} subtitle="Potential failures" />
+          <SummaryCard title="总条目" value={String(totalCount)} subtitle="已解析原始日志" />
+          <SummaryCard title="错误" value={String(errorCount)} subtitle="潜在失败" />
           <SummaryCard
-            title="Level mix"
-            value={`${filteredEntries.length} shown`}
+            title="级别概览"
+            value={`显示 ${filteredEntries.length} 条`}
             subtitle={`I:${levelSummary.info} W:${levelSummary.warn} E:${levelSummary.error} D:${levelSummary.debug}`}
           />
         </div>
@@ -290,66 +303,66 @@ export function Activity() {
         <section className="mt-4 rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="grid gap-3 md:grid-cols-3">
             <label className="text-[12px] font-medium text-[#3c3c43]">
-              Search logs
+              搜索日志
               <input
-                aria-label="Search logs"
+                aria-label="搜索日志"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search title, detail, raw line"
+                placeholder="搜索标题、详情或原始日志"
                 className="mt-1 h-9 w-full rounded-lg border border-[#d1d1d6] bg-white px-3 text-[13px] text-[#111827] outline-none focus:border-clawx-ac"
               />
             </label>
             <label className="text-[12px] font-medium text-[#3c3c43]">
-              Level filter
+              级别筛选
               <select
-                aria-label="Level filter"
+                aria-label="级别筛选"
                 value={levelFilter}
                 onChange={(event) => setLevelFilter(event.target.value as LogLevelFilter)}
                 className="mt-1 h-9 w-full rounded-lg border border-[#d1d1d6] bg-white px-3 text-[13px] text-[#111827] outline-none focus:border-clawx-ac"
               >
-                <option value="all">All levels</option>
-                <option value="info">Info</option>
-                <option value="warn">Warn</option>
-                <option value="error">Error</option>
-                <option value="debug">Debug</option>
+                <option value="all">全部级别</option>
+                <option value="info">信息</option>
+                <option value="warn">警告</option>
+                <option value="error">错误</option>
+                <option value="debug">调试</option>
               </select>
             </label>
             <label className="text-[12px] font-medium text-[#3c3c43]">
-              Category filter
+              分类筛选
               <select
-                aria-label="Category filter"
+                aria-label="分类筛选"
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value as EventCategoryFilter)}
                 className="mt-1 h-9 w-full rounded-lg border border-[#d1d1d6] bg-white px-3 text-[13px] text-[#111827] outline-none focus:border-clawx-ac"
               >
-                <option value="all">All categories</option>
-                <option value="system">System</option>
-                <option value="agent">Agent</option>
-                <option value="cron">Cron</option>
-                <option value="channel">Channel</option>
-                <option value="error">Error</option>
+                <option value="all">全部分类</option>
+                <option value="system">系统</option>
+                <option value="agent">分身</option>
+                <option value="cron">定时任务</option>
+                <option value="channel">频道</option>
+                <option value="error">错误</option>
               </select>
             </label>
           </div>
         </section>
 
         <section className="mt-4 rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          {loading && <p className="px-4 py-6 text-[13px] text-[#8e8e93]">Loading activity logs...</p>}
+          {loading && <p className="px-4 py-6 text-[13px] text-[#8e8e93]">正在加载活动日志...</p>}
 
           {!loading && error && (
             <div className="px-4 py-6">
-              <p className="text-[13px] font-medium text-[#b91c1c]">Failed to load activity logs.</p>
+              <p className="text-[13px] font-medium text-[#b91c1c]">加载活动日志失败。</p>
               <p className="mt-1 text-[12px] text-[#8e8e93]">{error}</p>
             </div>
           )}
 
           {!loading && !error && totalCount === 0 && (
-            <p className="px-4 py-8 text-center text-[13px] text-[#8e8e93]">No activity logs found.</p>
+            <p className="px-4 py-8 text-center text-[13px] text-[#8e8e93]">暂无活动日志。</p>
           )}
 
           {!loading && !error && totalCount > 0 && filteredEntries.length === 0 && (
             <p className="px-4 py-8 text-center text-[13px] text-[#8e8e93]">
-              No log entries match the current filters.
+              没有符合当前筛选条件的日志。
             </p>
           )}
 
@@ -370,7 +383,7 @@ export function Activity() {
                         {entry.level}
                       </span>
                       <span className="rounded-full bg-[#f2f2f7] px-2 py-0.5 text-[10px] font-medium uppercase text-[#3c3c43]">
-                        {titleCase(entry.category)}
+                        {formatCategoryLabel(entry.category)}
                       </span>
                     </div>
 
@@ -384,13 +397,13 @@ export function Activity() {
                       onClick={() => toggleRaw(entry.id)}
                       className="mt-2 text-[12px] font-medium text-clawx-ac hover:underline"
                     >
-                      {expanded ? 'Hide raw' : 'Show raw'}
+                      {expanded ? '隐藏原始日志' : '查看原始日志'}
                     </button>
 
                     {expanded && (
                       <div className="mt-2 rounded-lg border border-[#e5e7eb] bg-[#f8fafc] p-3">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#64748b]">
-                          Raw line
+                          原始日志
                         </p>
                         <pre className="mt-1 overflow-x-auto whitespace-pre-wrap text-[12px] text-[#111827]">
                           {entry.raw}

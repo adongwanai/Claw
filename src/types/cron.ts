@@ -14,6 +14,12 @@ export interface CronJobTarget {
   channelName: string;
 }
 
+export interface CronJobDelivery {
+  mode: string;
+  channel?: string;
+  to?: string;
+}
+
 /**
  * Cron job last run info
  */
@@ -42,6 +48,8 @@ export interface CronJob {
   message: string;
   schedule: string | CronSchedule;
   target?: CronJobTarget;
+  delivery?: CronJobDelivery;
+  sessionTarget?: string;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;

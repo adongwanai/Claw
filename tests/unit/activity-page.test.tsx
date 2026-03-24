@@ -32,7 +32,7 @@ describe('Activity page structured log view', () => {
     vi.mocked(hostApiFetch).mockReturnValueOnce(deferred.promise);
 
     render(<Activity />);
-    expect(screen.getByText('Loading activity logs...')).toBeInTheDocument();
+    expect(screen.getByText('正在加载活动日志...')).toBeInTheDocument();
 
     deferred.resolve({
       content: [
@@ -43,20 +43,20 @@ describe('Activity page structured log view', () => {
       ].join('\n'),
     });
 
-    expect(await screen.findByRole('heading', { name: 'Activity logs' })).toBeInTheDocument();
-    expect(screen.getByText('Total entries')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '活动日志' })).toBeInTheDocument();
+    expect(screen.getByText('总条目')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
-    expect(screen.getByText('Errors')).toBeInTheDocument();
+    expect(screen.getAllByText('错误').length).toBeGreaterThan(0);
     expect(screen.getByText('1')).toBeInTheDocument();
 
-    const searchInput = screen.getByLabelText('Search logs');
+    const searchInput = screen.getByLabelText('搜索日志');
     fireEvent.change(searchInput, { target: { value: 'planner' } });
     expect(screen.getByText('agent planner failed')).toBeInTheDocument();
     expect(screen.queryByText('System boot completed')).not.toBeInTheDocument();
 
     fireEvent.change(searchInput, { target: { value: '' } });
 
-    const categorySelect = screen.getByLabelText('Category filter');
+    const categorySelect = screen.getByLabelText('分类筛选');
     fireEvent.change(categorySelect, { target: { value: 'channel' } });
     expect(screen.getByText('channel feishu inbound id=abc123')).toBeInTheDocument();
     expect(screen.queryByText('cron heartbeat delayed by 12s')).not.toBeInTheDocument();
@@ -67,17 +67,17 @@ describe('Activity page structured log view', () => {
 
     fireEvent.change(categorySelect, { target: { value: 'all' } });
 
-    const levelSelect = screen.getByLabelText('Level filter');
+    const levelSelect = screen.getByLabelText('级别筛选');
     fireEvent.change(levelSelect, { target: { value: 'error' } });
     expect(screen.getByText('agent planner failed')).toBeInTheDocument();
     expect(screen.queryByText('channel feishu inbound id=abc123')).not.toBeInTheDocument();
 
     fireEvent.change(levelSelect, { target: { value: 'all' } });
 
-    const showRawButtons = await screen.findAllByRole('button', { name: 'Show raw' });
+    const showRawButtons = await screen.findAllByRole('button', { name: '查看原始日志' });
     fireEvent.click(showRawButtons[0]);
     await waitFor(() => {
-      expect(screen.getByText('Raw line')).toBeInTheDocument();
+      expect(screen.getByText('原始日志')).toBeInTheDocument();
     });
     expect(screen.getByText('2026-03-24T10:00:00Z [INFO] System boot completed')).toBeInTheDocument();
   });
@@ -97,7 +97,7 @@ describe('Activity page structured log view', () => {
     expect(await screen.findByText('2')).toBeInTheDocument();
     expect(screen.getByText('agent planner failed')).toBeInTheDocument();
 
-    const rawButtons = await screen.findAllByRole('button', { name: 'Show raw' });
+    const rawButtons = await screen.findAllByRole('button', { name: '查看原始日志' });
     fireEvent.click(rawButtons[1]);
 
     expect(await screen.findByText(/Error: tool timeout while waiting for shell result/i)).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe('Activity page structured log view', () => {
     });
 
     expect(screen.getByText('System boot completed')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Live: On' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '实时刷新：开启' })).toBeInTheDocument();
     expect(hostApiFetch).toHaveBeenCalledTimes(1);
 
     await act(async () => {
@@ -125,16 +125,16 @@ describe('Activity page structured log view', () => {
     });
     expect(hostApiFetch).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Live: On' }));
-    expect(screen.getByRole('button', { name: 'Live: Off' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '实时刷新：开启' }));
+    expect(screen.getByRole('button', { name: '实时刷新：关闭' })).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10000);
     });
     expect(hostApiFetch).toHaveBeenCalledTimes(2);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Live: Off' }));
-    expect(screen.getByRole('button', { name: 'Live: On' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '实时刷新：关闭' }));
+    expect(screen.getByRole('button', { name: '实时刷新：开启' })).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
@@ -153,7 +153,7 @@ describe('Activity page structured log view', () => {
 
     render(<Activity />);
 
-    expect(await screen.findByText('No activity logs found.')).toBeInTheDocument();
+    expect(await screen.findByText('暂无活动日志。')).toBeInTheDocument();
   });
 
   it('renders an error state when logs request fails', async () => {
@@ -161,7 +161,7 @@ describe('Activity page structured log view', () => {
 
     render(<Activity />);
 
-    expect(await screen.findByText('Failed to load activity logs.')).toBeInTheDocument();
+    expect(await screen.findByText('加载活动日志失败。')).toBeInTheDocument();
     expect(screen.getByText('network down')).toBeInTheDocument();
   });
 });

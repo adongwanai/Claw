@@ -32,6 +32,22 @@ function formatTime(iso?: string): string {
   }
 }
 
+function formatDelivery(job: CronJob): string {
+  const delivery = job.delivery;
+  if (!delivery || delivery.mode === 'none') return 'Chat only';
+  if (delivery.channel) {
+    return delivery.to
+      ? `${delivery.channel} → ${delivery.to}`
+      : delivery.channel;
+  }
+  return delivery.mode;
+}
+
+function formatSessionTarget(sessionTarget?: string): string {
+  if (!sessionTarget) return 'default';
+  return sessionTarget;
+}
+
 /* ─── Schedule helpers ─── */
 
 const DAYS = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
@@ -271,6 +287,13 @@ function OverviewTab({
                 {job.nextRun && <span>下次：{formatTime(job.nextRun)}</span>}
                 {job.lastRun && <span>上次：{formatTime(job.lastRun.time)}</span>}
               </div>
+              <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#8e8e93]">
+                <span>{`Delivery: ${formatDelivery(job)}`}</span>
+                <span>{`Session target: ${formatSessionTarget(job.sessionTarget)}`}</span>
+              </div>
+              {job.lastRun?.error ? (
+                <p className="mt-1 truncate text-[11px] text-[#ef4444]">{job.lastRun.error}</p>
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button type="button" onClick={() => onTrigger(job.id)} className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]">▶ 立即执行</button>
@@ -406,27 +429,50 @@ interface RunEntry {
   provider?: string;
 }
 
-function RunHistoryPanel({ jobId, onClose }: { jobId: string; onClose: () => void }) {
+function RunDetailPanel({ job, onClose }: { job: CronJob; onClose: () => void }) {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     import('@/lib/host-api').then(({ hostApiFetch }) =>
-      hostApiFetch<{ runs: RunEntry[] }>(`/api/cron/runs/${encodeURIComponent(jobId)}`)
+      hostApiFetch<{ runs: RunEntry[] }>(`/api/cron/runs/${encodeURIComponent(job.id)}`)
         .then((data) => setRuns(data.runs ?? []))
         .catch(() => setRuns([]))
         .finally(() => setLoading(false))
     );
-  }, [jobId]);
+  }, [job.id]);
 
   return (
     <tr>
       <td colSpan={6} className="bg-[#f9fafb] px-8 pb-4 pt-2">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[12px] font-semibold text-[#3c3c43]">执行历史</span>
+          <span className="text-[12px] font-semibold text-[#3c3c43]">运行详情</span>
           <button type="button" onClick={onClose} className="text-[11px] text-[#8e8e93] hover:text-[#3c3c43]">收起</button>
         </div>
+        <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-black/[0.06] bg-white px-3 py-3 text-[12px] text-[#3c3c43]">
+          <div>
+            <span className="text-[#8e8e93]">Delivery: </span>
+            <span>{formatDelivery(job)}</span>
+          </div>
+          <div>
+            <span className="text-[#8e8e93]">Session target: </span>
+            <span>{formatSessionTarget(job.sessionTarget)}</span>
+          </div>
+          <div>
+            <span className="text-[#8e8e93]">Schedule: </span>
+            <span>{formatSchedule(job.schedule)}</span>
+          </div>
+          <div>
+            <span className="text-[#8e8e93]">Next run: </span>
+            <span>{job.nextRun ? formatTime(job.nextRun) : '—'}</span>
+          </div>
+        </div>
+        {job.lastRun?.error ? (
+          <div className="mb-3 rounded-xl border border-[#ef4444]/20 bg-[#fef2f2] px-3 py-2 text-[12px] text-[#b91c1c]">
+            {job.lastRun.error}
+          </div>
+        ) : null}
         {loading ? (
           <p className="text-[12px] text-[#8e8e93]">加载中...</p>
         ) : runs.length === 0 ? (
@@ -435,7 +481,7 @@ function RunHistoryPanel({ jobId, onClose }: { jobId: string; onClose: () => voi
           <table className="w-full border-collapse text-[12px]">
             <thead>
               <tr className="border-b border-black/[0.06]">
-                {['执行时间', '状态', '耗时', '摘要'].map((h) => (
+                {['执行时间', '状态', '耗时', '模型', '摘要'].map((h) => (
                   <th key={h} className="pb-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.4px] text-[#c6c6c8]">{h}</th>
                 ))}
               </tr>
@@ -457,6 +503,7 @@ function RunHistoryPanel({ jobId, onClose }: { jobId: string; onClose: () => voi
                       )}
                     </td>
                     <td className="py-2 pr-4 font-mono text-[#8e8e93]">{formatDuration(r.durationMs)}</td>
+                    <td className="py-2 pr-4 text-[#8e8e93]">{r.model ?? '—'}</td>
                     <td className="py-2 max-w-[320px] truncate text-[#3c3c43]" title={summary}>{summary}</td>
                   </tr>
                 );
@@ -535,6 +582,7 @@ function PipelinesTab({
                           <span className={cn('h-2 w-2 shrink-0 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
                           <span className="font-medium text-[#000000]">{job.name}</span>
                         </div>
+                        <p className="mt-0.5 truncate pl-4 text-[11px] text-[#8e8e93]">{`Delivery: ${formatDelivery(job)}`}</p>
                         {run?.error && (
                           <p className="mt-0.5 truncate pl-4 text-[11px] text-[#ef4444]">{run.error}</p>
                         )}
@@ -569,15 +617,15 @@ function PipelinesTab({
                             onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
                             className={cn('rounded-md border px-2.5 py-1 text-[12px] transition-colors', isExpanded ? 'border-clawx-ac/30 bg-clawx-ac/5 text-clawx-ac' : 'border-black/10 text-[#3c3c43] hover:bg-[#f2f2f7]')}
                           >
-                            {isExpanded ? '▲ 收起' : '历史'}
+                            {isExpanded ? '收起' : '详情'}
                           </button>
                         </div>
                       </td>
                     </tr>
                     {isExpanded && (
-                      <RunHistoryPanel
+                      <RunDetailPanel
                         key={`history-${job.id}`}
-                        jobId={job.id}
+                        job={job}
                         onClose={() => setExpandedJobId(null)}
                       />
                     )}

@@ -1515,6 +1515,61 @@ Focus: Close the remaining session-management gap by adding a real session-detai
 
 ### 下一步
 - 从平台级 P0 中二选一继续推进：`MCP runtime closure` 或 `E2E / release verification gates`
+[2026-03-24 23:04 +08:00] Session: Session-14/15 cron detail closure + activity zh + e2e guardrails
+Focus: Continue platform-level P0 closure by improving Cron detail visibility, localizing Activity to Chinese, and turning Playwright e2e from placeholder into a real gate
+
+### 完成内容
+1. **Cron 运行详情增强**
+   - `src/types/cron.ts` 新增 `delivery` / `sessionTarget`
+   - `electron/api/routes/cron.ts` 不再在前端 DTO 层丢弃 `delivery` 与 `sessionTarget`
+   - `src/pages/Cron/index.tsx`：
+     - Overview 卡片补 `Delivery` 摘要与 last error 上下文
+     - Pipelines 中的 `历史` 升级为 `详情`
+     - 详情面板补齐 `Delivery`、`Session target`、`Schedule`、`Next run`、`last error`
+     - recent runs 表格补齐 model 列
+2. **Activity 中文化**
+   - `src/pages/Activity/index.tsx` 全页改为中文壳层文案：
+     - 页面标题
+     - summary cards
+     - 搜索 / 级别筛选 / 分类筛选
+     - 实时刷新状态
+     - empty / error state
+     - raw 展开按钮与标题
+     - 分类标签
+   - `tests/unit/activity-page.test.tsx` 回归断言同步改为中文
+3. **真实 E2E / CI 门禁**
+   - `package.json` 移除 `test:e2e` / `test:e2e:headed` 的 `--pass-with-no-tests`
+   - 新增 `tests/unit/e2e-guardrails.test.ts`，锁定：
+     - 不允许 e2e 空跑
+     - 必须存在 `playwright.config.ts`
+     - 必须存在真实 smoke spec
+     - CI 主工作流必须执行 Playwright
+   - 新增 `playwright.config.ts`、`vite.playwright.config.ts`、`tests/e2e/app-smoke.spec.ts`
+   - `.github/workflows/check.yml` 新增 Playwright Chromium 安装与 `pnpm run test:e2e`
+
+### 调试与验证
+- Cron / Activity 采用 TDD：
+  - `pnpm test -- tests/unit/cron-page.test.tsx` 红 → 绿
+  - `pnpm test -- tests/unit/activity-page.test.tsx` 红 → 绿
+- E2E 门禁：
+  - `pnpm test -- tests/unit/e2e-guardrails.test.ts` 红 → 绿
+  - 首次 `pnpm run test:e2e` 失败，根因是 `webServer` 启动了带 Electron side-effect 的 `vite.config.ts`
+  - 通过新增 `vite.playwright.config.ts` 将 Playwright 切到纯 browser-preview 启动后，`pnpm run test:e2e` → 通过
+- 当前全量验证：
+  - `pnpm run typecheck` → 通过
+  - `pnpm exec tsc -p tsconfig.node.json --noEmit` → 通过
+  - `pnpm run lint` → 通过
+  - `pnpm run build:vite` → 通过
+  - `pnpm test` → `82/82` files, `386/386` tests passed
+  - `pnpm run test:e2e` → 通过（1 个 Chromium smoke）
+
+### 剩余待办
+- MCP runtime 生命周期 / per-server 日志 / 工具可见性仍未落地
+- Playwright 目前只有单一 browser-preview smoke，release / install smoke 仍未补齐
+- 其余大块剩余项包括 Memory 深化、Costs drill-down、multi-agent runtime、Docs 重建等
+
+### 下一步
+- 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`，优先切到 `MCP runtime closure`
 [2026-03-24 20:50 +08:00] Session: Session-10c agent context export entry
 Focus: Make export discoverable from clone context menus
 

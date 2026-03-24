@@ -3,7 +3,7 @@
   "objective": "Build and polish the ClawX Electron + React workbench UI with full backend integration.",
   "current_phase": "execution",
   "current_focus": "PLAN-2026-03-24-PLATFORM-CLOSURE",
-  "last_updated": "2026-03-24T22:29:20.1954869+08:00",
+  "last_updated": "2026-03-24T23:04:03.1370751+08:00",
   "tasks": [
     {
       "id": "SESSION-8-001",
@@ -164,6 +164,27 @@
       "title": "Choose next platform-level gap after session management (MCP runtime, Cron detail, or E2E gates)",
       "type": "planning",
       "status": "in_progress",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-14-001",
+      "title": "Enrich Cron run-detail visibility with delivery and error context",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-14-002",
+      "title": "Localize Activity page shell to Chinese",
+      "type": "feature",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "SESSION-15-001",
+      "title": "Add Playwright smoke coverage and CI e2e guardrails",
+      "type": "feature",
+      "status": "done",
       "priority": "P0"
     }
   ]

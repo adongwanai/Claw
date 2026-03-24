@@ -37,6 +37,12 @@ jobs:
       - name: Run tests
         run: pnpm run test
 
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e smoke tests
+        run: pnpm run test:e2e
+
   build:
     runs-on: windows-latest
     env:
