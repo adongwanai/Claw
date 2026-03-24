@@ -50,6 +50,7 @@ export function FolderSelectorPopover({
   const recentRef = useRef<HTMLDivElement>(null);
   const submenuRef = useRef<HTMLDivElement>(null);
   const submenuCloseTimer = useRef<number | null>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const handleClose = useCallback(() => {
     setShowRecent(false);
     onClose();
@@ -108,9 +109,25 @@ export function FolderSelectorPopover({
     if (submenuCloseTimer.current) clearTimeout(submenuCloseTimer.current);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updateAnchorRect = () => {
+      setAnchorRect(anchorRef.current?.getBoundingClientRect() ?? null);
+    };
+
+    updateAnchorRect();
+    window.addEventListener('resize', updateAnchorRect);
+    window.addEventListener('scroll', updateAnchorRect, true);
+
+    return () => {
+      window.removeEventListener('resize', updateAnchorRect);
+      window.removeEventListener('scroll', updateAnchorRect, true);
+    };
+  }, [anchorRef, isOpen]);
+
   if (!isOpen) return null;
 
-  const anchorRect = anchorRef.current?.getBoundingClientRect();
   const popoverStyle = anchorRect
     ? { top: anchorRect.top - 8, left: anchorRect.left, transform: 'translateY(-100%)' }
     : { top: 0, left: 0 };

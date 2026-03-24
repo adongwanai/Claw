@@ -66,6 +66,21 @@ tail -30 continue/progress.txt
 
 ## 当前待实现功能（优先级排序）
 
+### P0 — 已完成
+
+#### 12. Chat 指令面 / 全局搜索 / Activity 结构化视图 ✅ session-10
+
+* **状态**：已完成
+* **实现**：
+  * `src/pages/Chat/ChatInput.tsx` + `src/pages/Chat/slash-commands.ts`：补齐 slash menu、本地命令执行、键盘导航与 Markdown 导出
+  * `src/components/layout/Sidebar.tsx` + `src/components/search/GlobalSearchModal.tsx`：补齐 Sidebar 搜索入口、`Ctrl/Cmd+K`、sessions / agents / pages / chat history 搜索
+  * `src/pages/Activity/index.tsx`：补齐结构化日志卡片、level/category/filter/search、raw 展开、多行日志归并
+* **测试**：
+  * `tests/unit/chat-input-slash-commands.test.ts`
+  * `tests/unit/chat-input.test.tsx`
+  * `tests/unit/workbench-global-search.test.tsx`
+  * `tests/unit/activity-page.test.tsx`
+
 ### P1 — 已完成
 
 #### 6. 记忆提取增强（规则 + LLM judge）✅ session-7
@@ -80,6 +95,11 @@ tail -30 continue/progress.txt
 
 * **当前状态**：update store + Settings UI 已有 `check/download/install/progress`
 * **剩余工作**：决定是否补 Host API update route，并继续保证更新链路一致性
+
+#### 13. 会话管理增强（置顶 / 更多导出入口待补）
+
+* **当前状态**：全局搜索、slash 导出、结构化 Activity 已补齐
+* **剩余工作**：补会话置顶、会话列表/详情里的更多导出入口，以及更完整的会话管理表面
 
 ---
 
@@ -202,3 +222,88 @@ cat continue/task.json | python -c "import sys,json; d=json.load(sys.stdin); pri
 tail -40 continue/progress.txt
 ```
 
+---
+
+## 2026-03-24 Reference Gap Audit
+
+### UI/UX Gap (LobsterAI + ClawPort)
+
+- 【已实现】Slash 命令：session-10 已补 `/` 解析、候选下拉、Arrow/Tab/Enter 键盘交互、本地命令执行与导出链路。
+- 【已实现】会话搜索 / 全局搜索：session-10 已补 Sidebar 搜索入口、`Ctrl/Cmd+K`，并支持 sessions / agents / pages / chat history 搜索。
+- 【缺失】会话置顶 / 导出：当前侧栏和聊天详情没有 pin/export；参考 `reference/LobsterAI-main/src/renderer/components/cowork/CoworkSessionItem.tsx` 与 `CoworkSessionDetail.tsx`。
+- 【不完善】QuickAction bar：当前 `src/components/workbench/workbench-empty-state.tsx` 仅空态卡片；参考 `reference/LobsterAI-main/src/renderer/components/quick-actions/QuickActionBar.tsx` 常驻快捷栏与二级 prompt panel。
+- 【不完善】思维链展示：当前 `src/pages/Chat/ChatMessage.tsx` 仅静态折叠；参考 `reference/LobsterAI-main/src/renderer/components/cowork/CoworkSessionDetail.tsx` 的流式 reasoning 展示。
+- 【不完善】AskUserQuestion / 工具确认 / 文件变更预览：当前 `src/pages/TaskKanban/AskUserQuestionWizard.tsx` 与 `src/pages/TaskKanban/index.tsx` 只覆盖简化审批流；参考 `CoworkQuestionWizard.tsx` 与 `CoworkPermissionModal.tsx`。
+- 【不完善】Toast 与操作反馈：当前以分散 `sonner` 调用为主；参考 `reference/LobsterAI-main/src/renderer/components/Toast.tsx` 的统一视觉和反馈闭环。
+- 【缺失】骨架屏：当前以 spinner / loading text 为主；参考 `reference/clawport-ui-main/components/ui/skeleton.tsx`。
+- 【不完善】移动端聊天 / 过渡动画 / 空状态：当前仍以桌面双栏和基础 transition 为主；参考 `reference/clawport-ui-main/app/chat/page.tsx`、`components/MobileSidebar.tsx`、`app/globals.css`。
+
+### Backend Capability Gap (openclaw-main + control-center)
+
+- ⚠️ MCP 目前只有配置 CRUD：`electron/api/routes/mcp.ts`；缺少 runtime 生命周期与日志，参考 `reference/LobsterAI-main/src/main/libs/mcpServerManager.ts`。
+- ❌ 缺少多 agent 协作 runtime：当前 `electron/utils/agent-config.ts` 主要做静态 agent/workspace/account 管理；参考 `reference/openclaw-main/src/agents/tools/sessions-spawn-tool.ts` 与 `subagents-tool.ts`。
+- ⚠️ 技能系统偏安装 / 配置层：`electron/utils/skill-config.ts`、`electron/gateway/clawhub.ts`；缺少 runtime 工具注册，参考 `reference/openclaw-main/src/agents/pi-bundle-mcp-tools.ts`。
+- ✅ Cron 基础 CRUD 已有，但 ⚠️ 历史筛选能力有限，且 ❌ 缺失败重试 / delivery alert / policy 闭环；当前 `electron/api/routes/cron.ts`，参考 `reference/openclaw-main/src/gateway/server-methods/cron.ts`。
+- ✅ Memory 文件存储与抽取已有，但 ⚠️ 向量检索主要是代理 `openclaw memory status/reindex`，且 ❌ 缺知识库 / 多路径 / QMD 管理；当前 `electron/api/routes/memory.ts`、`memory-extract.ts`。
+- ✅ Channel 配置、凭证校验、插件安装已有，但 ❌ 缺统一消息格式适配与 capability runtime；当前 `electron/api/routes/channels.ts`、`electron/utils/channel-config.ts`，参考 `reference/openclaw-main/src/channels/plugins/types.core.ts`。
+- ⚠️ Host API session auth 已有，但 ❌ 缺多用户隔离与 rate limiting；当前 `electron/api/route-utils.ts`、`electron/api/server.ts`，参考 `reference/openclaw-main/src/gateway/auth.ts` 与 `auth-rate-limit.ts`。
+- ✅ Electron 自动更新链路较完整：`electron/main/updater.ts`；但 ⚠️ 渐进发布和跨安装形态策略仍弱于 `reference/openclaw-main/src/infra/update-startup.ts`。
+
+### Page Completeness Gap (ClawPort)
+
+#### Kanban
+
+- ClawPort 有 `assigneeRole`、ticket chat side panel、`useAgentWork` 驱动的自动执行与 retry；ClawX 的 `src/pages/TaskKanban/index.tsx` 仍以本地状态和静态详情为主。
+
+#### Cron
+
+- ClawPort 有面向运维的总览层、`PipelineWizard` / `PipelineGraph` 编辑闭环和 richer run details；ClawX 的 `src/pages/Cron/index.tsx` 仍偏基础看板。
+
+#### Costs
+
+- ClawPort 有按 cron/job 的成本聚合、`DailyCostChart`、`TokenDonut`、`RunDetailTable`、优化分析和实时 usage stream；ClawX 的 `src/pages/Costs/index.tsx` 主要还是 agent/model 维度的摘要。
+
+#### Memory
+
+- ClawPort 有正文搜索、编辑器增强、安全写入链路和 health analysis；ClawX 的 `src/pages/Memory/index.tsx` 仍以文件浏览 + 基础编辑为主。
+
+#### Docs
+
+- ClawPort 有独立 `/docs`、章节导航、检索和 deep link；ClawX 目前没有 standalone docs/help route。
+
+#### Activity
+
+- ClawPort 有结构化审计事件、分类过滤、详情展开和 live logs 入口；ClawX 已在 session-10 补齐结构化事件卡片、分类过滤、详情 raw 展开，但 live logs 入口仍未补。
+
+#### Settings
+
+- ClawPort 额外覆盖全局 logo/icon 上传、agent 图片 override、rerun setup / reset / clear data；ClawX 的设置中心还没有这些动作。
+
+#### Agent 管理
+
+- ClawPort 有 agent 独立详情页、metadata / hierarchy / cron 关联 / avatar upload；ClawX 当前仍以列表页 + modal 为主。
+
+### Engineering & DX Gap
+
+- 测试覆盖：3/5。当前约 `74` 个测试文件，单测面不小，但 `package.json` 的 `test:e2e` 允许空跑；相比 `reference/openclaw-main/package.json` 的 coverage / e2e / install smoke / live matrix 仍偏轻。
+- 类型安全：4/5。`tsconfig.json` 与 `tsconfig.node.json` 都开了 `strict`，显式 `any` 数量不高；但还缺 `openclaw-main` 那类更强的边界检查与工程脚本化约束。
+- 错误处理：3/5。`src/App.tsx` 和 `src/components/common/ErrorBoundary.tsx` 已有错误边界，但缺主进程级异常治理和对应测试，弱于 `reference/openclaw-main/src/infra/unhandled-rejections*.test.ts`。
+- 国际化：2/5。`src/i18n/` 已有 `en/zh/ja` 三语资源，但页面和组件仍有大量硬编码文案，locale parity 也没有自动门禁。
+- a11y：2/5。项目里已有不少 `aria-*`、`role`、键盘和焦点处理，但没有专门的 a11y lint / test gate。
+- 构建与发布：3/5。当前 `.github/workflows/` 有 `check` / `comms-regression` / `release` / `package-win-manual`，但缺 CodeQL、install smoke、dead-code、release-check 等平台级门禁。
+- 文档：2/5。README 三语已存在，也有 `docs/superpowers/`，但当前仓未见 `CONTRIBUTING.md` 或架构文档门禁；文档治理仍弱于 `openclaw-main` / `clawport-ui-main`。
+- 代码组织：3/5。`src/pages`、`src/components`、`src/stores`、`electron` 分层清晰，但 cycle / boundary / dead-code 仍未脚本化。
+
+### Cross-Project Priority Candidates
+
+- P0：补齐会话置顶与更多导出入口，并继续打磨已落地的 Slash commands / 全局搜索 / 会话搜索。
+- P0：补齐 MCP runtime 生命周期、per-server 日志与工具可见性。
+- P0：继续深化 Activity 和 Cron 运行详情视图（Activity 结构化卡片已落地），补 delivery / error context。
+- P0：补真实 Playwright E2E、CI 深度门禁、release / install smoke。
+- P0：收口 i18n，把硬编码文案迁回 locale，并加 locale parity 检查。
+- P1：设计 multi-agent runtime、subagent orchestration 和工具注册机制。
+- P1：升级 Costs，为 job / cron 提供 drill-down、优化分析和 realtime usage stream。
+- P1：升级 Memory，补全文搜索、安全写入、health analysis 和多路径知识源管理。
+- P1：建立 Docs / Help 系统，并为 Agent 补独立详情页和 cron 关联视图。
+- P2：统一 toast、skeleton、motion、empty state 和移动端聊天适配。
+- P2：补全局品牌图标、agent 头像上传，以及 a11y 自动化防回归。

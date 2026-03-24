@@ -1262,3 +1262,66 @@ Focus: 清除所有静态假数据，接入真实 store/API
 - pnpm run typecheck → 通过
 - pnpm exec tsc -p tsconfig.node.json --noEmit → 通过
 - pnpm run build:vite → 通过
+---
+## 2026-03-24 Session-9: Reference Gap Audit Consolidation
+
+### 完成内容
+1. 新增 `continue/research/2026-03-24-reference-gap-analysis.md`，整合四个 subagent 的只读调研结果，按 UI/UX、后端能力、页面完整度、工程质量与 DX 四个域归档。
+2. 更新 `Prompt.md`，追加 `2026-03-24 Reference Gap Audit` 章节，写入决策版摘要、工程评分和跨项目优先级候选。
+3. 更新 `continue/task.json`，新增：
+   - `DESIGN-2026-03-24-REFERENCE-GAP-AUDIT` -> `done`
+   - `PLAN-2026-03-24-GAP-PRIORITIZATION` -> `planned`
+   并将 `current_focus` 切到 `PLAN-2026-03-24-GAP-PRIORITIZATION`。
+
+### 核心结论
+- 聊天 / 协作体验主要缺在交互深度与会话管理：
+  Slash 命令、全局/会话搜索、会话置顶/导出、QuickAction 常驻化、审批确认和文件变更预览都明显弱于 LobsterAI / ClawPort。
+- 后端主要缺在 runtime 闭环：
+  MCP 生命周期与日志、多 agent 协作 runtime、工具注册机制、memory 向量检索/知识库、IM 消息适配、安全与 rate limiting 仍明显依赖上游 OpenClaw。
+- ClawPort 对标页主要缺在页面完整度：
+  Kanban 详情与 agent work、Cron pipeline 编辑与运行详情、Costs 深度分析、Docs/Help 系统、结构化 Activity、Agent 详情页与 cron 关联都还未补齐。
+- 工程面主要缺在平台级治理：
+  真实 Playwright E2E、CI 深度、release/install smoke、i18n 收口、a11y 自动化、边界与 dead-code 检查脚本化仍是主要差距。
+
+### 下一步
+- 下一步聚焦 `PLAN-2026-03-24-GAP-PRIORITIZATION`：对 gap 做优先级裁剪并转成实施计划，不直接进入产品代码开发。
+[2026-03-24 17:02 +08:00] Session: Session-10 chat command surface + search + structured activity
+Focus: Close the first P0 UX gaps from the 2026-03 reference audit
+
+### 完成内容
+1. **Chat Slash Commands**
+   - 在 `src/pages/Chat/ChatInput.tsx` 完成 slash menu、Arrow/Tab/Enter 键盘交互和本地命令执行。
+   - 已支持 `/new`、`/stop`、`/agent`、`/cwd`、`/memory`、`/cron`、`/settings`、`/clear`、`/export`。
+   - `/export` 可导出当前会话 Markdown；`/clear` 文案已改为“打开全新空白会话”以匹配当前安全实现。
+
+2. **Sidebar Global Search**
+   - 新增 `src/components/search/GlobalSearchModal.tsx`，在 Sidebar 中接入搜索入口与 `Ctrl/Cmd+K` 热键。
+   - 搜索范围已覆盖 sessions、agents、pages。
+   - 按你的新要求，进一步补到会话历史正文检索：modal 打开后通过 `invokeIpc('gateway:rpc', 'chat.history', ...)` 拉取并缓存历史内容，本地全文匹配。
+
+3. **Activity Structured View**
+   - `src/pages/Activity/index.tsx` 已从纯文本拆行视图升级为结构化事件卡片。
+   - 已支持 level/category/filter/search/raw 展开。
+   - 修复了 reviewer 发现的两个问题：Error 分类优先级错误、多行日志续行被错误拆成新事件。
+
+4. **Verification / Test Hygiene**
+   - 新增/更新测试：`chat-input.test.tsx`、`chat-input-slash-commands.test.ts`、`workbench-global-search.test.tsx`、`activity-page.test.tsx`。
+   - `settings-center.test.tsx` 的重型集成用例在整套并发执行下会超过默认 5s，已将该条用例 timeout 调整为 10s，保证 full suite 稳定通过。
+
+### 验证结果
+- `pnpm run lint` → 通过
+- `pnpm run typecheck` → 通过
+- `pnpm exec tsc -p tsconfig.node.json --noEmit` → 通过
+- `pnpm run build:vite` → 通过
+- `pnpm test` → 77/77 files, 368/368 tests passed
+
+### 决策
+- 全局搜索的聊天历史检索先采用“按 sessionKey 拉取 + renderer 内缓存 + 本地全文匹配”，不额外引入新的 host route。
+- `Activity` 仍然基于 `/api/logs` 文本契约做解析，先完成结构化 UI，不在本轮扩展后端协议。
+
+### 剩余待办
+- 会话置顶 / 更多导出入口仍未做，当前导出能力先落在 slash command。
+- Global Search 当前静态页面标签仍是英文硬编码，i18n 收口放到后续统一处理。
+
+### 下一步
+- 下一步聚焦 `PLAN-2026-03-24-SESSION-MANAGEMENT`：补会话置顶、更多导出入口，以及更完整的会话管理表面。

@@ -9,18 +9,22 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { SendHorizontal, Square, X, Paperclip, FileText, Film, Music, FileArchive, File, Loader2, AtSign, FolderOpen } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { hostApiFetch } from '@/lib/host-api';
 import { invokeIpc } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { useAgentsStore } from '@/stores/agents';
-import { useChatStore } from '@/stores/chat';
+import { useChatStore, type RawMessage } from '@/stores/chat';
 import { useSettingsStore } from '@/stores/settings';
 import { useProviderStore } from '@/stores/providers';
 import type { AgentSummary } from '@/types/agent';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { FolderSelectorPopover } from './FolderSelectorPopover';
+import { extractText } from './message-utils';
+import { getChatInputSlashMatches, isSlashCommandPrefixInput, parseChatInputSlashCommand } from './slash-commands';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -85,10 +89,67 @@ function readFileAsBase64(file: globalThis.File): Promise<string> {
   });
 }
 
+function formatSlashExportRole(role: RawMessage['role']): string {
+  switch (role) {
+    case 'user':
+      return 'User';
+    case 'assistant':
+      return 'Assistant';
+    case 'system':
+      return 'System';
+    case 'toolresult':
+      return 'Tool Result';
+    default:
+      return 'Message';
+  }
+}
+
+function buildMarkdownConversationExport(messages: RawMessage[], sessionKey: string): string {
+  const exportedAt = new Date().toISOString();
+  const sections = messages.map((message, index) => {
+    const extracted = extractText(message);
+    const fallback = message.content != null
+      ? (typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2))
+      : '';
+    const body = (extracted || fallback || '[no text content]').trim();
+    return `## ${index + 1}. ${formatSlashExportRole(message.role)}\n\n${body}`;
+  });
+
+  return [
+    '# Chat Conversation Export',
+    '',
+    `- Session: \`${sessionKey}\``,
+    `- Exported At: ${exportedAt}`,
+    '',
+    '---',
+    '',
+    ...sections,
+    '',
+  ].join('\n');
+}
+
+function encodeUtf8ToBase64(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function buildSlashExportFileName(sessionKey: string): string {
+  const normalized = sessionKey.replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  const suffix = new Date().toISOString().replace(/[:]/g, '-').replace(/\..+$/, '');
+  const base = normalized || 'session';
+  return `${base}-${suffix}.md`;
+}
+
 // ── Component ────────────────────────────────────────────────────
 
 export function ChatInput({ onSend, onStop, disabled = false, sending = false, isEmpty = false }: ChatInputProps) {
   const { t } = useTranslation('chat');
+  const navigate = useNavigate();
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [targetAgentId, setTargetAgentId] = useState<string | null>(null);
@@ -101,6 +162,9 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
   const isComposingRef = useRef(false);
   const agents = useAgentsStore((s) => s.agents);
   const currentAgentId = useChatStore((s) => s.currentAgentId);
+  const currentSessionKey = useChatStore((s) => s.currentSessionKey);
+  const messages = useChatStore((s) => s.messages);
+  const newSession = useChatStore((s) => s.newSession);
   const currentAgent = useMemo(
     () => agents.find((agent) => agent.id === currentAgentId) ?? null,
     [agents, currentAgentId],
@@ -140,6 +204,23 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
     [agents, targetAgentId],
   );
   const showAgentPicker = mentionableAgents.length > 0;
+  const slashMatches = useMemo(() => getChatInputSlashMatches(input), [input]);
+  const showSlashMenu = useMemo(
+    () => isSlashCommandPrefixInput(input) && slashMatches.length > 0,
+    [input, slashMatches.length],
+  );
+  const [slashActiveIndex, setSlashActiveIndex] = useState(0);
+  const activeSlashCommand = showSlashMenu
+    ? (slashMatches[Math.min(slashActiveIndex, slashMatches.length - 1)] ?? null)
+    : null;
+
+  const applySlashCompletion = useCallback((commandName: string) => {
+    setInput(`${commandName} `);
+    setSlashActiveIndex(0);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+    });
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -311,7 +392,170 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
   const canSend = (input.trim() || attachments.length > 0) && allReady && !disabled && !sending;
   const canStop = sending && !disabled && !!onStop;
 
+  const executeLocalSlashCommand = useCallback((rawInput: string): boolean => {
+    const parsed = parseChatInputSlashCommand(rawInput);
+    if (!parsed) return false;
+
+    switch (parsed.command.key) {
+      case 'new': {
+        newSession();
+        setInput('');
+        setAttachments([]);
+        setTargetAgentId(null);
+        setPickerOpen(false);
+        setWorkingDirectory(null);
+        setFolderPopoverOpen(false);
+        setSlashActiveIndex(0);
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+        return true;
+      }
+      case 'stop': {
+        if (canStop) {
+          onStop?.();
+        } else {
+          toast.info('No active run to stop.');
+        }
+        setInput('');
+        return true;
+      }
+      case 'agent': {
+        const query = parsed.args.trim();
+        if (!query) {
+          setPickerOpen(true);
+          setInput('');
+          return true;
+        }
+        const normalizedQuery = query.toLowerCase();
+        if (normalizedQuery === 'clear' || normalizedQuery === 'none' || normalizedQuery === 'off') {
+          setTargetAgentId(null);
+          setPickerOpen(false);
+          setInput('');
+          return true;
+        }
+
+        const exactMatch = agents.find((agent) => (
+          agent.id.toLowerCase() === normalizedQuery || agent.name.toLowerCase() === normalizedQuery
+        ));
+        const fuzzyMatch = agents.find((agent) => (
+          agent.id !== currentAgentId
+          && (
+            agent.id.toLowerCase().includes(normalizedQuery)
+            || agent.name.toLowerCase().includes(normalizedQuery)
+          )
+        ));
+        const match = exactMatch ?? fuzzyMatch;
+        if (!match || match.id === currentAgentId) {
+          toast.error(`No matching agent found for "${query}".`);
+          return true;
+        }
+
+        setTargetAgentId(match.id);
+        setPickerOpen(false);
+        setInput('');
+        return true;
+      }
+      case 'cwd': {
+        const query = parsed.args.trim();
+        if (!query) {
+          setFolderPopoverOpen(true);
+          setInput('');
+          return true;
+        }
+        const normalizedQuery = query.toLowerCase();
+        if (normalizedQuery === 'clear' || normalizedQuery === 'none' || normalizedQuery === 'off') {
+          setWorkingDirectory(null);
+          setInput('');
+          return true;
+        }
+        setWorkingDirectory(query);
+        setFolderPopoverOpen(false);
+        setInput('');
+        return true;
+      }
+      case 'help': {
+        setInput('/');
+        setSlashActiveIndex(0);
+        requestAnimationFrame(() => {
+          textareaRef.current?.focus();
+        });
+        return true;
+      }
+      case 'memory': {
+        navigate('/memory');
+        setInput('');
+        setSlashActiveIndex(0);
+        return true;
+      }
+      case 'cron': {
+        navigate('/cron');
+        setInput('');
+        setSlashActiveIndex(0);
+        return true;
+      }
+      case 'settings': {
+        navigate('/settings');
+        setInput('');
+        setSlashActiveIndex(0);
+        return true;
+      }
+      case 'clear': {
+        newSession();
+        setInput('');
+        setAttachments([]);
+        setTargetAgentId(null);
+        setPickerOpen(false);
+        setWorkingDirectory(null);
+        setFolderPopoverOpen(false);
+        setSlashActiveIndex(0);
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+        return true;
+      }
+      case 'export': {
+        setInput('');
+        setSlashActiveIndex(0);
+        if (messages.length === 0) {
+          toast.info('No conversation messages to export yet.');
+          return true;
+        }
+
+        const markdown = buildMarkdownConversationExport(messages, currentSessionKey);
+        const base64 = encodeUtf8ToBase64(markdown);
+        const defaultFileName = buildSlashExportFileName(currentSessionKey);
+        void hostApiFetch<{ success?: boolean; savedPath?: string; error?: string }>('/api/files/save-image', {
+          method: 'POST',
+          body: JSON.stringify({
+            base64,
+            mimeType: 'text/markdown',
+            defaultFileName,
+          }),
+        })
+          .then((result) => {
+            if (result?.success) {
+              toast.success(result.savedPath ? `Exported to ${result.savedPath}` : 'Conversation exported.');
+              return;
+            }
+            if (result?.error) {
+              toast.info(`Export canceled: ${result.error}`);
+              return;
+            }
+            toast.info('Export canceled.');
+          })
+          .catch((error) => {
+            toast.error(`Failed to export conversation: ${String(error)}`);
+          });
+        return true;
+      }
+      default:
+        return false;
+    }
+  }, [agents, canStop, currentAgentId, currentSessionKey, messages, navigate, newSession, onStop]);
+
   const handleSend = useCallback(() => {
+    if (executeLocalSlashCommand(input)) return;
     if (!canSend) return;
     const readyAttachments = attachments.filter(a => a.status === 'ready');
     // Capture values before clearing — clear input immediately for snappy UX,
@@ -327,7 +571,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
     setTargetAgentId(null);
     setPickerOpen(false);
     setWorkingDirectory(null);
-  }, [input, attachments, canSend, onSend, targetAgentId, workingDirectory]);
+  }, [attachments, canSend, executeLocalSlashCommand, input, onSend, targetAgentId, workingDirectory]);
 
   const handleStop = useCallback(() => {
     if (!canStop) return;
@@ -336,6 +580,22 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (showSlashMenu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        setSlashActiveIndex((prev) => {
+          if (slashMatches.length === 0) return 0;
+          if (e.key === 'ArrowDown') {
+            return (prev + 1) % slashMatches.length;
+          }
+          return (prev - 1 + slashMatches.length) % slashMatches.length;
+        });
+        return;
+      }
+      if (showSlashMenu && e.key === 'Tab' && activeSlashCommand) {
+        e.preventDefault();
+        applySlashCompletion(activeSlashCommand.name);
+        return;
+      }
       if (e.key === 'Backspace' && !input && targetAgentId) {
         setTargetAgentId(null);
         return;
@@ -346,10 +606,19 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
           return;
         }
         e.preventDefault();
+        if (showSlashMenu && activeSlashCommand) {
+          const normalizedInput = input.trim();
+          if (normalizedInput === activeSlashCommand.name && !activeSlashCommand.argsHint) {
+            handleSend();
+            return;
+          }
+          applySlashCompletion(activeSlashCommand.name);
+          return;
+        }
         handleSend();
       }
     },
-    [handleSend, input, targetAgentId],
+    [activeSlashCommand, applySlashCompletion, handleSend, input, showSlashMenu, slashMatches.length, targetAgentId],
   );
 
   // Handle paste (Ctrl/Cmd+V with files)
@@ -461,6 +730,36 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
                   <X className="h-3 w-3 opacity-70" />
                 </button>
               )}
+            </div>
+          )}
+
+          {showSlashMenu && (
+            <div
+              data-testid="chat-slash-menu"
+              className="mx-3 mt-2 mb-1 overflow-hidden rounded-2xl border border-black/[0.08] bg-white p-1 shadow-[0_8px_24px_rgba(0,0,0,0.08)]"
+            >
+              {slashMatches.map((command, index) => (
+                <button
+                  key={command.key}
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[12px] transition-colors',
+                    index === slashActiveIndex ? 'bg-[#f2f2f7]' : 'hover:bg-[#f7f7fa]',
+                  )}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                  }}
+                  onClick={() => applySlashCompletion(command.name)}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="font-semibold text-foreground">{command.name}</span>
+                    {command.argsHint && (
+                      <span className="text-[#8e8e93]">{command.argsHint}</span>
+                    )}
+                  </div>
+                  <span className="truncate text-[#8e8e93]">{command.description}</span>
+                </button>
+              ))}
             </div>
           )}
 

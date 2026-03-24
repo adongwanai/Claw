@@ -1,9 +1,9 @@
 {
   "project": "ClawX Control Plane",
   "objective": "Build and polish the ClawX Electron + React workbench UI with full backend integration.",
-  "current_phase": "in_progress",
-  "current_focus": "session-8-sidebar-agents-providers-model-config",
-  "last_updated": "2026-03-24T20:30:00+08:00",
+  "current_phase": "execution",
+  "current_focus": "PLAN-2026-03-24-SESSION-MANAGEMENT",
+  "last_updated": "2026-03-24T17:02:58.9065274+08:00",
   "tasks": [
     {
       "id": "SESSION-8-001",
@@ -32,6 +32,55 @@
       "type": "feature",
       "status": "done",
       "priority": "P1"
+    },
+    {
+      "id": "DESIGN-2026-03-24-REFERENCE-GAP-AUDIT",
+      "title": "Consolidate reference project gap audit into Prompt and continue",
+      "type": "research",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "PLAN-2026-03-24-GAP-PRIORITIZATION",
+      "title": "Prioritize cross-project gap findings into implementation tracks",
+      "type": "planning",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-10-001",
+      "title": "Implement chat slash command surface",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-10-002",
+      "title": "Implement sidebar global search with chat-history matching",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-10-003",
+      "title": "Upgrade Activity page to structured log cards",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-10-004",
+      "title": "Stabilize settings-center suite timing under full test load",
+      "type": "test",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "PLAN-2026-03-24-SESSION-MANAGEMENT",
+      "title": "Add session pin/export entry points and deepen session management surfaces",
+      "type": "planning",
+      "status": "planned",
+      "priority": "P0"
     }
   ]
 }

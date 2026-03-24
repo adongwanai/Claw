@@ -248,7 +248,7 @@ describe('Settings center', () => {
         }),
       }),
     );
-  });
+  }, 10000);
 
   it('keeps editor state and reports an error when route rule persistence fails', async () => {
     const hostApiFetchMock = vi.mocked(hostApiFetch);

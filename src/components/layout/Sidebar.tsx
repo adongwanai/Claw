@@ -6,6 +6,7 @@ import {
   Bot,
   Clock,
   Network,
+  Search,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -21,6 +22,11 @@ import { CHANNEL_ICONS } from '@/types/channel';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AddAgentDialog } from '@/components/agents/AddAgentDialog';
 import { AgentSettingsModal } from '@/components/agents/AgentSettingsModal';
+import {
+  GlobalSearchModal,
+  type SearchAgentItem,
+  type SearchSessionItem,
+} from '@/components/search/GlobalSearchModal';
 import { useTranslation } from 'react-i18next';
 import { AccordionGroup } from '@/components/workbench/accordion-group';
 import { toast } from 'sonner';
@@ -41,6 +47,7 @@ export function Sidebar() {
   const [nickname, setNickname] = useState(() => localStorage.getItem('clawx-user-nickname') || 'Administrator');
   const [selectedAvatar, setSelectedAvatar] = useState(() => localStorage.getItem('clawx-user-avatar') || '🐱');
   const [notifOpen, setNotifOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const sessions = useChatStore((s) => s.sessions);
   const currentSessionKey = useChatStore((s) => s.currentSessionKey);
@@ -133,6 +140,17 @@ export function Sidebar() {
     return () => document.removeEventListener('mousedown', handler);
   }, [contextMenu, agentContextMenu]);
 
+  useEffect(() => {
+    const onHotkey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onHotkey);
+    return () => window.removeEventListener('keydown', onHotkey);
+  }, []);
+
   const groupLabels = {
     clones: '分身',
     teams: '团队管理',
@@ -151,6 +169,26 @@ export function Sidebar() {
       .filter((s) => !agentMainKeys.has(s.key))
       .sort((a, b) => (sessionLastActivity[b.key] ?? 0) - (sessionLastActivity[a.key] ?? 0)),
     [sessions, sessionLastActivity, agentMainKeys],
+  );
+
+  const searchSessions = useMemo<SearchSessionItem[]>(
+    () => orderedSessions.map((session) => ({
+      key: session.key,
+      label: sessionLabels[session.key] ?? session.label ?? session.displayName ?? session.key,
+    })),
+    [orderedSessions, sessionLabels],
+  );
+
+  const searchAgents = useMemo<SearchAgentItem[]>(
+    () => agents
+      .filter((agent) => typeof agent.mainSessionKey === 'string' && agent.mainSessionKey.length > 0)
+      .map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        mainSessionKey: agent.mainSessionKey,
+        modelDisplay: agent.modelDisplay,
+      })),
+    [agents],
   );
 
   const staticTeams: SidebarMetaItem[] = [
@@ -206,6 +244,32 @@ export function Sidebar() {
           </button>
         )}
       </div>
+
+      {!sidebarCollapsed ? (
+        <div className="px-2 pb-1">
+          <button
+            type="button"
+            aria-label="Open search"
+            onClick={() => setSearchOpen(true)}
+            className="flex w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-left text-[13px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
+          >
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 truncate">Search</span>
+            <kbd className="rounded border border-black/10 bg-[#f2f2f7] px-1.5 py-0.5 text-[10px]">Ctrl+K</kbd>
+          </button>
+        </div>
+      ) : (
+        <div className="flex justify-center pb-1">
+          <button
+            type="button"
+            aria-label="Open search"
+            onClick={() => setSearchOpen(true)}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#3c3c43] transition-[background-color] duration-150 hover:bg-[#e5e5ea] hover:text-[#000000]"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <div className={cn('flex flex-1 flex-col', sidebarCollapsed ? 'gap-2 pt-3' : 'gap-4 pt-4')}>
         <AccordionGroup
@@ -497,6 +561,16 @@ export function Sidebar() {
           >{selectedAvatar}</button>
         )}
       </div>
+
+      {searchOpen ? (
+        <GlobalSearchModal
+          onOpenChange={setSearchOpen}
+          sessions={searchSessions}
+          agents={searchAgents}
+          onSelectSession={switchSession}
+          onNavigate={navigate}
+        />
+      ) : null}
 
       {/* Notification panel */}
       {notifOpen && !sidebarCollapsed && (
