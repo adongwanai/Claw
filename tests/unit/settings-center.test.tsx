@@ -6,6 +6,7 @@ import { TitleBar } from '@/components/layout/TitleBar';
 import { SETTINGS_NAV_GROUPS, type SettingsSectionId } from '@/components/settings-center/settings-shell-data';
 import { hostApiFetch } from '@/lib/host-api';
 import { useSettingsStore } from '@/stores/settings';
+import { toast } from 'sonner';
 
 const { gatewayState, updateState, navigateMock, invokeIpcMock } = vi.hoisted(() => ({
   gatewayState: {
@@ -112,7 +113,7 @@ function getNavLabel(id: SettingsSectionId): string {
   if (!item) {
     throw new Error(`Missing nav item for ${id}`);
   }
-  return item.label;
+  return item.labelKey;
 }
 
 describe('Settings center', () => {
@@ -120,6 +121,17 @@ describe('Settings center', () => {
     vi.clearAllMocks();
     localStorage.clear();
     useSettingsStore.getState().resetSettings();
+    vi.mocked(hostApiFetch).mockImplementation(async (path) => {
+      if (path === '/api/agents') {
+        return {
+          agents: [
+            { id: 'researcher', name: 'Researcher', avatar: 'data:image/png;base64,existing' },
+            { id: 'planner', name: 'Planner' },
+          ],
+        };
+      }
+      return {};
+    });
   });
 
   it('renders grouped navigation and key section shells', () => {
@@ -130,15 +142,15 @@ describe('Settings center', () => {
     );
 
     for (const group of SETTINGS_NAV_GROUPS) {
-      expect(screen.getAllByText(group.label).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(group.labelKey).length).toBeGreaterThan(0);
     }
 
     fireEvent.click(screen.getByRole('button', { name: getNavLabel('migration-backup') }));
-    expect(screen.getByRole('button', { name: /启动迁移向导/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'migrationPanel.migrate.cta' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: getNavLabel('memory-knowledge') }));
-    expect(screen.getByRole('tab', { name: /Settings/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Browser/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'memoryKnowledge.tabs.strategy' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'memoryKnowledge.tabs.browser' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: getNavLabel('feedback-developer') }));
     expect(screen.getByText('KTClaw Doctor')).toBeInTheDocument();
@@ -216,6 +228,7 @@ describe('Settings center', () => {
       '/api/settings/reset',
       expect.objectContaining({ method: 'POST' }),
     );
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith('settings:maintenance.resetSuccess');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Clear Server Data' }));
@@ -224,6 +237,7 @@ describe('Settings center', () => {
       '/api/app/clear-server-data',
       expect.objectContaining({ method: 'POST' }),
     );
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith('settings:maintenance.clearSuccess');
   });
 
   it('uploads and clears custom brand logo/icon data urls', async () => {
@@ -283,5 +297,78 @@ describe('Settings center', () => {
       configurable: true,
       writable: true,
     });
+  });
+
+  it('manages agent avatar uploads and removals through the host api', async () => {
+    const OriginalFileReader = globalThis.FileReader;
+    class MockFileReader {
+      result: string | ArrayBuffer | null = 'data:image/png;base64,uploaded';
+      onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+      onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+      readAsDataURL(_file: Blob) {
+        this.onload?.call(this as unknown as FileReader, new ProgressEvent('load'));
+      }
+    }
+    Object.defineProperty(globalThis, 'FileReader', {
+      configurable: true,
+      writable: true,
+      value: MockFileReader,
+    });
+
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('agent-avatars') }));
+
+    expect(await screen.findByText('Researcher')).toBeInTheDocument();
+
+    fireEvent.change(document.getElementById('agent-avatar-researcher') as HTMLInputElement, {
+      target: { files: [new File(['avatar'], 'avatar.png', { type: 'image/png' })] },
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(hostApiFetch)).toHaveBeenCalledWith(
+        '/api/agents/researcher',
+        expect.objectContaining({ method: 'PUT' }),
+      );
+    });
+
+    expect(screen.getByRole('button', { name: 'settings:removeAvatar' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'settings:removeAvatar' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(hostApiFetch)).toHaveBeenCalledWith(
+        '/api/agents/researcher',
+        expect.objectContaining({ body: JSON.stringify({ avatar: null }) }),
+      );
+    });
+
+    Object.defineProperty(globalThis, 'FileReader', {
+      configurable: true,
+      writable: true,
+      value: OriginalFileReader,
+    });
+  });
+
+  it('localizes agent avatar validation errors', async () => {
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('agent-avatars') }));
+    await screen.findByText('Researcher');
+
+    fireEvent.change(document.getElementById('agent-avatar-researcher') as HTMLInputElement, {
+      target: { files: [new File(['note'], 'note.txt', { type: 'text/plain' })] },
+    });
+
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith('settings:avatarImageRequired');
   });
 });

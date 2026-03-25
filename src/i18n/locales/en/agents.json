@@ -55,7 +55,20 @@
         "directReports": "Direct reports",
         "channels": "Channels",
         "noChannels": "No channels assigned.",
-        "none": "none"
+        "none": "none",
+        "avatar": "Avatar",
+        "uploadAvatar": "Upload Avatar",
+        "removeAvatar": "Remove Avatar",
+        "avatarUploaded": "Avatar updated",
+        "avatarUploadFailed": "Failed to upload avatar",
+        "avatarRemoved": "Avatar removed",
+        "avatarRemoveFailed": "Failed to remove avatar",
+        "cronJobs": "Cron Jobs",
+        "cronLoading": "Loading cron jobs...",
+        "noCronJobs": "No cron jobs associated with this agent.",
+        "cronEnabled": "enabled",
+        "cronDisabled": "disabled",
+        "cronLastRun": "Last run"
     },
     "removeChannelDialog": {
         "title": "Remove Channel",

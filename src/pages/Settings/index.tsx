@@ -179,9 +179,9 @@ export function Settings() {
         method: 'POST',
       });
       resetSettings();
-      toast.success('Settings reset to defaults');
+      toast.success(t('settings:maintenance.resetSuccess'));
     } catch (error) {
-      toast.error(`Failed to reset settings: ${toUserMessage(error)}`);
+      toast.error(t('settings:maintenance.resetFailed', { error: toUserMessage(error) }));
     } finally {
       setResettingAllSettings(false);
     }
@@ -193,9 +193,9 @@ export function Settings() {
       await hostApiFetch('/api/app/clear-server-data', {
         method: 'POST',
       });
-      toast.success('Server data cleared');
+      toast.success(t('settings:maintenance.clearSuccess'));
     } catch (error) {
-      toast.error(`Failed to clear server data: ${toUserMessage(error)}`);
+      toast.error(t('settings:maintenance.clearFailed', { error: toUserMessage(error) }));
     } finally {
       setClearingServerData(false);
     }
@@ -221,11 +221,11 @@ export function Settings() {
                 返回工作台
               </button>
               <h1 className="text-[24px] font-semibold text-[#000000] dark:text-foreground">
-                {activeMeta.title}{' '}
-                <span className="text-[#3c3c43]">{activeMeta.kicker}</span>
+                {t(activeMeta.titleKey)}{' '}
+                <span className="text-[#3c3c43]">{t(activeMeta.kickerKey)}</span>
               </h1>
               <p className="mt-2 text-[13px] text-[#3c3c43] dark:text-muted-foreground">
-                {activeMeta.subtitle}
+                {t(activeMeta.subtitleKey)}
               </p>
             </header>
 
@@ -372,6 +372,9 @@ function renderActiveSection(args: RenderSectionArgs) {
 
     case 'tool-permissions':
       return <ToolPermissionsSection />;
+
+    case 'agent-avatars':
+      return <AgentAvatarsSection />;
 
     case 'migration-backup':
       return <SettingsMigrationPanel onLaunchWizard={args.openMigrationWizard} />;
@@ -681,6 +684,7 @@ function BrandImageUploadField({
 /* ─── Section: General (07.1) ─── */
 
 function GeneralSection() {
+  const { t } = useTranslation(['settings']);
   const {
     theme, setTheme, accentColor, setAccentColor, language, setLanguage, launchAtStartup, setLaunchAtStartup,
     brandName, setBrandName, brandSubtitle, setBrandSubtitle, brandLogoDataUrl, setBrandLogoDataUrl,
@@ -694,14 +698,14 @@ function GeneralSection() {
   const handleBrandImageUpload = (
     event: ChangeEvent<HTMLInputElement>,
     setDataUrl: (value: string | null) => void,
-    kind: 'logo' | 'icon',
+    _kind: 'logo' | 'icon',
   ) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
     if (!file.type.startsWith('image/')) {
-      toast.error(`Please select an image file for the brand ${kind}.`);
+      toast.error(t('settings:brandImageRequired'));
       event.target.value = '';
       return;
     }
@@ -711,11 +715,11 @@ function GeneralSection() {
       if (typeof reader.result === 'string') {
         setDataUrl(reader.result);
       } else {
-        toast.error(`Unable to read brand ${kind}.`);
+        toast.error(t('settings:brandReadFailed'));
       }
     };
     reader.onerror = () => {
-      toast.error(`Unable to read brand ${kind}.`);
+      toast.error(t('settings:brandReadFailed'));
     };
     reader.readAsDataURL(file);
     event.target.value = '';
@@ -1757,6 +1761,134 @@ function ToolPermissionsSection() {
     </>
   );
 }
+
+/* ─── Section: Agent Avatars ─── */
+
+function AgentAvatarsSection() {
+  const { t } = useTranslation(['settings']);
+  const [agents, setAgents] = useState<Array<{ id: string; name: string; avatar?: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [agentStatus, setAgentStatus] = useState<Record<string, 'uploading' | 'removing' | 'success' | 'error'>>({});
+
+  useEffect(() => {
+    hostApiFetch<{ agents: Array<{ id: string; name: string; avatar?: string }> }>('/api/agents')
+      .then((data) => setAgents(data.agents ?? []))
+      .catch(() => setAgents([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleUpload = (agentId: string, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('settings:avatarImageRequired'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setAgentStatus((s) => ({ ...s, [agentId]: 'uploading' }));
+      hostApiFetch(`/api/agents/${encodeURIComponent(agentId)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ avatar: dataUrl }),
+      })
+        .then(() => {
+          setAgents((prev) => prev.map((a) => a.id === agentId ? { ...a, avatar: dataUrl } : a));
+          setAgentStatus((s) => ({ ...s, [agentId]: 'success' }));
+          toast.success(t('settings:avatarUpdated'));
+          setTimeout(() => setAgentStatus((s) => { const n = { ...s }; delete n[agentId]; return n; }), 2000);
+        })
+        .catch(() => {
+          setAgentStatus((s) => ({ ...s, [agentId]: 'error' }));
+          toast.error(t('settings:avatarUploadFailed'));
+          setTimeout(() => setAgentStatus((s) => { const n = { ...s }; delete n[agentId]; return n; }), 2000);
+        });
+    };
+    reader.onerror = () => toast.error(t('settings:avatarReadFailed'));
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemove = (agentId: string) => {
+    setAgentStatus((s) => ({ ...s, [agentId]: 'removing' }));
+    hostApiFetch(`/api/agents/${encodeURIComponent(agentId)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ avatar: null }),
+    })
+      .then(() => {
+        setAgents((prev) => prev.map((a) => a.id === agentId ? { ...a, avatar: undefined } : a));
+        setAgentStatus((s) => ({ ...s, [agentId]: 'success' }));
+        toast.success(t('settings:avatarRemoved'));
+        setTimeout(() => setAgentStatus((s) => { const n = { ...s }; delete n[agentId]; return n; }), 2000);
+      })
+      .catch(() => {
+        setAgentStatus((s) => ({ ...s, [agentId]: 'error' }));
+        toast.error(t('settings:avatarRemoveFailed'));
+        setTimeout(() => setAgentStatus((s) => { const n = { ...s }; delete n[agentId]; return n; }), 2000);
+      });
+  };
+
+  return (
+    <SettingsCard title={t('settings:agentAvatars')}>
+      {loading ? (
+        <p className="py-4 text-center text-[13px] text-[#8e8e93]">{t('settings:agentAvatarsLoading')}</p>
+      ) : agents.length === 0 ? (
+        <p className="py-4 text-center text-[13px] text-[#8e8e93]">{t('settings:agentAvatarsEmpty')}</p>
+      ) : (
+        agents.map((agent) => {
+          const inputId = `agent-avatar-${agent.id}`;
+          const status = agentStatus[agent.id];
+          const busy = status === 'uploading' || status === 'removing';
+          return (
+            <div key={agent.id} className="flex items-center gap-3 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-[#f2f2f7]">
+                {agent.avatar ? (
+                  <img src={agent.avatar} alt={agent.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-[16px]">🤖</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-medium text-[#000000]">{agent.name}</p>
+                <p className="text-[11px] text-[#8e8e93]">{agent.id}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <label
+                  htmlFor={inputId}
+                  className={cn(
+                    'cursor-pointer rounded-lg border border-black/10 bg-white px-3 py-1.5 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]',
+                    busy && 'pointer-events-none opacity-50',
+                  )}
+                >
+                  {status === 'uploading' ? '...' : t('settings:uploadAvatar')}
+                </label>
+                <input
+                  id={inputId}
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  disabled={busy}
+                  onChange={(e) => handleUpload(agent.id, e)}
+                />
+                {agent.avatar ? (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => handleRemove(agent.id)}
+                    className="rounded-lg border border-black/10 bg-white px-3 py-1.5 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {status === 'removing' ? '...' : t('settings:removeAvatar')}
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </SettingsCard>
+  );
+}
+
 
 type EditableChipListProps = {
   items: string[];

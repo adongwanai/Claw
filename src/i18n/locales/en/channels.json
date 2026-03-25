@@ -337,5 +337,16 @@
             ]
         }
     },
-    "viewDocs": "View Documentation"
+    "viewDocs": "View Documentation",
+    "channelTitle": "CHANNEL",
+    "configDetails": "Config Details",
+    "noChannels": "No configured channels",
+    "add": "+ Add",
+    "disconnect": "Disconnect",
+    "connecting": "Connecting...",
+    "connect": "Connect",
+    "sendTest": "Send Test",
+    "configInfo": "Config Info",
+    "runtimeCapabilities": "Runtime capabilities",
+    "notConfigured": "Not configured"
 }

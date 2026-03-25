@@ -9,56 +9,58 @@ export type SettingsSectionId =
   | 'memory-knowledge'
   | 'skills-mcp'
   | 'tool-permissions'
+  | 'agent-avatars'
   | 'migration-backup'
   | 'auto-update'
   | 'feedback-developer';
 
 export type SettingsNavItem = {
   id: SettingsSectionId;
-  label: string;
-  summary: string;
+  labelKey: string;
+  summaryKey?: string;
 };
 
 export type SettingsNavGroup = {
   id: SettingsGroupId;
-  label: string;
+  labelKey: string;
   items: SettingsNavItem[];
 };
 
 export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
   {
     id: 'basic',
-    label: '基础',
+    labelKey: 'settings:settingsShell.groups.basic',
     items: [
-      { id: 'general', label: '常规设置', summary: '' },
-      { id: 'model-provider', label: '模型与 Provider', summary: '' },
+      { id: 'general', labelKey: 'settings:settingsShell.items.general.label' },
+      { id: 'model-provider', labelKey: 'settings:settingsShell.items.model-provider.label' },
     ],
   },
   {
     id: 'workflow',
-    label: '工作流',
+    labelKey: 'settings:settingsShell.groups.workflow',
     items: [
-      { id: 'team-role-strategy', label: '团队与角色策略', summary: '' },
-      { id: 'channel-advanced', label: '通道高级配置', summary: '' },
-      { id: 'automation-defaults', label: '自动化默认策略', summary: '' },
+      { id: 'team-role-strategy', labelKey: 'settings:settingsShell.items.team-role-strategy.label' },
+      { id: 'channel-advanced', labelKey: 'settings:settingsShell.items.channel-advanced.label' },
+      { id: 'automation-defaults', labelKey: 'settings:settingsShell.items.automation-defaults.label' },
     ],
   },
   {
     id: 'capability',
-    label: '能力',
+    labelKey: 'settings:settingsShell.groups.capability',
     items: [
-      { id: 'memory-knowledge', label: '记忆与知识', summary: '' },
-      { id: 'skills-mcp', label: 'Skills 与 MCP', summary: '' },
-      { id: 'tool-permissions', label: '工具权限', summary: '' },
+      { id: 'memory-knowledge', labelKey: 'settings:settingsShell.items.memory-knowledge.label' },
+      { id: 'skills-mcp', labelKey: 'settings:settingsShell.items.skills-mcp.label' },
+      { id: 'tool-permissions', labelKey: 'settings:settingsShell.items.tool-permissions.label' },
+      { id: 'agent-avatars', labelKey: 'settings:settingsShell.items.agent-avatars.label' },
     ],
   },
   {
     id: 'governance',
-    label: '治理',
+    labelKey: 'settings:settingsShell.groups.governance',
     items: [
-      { id: 'migration-backup', label: '迁移与备份', summary: '' },
-      { id: 'auto-update', label: '应用更新', summary: '' },
-      { id: 'feedback-developer', label: '反馈与开发者', summary: '' },
+      { id: 'migration-backup', labelKey: 'settings:settingsShell.items.migration-backup.label' },
+      { id: 'auto-update', labelKey: 'settings:settingsShell.items.auto-update.label' },
+      { id: 'feedback-developer', labelKey: 'settings:settingsShell.items.feedback-developer.label' },
     ],
   },
 ];
@@ -67,61 +69,66 @@ export const DEFAULT_SETTINGS_SECTION: SettingsSectionId = 'general';
 
 export const SETTINGS_SECTION_META: Record<
   SettingsSectionId,
-  { title: string; subtitle: string; kicker: string }
+  { titleKey: string; subtitleKey: string; kickerKey: string }
 > = {
   general: {
-    title: '常规设置',
-    subtitle: '管理全局外观、语言以及应用启动行为。',
-    kicker: '外观与体验、应用行为',
+    titleKey: 'settings:settingsShell.meta.general.title',
+    subtitleKey: 'settings:settingsShell.meta.general.subtitle',
+    kickerKey: 'settings:settingsShell.meta.general.kicker',
   },
   'model-provider': {
-    title: '模型与服务商',
-    subtitle: '配置核心推理引擎，绑定第三方 API Key，并指定全局兜底模型。',
-    kicker: 'API Key 配置、大语言模型选择',
+    titleKey: 'settings:settingsShell.meta.model-provider.title',
+    subtitleKey: 'settings:settingsShell.meta.model-provider.subtitle',
+    kickerKey: 'settings:settingsShell.meta.model-provider.kicker',
   },
   'team-role-strategy': {
-    title: '团队架构',
-    subtitle: '管理如何自动派生系统子 AI，并给不同类任务指定默认角色处理。',
-    kicker: '角色分配、上下文共享边界',
+    titleKey: 'settings:settingsShell.meta.team-role-strategy.title',
+    subtitleKey: 'settings:settingsShell.meta.team-role-strategy.subtitle',
+    kickerKey: 'settings:settingsShell.meta.team-role-strategy.kicker',
   },
   'channel-advanced': {
-    title: '通道高级配置',
-    subtitle: '管理飞书、企业微信、Telegram 等多宿主环境的收发言策略。',
-    kicker: 'IM 集成、静默规则、消息路由',
+    titleKey: 'settings:settingsShell.meta.channel-advanced.title',
+    subtitleKey: 'settings:settingsShell.meta.channel-advanced.subtitle',
+    kickerKey: 'settings:settingsShell.meta.channel-advanced.kicker',
   },
   'automation-defaults': {
-    title: '自动化默认策略',
-    subtitle: '定义 Cron 等无人值守工作流的并发资源池和异常熔断逻辑。',
-    kicker: '定时调度限制、错误重试与告警',
+    titleKey: 'settings:settingsShell.meta.automation-defaults.title',
+    subtitleKey: 'settings:settingsShell.meta.automation-defaults.subtitle',
+    kickerKey: 'settings:settingsShell.meta.automation-defaults.kicker',
   },
   'memory-knowledge': {
-    title: 'Memory 记忆与知识库',
-    subtitle: '管理长期记忆存储策略、自动浓缩规则和本地知识目录挂载。',
-    kicker: '能力',
+    titleKey: 'settings:settingsShell.meta.memory-knowledge.title',
+    subtitleKey: 'settings:settingsShell.meta.memory-knowledge.subtitle',
+    kickerKey: 'settings:settingsShell.meta.memory-knowledge.kicker',
   },
   'skills-mcp': {
-    title: 'Skills 与 MCP 服务',
-    subtitle: '管理内部执行器 (Skills) 和外部协议服务 (mcp-servers)。',
-    kicker: '能力组件拔插',
+    titleKey: 'settings:settingsShell.meta.skills-mcp.title',
+    subtitleKey: 'settings:settingsShell.meta.skills-mcp.subtitle',
+    kickerKey: 'settings:settingsShell.meta.skills-mcp.kicker',
   },
   'tool-permissions': {
-    title: '工具权限',
-    subtitle: '严格规范哪些工具甚至哪个文件夹允许被智能系统修改。',
-    kicker: '能力沙箱与拦截黑名单',
+    titleKey: 'settings:settingsShell.meta.tool-permissions.title',
+    subtitleKey: 'settings:settingsShell.meta.tool-permissions.subtitle',
+    kickerKey: 'settings:settingsShell.meta.tool-permissions.kicker',
+  },
+  'agent-avatars': {
+    titleKey: 'settings:settingsShell.meta.agent-avatars.title',
+    subtitleKey: 'settings:settingsShell.meta.agent-avatars.subtitle',
+    kickerKey: 'settings:settingsShell.meta.agent-avatars.kicker',
   },
   'migration-backup': {
-    title: '迁移与备份',
-    subtitle: '防止配置迷失、意外损毁并支持在主副工作计算机间的转移。',
-    kicker: '配置同步、回滚、系统迁移',
+    titleKey: 'settings:settingsShell.meta.migration-backup.title',
+    subtitleKey: 'settings:settingsShell.meta.migration-backup.subtitle',
+    kickerKey: 'settings:settingsShell.meta.migration-backup.kicker',
   },
   'auto-update': {
-    title: '应用更新',
-    subtitle: '管理自动检查与下载更新策略，查看当前版本与更新进度。',
-    kicker: '版本管理、自动更新',
+    titleKey: 'settings:settingsShell.meta.auto-update.title',
+    subtitleKey: 'settings:settingsShell.meta.auto-update.subtitle',
+    kickerKey: 'settings:settingsShell.meta.auto-update.kicker',
   },
   'feedback-developer': {
-    title: '反馈与开发者',
-    subtitle: '继续承载更新、Doctor 诊断和开发者模式等真实功能。',
-    kicker: '治理',
+    titleKey: 'settings:settingsShell.meta.feedback-developer.title',
+    subtitleKey: 'settings:settingsShell.meta.feedback-developer.subtitle',
+    kickerKey: 'settings:settingsShell.meta.feedback-developer.kicker',
   },
 };

@@ -1998,3 +1998,112 @@ Focus: Continue Wave 4 by exposing the remaining global brand asset slice in Set
 - `pnpm run lint` -> pass
 - `pnpm run build:vite` -> pass
 - `pnpm exec playwright test tests/e2e/routes-smoke.spec.ts` -> pass (`8/8`)
+
+---
+
+[2026-03-25 14:51 +08:00] Session 25: i18n Cleanup + Agent Hierarchy Persistence
+Focus: PLAN-2026-03-24-PLATFORM-CLOSURE (Wave A i18n + Wave F agent detail)
+
+### Wave A: i18n Hardcoded Copy Cleanup (P0)
+
+1. `src/pages/Memory/index.tsx`
+   - Replaced ~45 hardcoded Chinese strings with `t()` calls
+   - Added `useTranslation('common')` to Memory, OverviewTab, BrowserTab, ExtrasTab, GuideTab
+   - Added `useRelativeTime` hook for localized date formatting
+
+2. `src/pages/Costs/index.tsx`
+   - Replaced ~50 hardcoded Chinese strings with `t()` calls
+   - Added `useTranslation('common')` to Costs, RealtimeTab, DashboardTab, UsageTab, AlertsTab
+   - Converted static TABS array to TAB_IDS + TAB_LABEL_KEYS for i18n
+
+3. `src/i18n/locales/zh/common.json` + `src/i18n/locales/en/common.json`
+   - Added ~100 new keys across `costs`, `memory`, `actions`, `status`, `time`, `sort` namespaces
+
+4. `tests/setup.ts`
+   - Imported i18n and forced `changeLanguage('zh')` so existing test assertions matching Chinese strings continue to pass
+
+### Wave F: Agent Detail Persistence
+
+5. `electron/utils/agent-config.ts`
+   - Added `reportsTo?: string | null` to `AgentListEntry` interface
+   - Added `reportsTo: string | null` and `directReports: string[]` to `AgentSummary`
+   - `buildSnapshotFromConfig` now derives `directReports[]` from `reportsTo` relationships
+   - `updateAgentProfile` accepts optional `reportsTo` update; validates target exists
+
+6. `electron/api/routes/agents.ts`
+   - PUT `/api/agents/:id` now accepts `reportsTo` in request body
+
+7. `src/pages/AgentDetail/index.tsx`
+   - Updated to use API-provided `reportsTo`/`directReports` instead of client-side heuristic
+   - Added `AgentSummaryWithHierarchy` type
+
+### Bugfixes
+
+8. `src/pages/Settings/index.tsx`
+   - Fixed pre-existing TS error: missing `type EditableChipListProps = {` declaration opening
+
+### Verification
+- `pnpm run typecheck` -> pass
+- `pnpm exec vitest run tests/unit/memory-page.test.tsx --project jsdom` -> pass
+- `pnpm exec vitest run tests/unit/costs-page.test.tsx --project jsdom` -> pass
+
+---
+
+[2026-03-25 16:21 +08:00] Session 26: Runtime/Kanban Business + Settings Shell i18n
+Focus: PLAN-2026-03-24-PLATFORM-CLOSURE (Wave 2 runtime/kanban deepening, Wave A settings/team i18n)
+
+### Business / Runtime
+
+1. `src/pages/TaskKanban/index.tsx`
+   - added runtime lineage session-key tracking (`runtimeParentSessionKey` / `runtimeLineageSessionKeys`)
+   - approval binding now matches current + parent lineage session keys instead of only the active run
+   - active runtime tickets now poll approvals while work is still in-flight
+   - detail panel now loads `/api/sessions/subagents` and renders concrete child run entries instead of only a count
+   - spawn now prefers the agent's real `mainSessionKey` and reuses current runtime session key for retries/follow-on runs
+
+2. `tests/unit/task-kanban.test.tsx`
+   - added coverage for parent-session approval lineage
+   - added coverage for child runtime rows rendered in the detail panel
+   - adjusted approval-dialog accessibility assertions to the current `Tool approval review` markup
+
+### Agent / Settings / Memory
+
+3. `electron/utils/agent-config.ts` + `src/types/agent.ts` + `src/stores/agents.ts`
+   - fixed avatar persistence end-to-end by carrying `avatar` through the backend snapshot and frontend shared types/store
+
+4. `src/pages/AgentDetail/index.tsx` + `tests/unit/agent-detail-page.test.tsx`
+   - stabilized cron relation fetch path and removed effect patterns that tripped lint
+   - expanded regression coverage for API-backed hierarchy and cron job rendering
+
+5. `src/pages/Settings/index.tsx` + `src/i18n/locales/*/settings.json`
+   - localized maintenance toasts, brand upload validation, and agent avatar validation/loading states
+   - added Agent Avatars section coverage to the settings test suite
+
+6. `src/pages/Memory/index.tsx` + `electron/api/routes/memory.ts`
+   - added accessible remove labels for extra paths
+   - added regression coverage for snapshot/analyze flows and backend route behavior
+
+### Settings / Team i18n
+
+7. `src/components/settings-center/settings-shell-data.ts` + `src/components/settings-center/settings-nav.tsx`
+   - moved Settings nav groups/items and section header meta to locale-backed keys
+
+8. `src/components/settings-center/settings-memory-knowledge-panel.tsx`
+   `src/components/settings-center/settings-memory-strategy.tsx`
+   `src/components/settings-center/settings-memory-browser.tsx`
+   `src/components/settings-center/settings-migration-panel.tsx`
+   `src/components/settings-center/settings-migration-wizard.tsx`
+   - localized the Settings memory/migration sub-panels with zh/en locale entries
+
+9. `src/pages/TeamOverview/index.tsx` + `src/pages/TeamMap/index.tsx`
+   `src/i18n/locales/*/common.json`
+   - localized TeamOverview and TeamMap page shells, modal copy, badges, drawer labels, and relative-time/status labels
+   - added new regression tests for both pages
+
+### Verification
+- `pnpm exec vitest run tests/unit/agent-detail-page.test.tsx tests/unit/settings-center.test.tsx tests/unit/memory-page.test.tsx tests/unit/openclaw-memory-status.test.ts tests/unit/task-kanban.test.tsx --project jsdom --project node` -> pass
+- `pnpm exec vitest run tests/unit/settings-memory-strategy.test.tsx tests/unit/settings-memory-browser.test.tsx tests/unit/settings-migration-panel.test.tsx tests/unit/settings-migration-wizard.test.tsx --project jsdom` -> pass
+- `pnpm exec vitest run tests/unit/team-overview-page.test.tsx tests/unit/team-map-page.test.tsx --project jsdom` -> pass
+- `pnpm run typecheck` -> pass
+- `pnpm run lint` -> pass
+- `pnpm run build:vite` -> pass

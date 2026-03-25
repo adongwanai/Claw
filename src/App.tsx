@@ -6,6 +6,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Component, lazy, Suspense, useEffect } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Toaster } from 'sonner';
+import { ToastContainer } from '@/components/ui/Toast';
 import i18n from './i18n';
 import { MainLayout } from './components/layout/MainLayout';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -184,7 +185,7 @@ function App() {
   return (
     <ErrorBoundary>
       <TooltipProvider delayDuration={300}>
-        <Suspense fallback={<div className="flex h-screen items-center justify-center text-[13px] text-[#8e8e93]">加载中...</div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center gap-2 text-[13px] text-[#8e8e93]"><div className="h-4 w-4 animate-spin rounded-full border-2 border-[#8e8e93] border-t-transparent" />加载中...</div>}>
         <Routes>
           {/* Setup wizard (shown on first launch) */}
           <Route path="/setup/*" element={<Setup />} />
@@ -217,6 +218,8 @@ function App() {
           closeButton
           style={{ zIndex: 99999 }}
         />
+        {/* Custom toast system */}
+        <ToastContainer />
       </TooltipProvider>
     </ErrorBoundary>
   );

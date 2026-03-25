@@ -3,7 +3,7 @@
   "objective": "Build and polish the ClawX Electron + React workbench UI with full backend integration.",
   "current_phase": "execution",
   "current_focus": "PLAN-2026-03-24-PLATFORM-CLOSURE",
-  "last_updated": "2026-03-25T13:58:13+08:00",
+  "last_updated": "2026-03-25T16:21:31+08:00",
   "tasks": [
     {
       "id": "SESSION-8-001",
@@ -368,6 +368,62 @@
       "type": "feature",
       "status": "done",
       "priority": "P1"
+    },
+    {
+      "id": "SESSION-25-001",
+      "title": "i18n cleanup: Memory page (~45 strings) and Costs page (~50 strings) migrated to t() calls",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-25-002",
+      "title": "Add reportsTo/directReports persistence to agent config model and API",
+      "type": "feature",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "SESSION-25-003",
+      "title": "Fix pre-existing TS error in Settings (missing EditableChipListProps type opening)",
+      "type": "bugfix",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-25-004",
+      "title": "Initialize i18n in test setup with changeLanguage('zh') to preserve test assertions",
+      "type": "test",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-26-001",
+      "title": "Deepen Settings shell/memory/migration i18n and localize TeamOverview/TeamMap shells",
+      "type": "feature",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-26-002",
+      "title": "Fix avatar persistence chain across agent snapshot, types, store, Settings, and AgentDetail",
+      "type": "bugfix",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "SESSION-26-003",
+      "title": "Deepen Kanban runtime approval lineage binding and child-run detail visibility",
+      "type": "feature",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "SESSION-26-004",
+      "title": "Add regression coverage for agent detail, settings shell, memory routes, Kanban lineage, TeamOverview, and TeamMap",
+      "type": "test",
+      "status": "done",
+      "priority": "P0"
     }
   ]
 }

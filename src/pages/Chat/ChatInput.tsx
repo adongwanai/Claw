@@ -818,6 +818,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
                 }}
                 onPaste={handlePaste}
                 placeholder={`给 ${currentAgentName ?? 'KTClaw'} 发消息...`}
+                aria-label={`给 ${currentAgentName ?? 'KTClaw'} 发消息`}
                 disabled={disabled}
                 className="min-h-[22px] max-h-[200px] resize-none border-0 bg-transparent px-0 py-0 text-[14px] leading-[22px] text-black placeholder:text-[#8e8e93] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 dark:text-white"
                 rows={1}
@@ -866,6 +867,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
               }`}
               variant="ghost"
               title={sending ? t('composer.stop') : t('composer.send')}
+              aria-label={sending ? t('composer.stop') : t('composer.send')}
             >
               {sending ? (
                 <Square className="h-4 w-4" fill="currentColor" />

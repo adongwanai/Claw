@@ -33,6 +33,8 @@ interface KanbanTicket {
   runtimeRootSessionId?: string;
   runtimeDepth?: number;
   runtimeSessionKey?: string;
+  runtimeParentSessionKey?: string;
+  runtimeLineageSessionKeys?: string[];
   runtimeTranscript?: string[];
   runtimeChildSessionIds?: string[];
   createdAt: string;
@@ -53,6 +55,9 @@ interface RuntimeSessionResponse {
   error?: string;
   result?: string;
   output?: string;
+  agentName?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 /* ─── Persistence ─── */
@@ -133,16 +138,35 @@ function readRuntimeResult(session: RuntimeSessionResponse): string | undefined 
   return undefined;
 }
 
+function mergeRuntimeSessionKeys(...values: Array<string | string[] | undefined>): string[] | undefined {
+  const keys = values.flatMap((value) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  }).filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+  if (keys.length === 0) return undefined;
+  return [...new Set(keys)];
+}
+
 function mapRuntimeSessionToTicketUpdates(ticket: KanbanTicket, session: RuntimeSessionResponse): Partial<KanbanTicket> {
   const status = (session.status ?? '').toLowerCase();
   const runtimeError = readRuntimeError(session);
   const runtimeResult = readRuntimeResult(session);
+  const runtimeLineageSessionKeys = mergeRuntimeSessionKeys(
+    ticket.runtimeLineageSessionKeys,
+    ticket.runtimeParentSessionKey,
+    ticket.runtimeSessionKey,
+    session.parentSessionKey,
+    session.sessionKey,
+  );
   const base: Partial<KanbanTicket> = {
     runtimeSessionId: session.id || ticket.runtimeSessionId,
     runtimeParentSessionId: session.parentRuntimeId || ticket.runtimeParentSessionId,
     runtimeRootSessionId: session.rootRuntimeId || ticket.runtimeRootSessionId,
     runtimeDepth: typeof session.depth === 'number' ? session.depth : ticket.runtimeDepth,
     runtimeSessionKey: session.sessionKey || ticket.runtimeSessionKey,
+    runtimeParentSessionKey: session.parentSessionKey || ticket.runtimeParentSessionKey,
+    runtimeLineageSessionKeys,
     runtimeTranscript: Array.isArray(session.transcript) ? session.transcript : ticket.runtimeTranscript,
     runtimeChildSessionIds: Array.isArray(session.childRuntimeIds) ? session.childRuntimeIds : ticket.runtimeChildSessionIds,
   };
@@ -227,15 +251,28 @@ function hasRuntimeTicketChanges(ticket: KanbanTicket, updates: Partial<KanbanTi
   if ('runtimeRootSessionId' in updates && updates.runtimeRootSessionId !== ticket.runtimeRootSessionId) return true;
   if ('runtimeDepth' in updates && updates.runtimeDepth !== ticket.runtimeDepth) return true;
   if ('runtimeSessionKey' in updates && updates.runtimeSessionKey !== ticket.runtimeSessionKey) return true;
+  if ('runtimeParentSessionKey' in updates && updates.runtimeParentSessionKey !== ticket.runtimeParentSessionKey) return true;
+  if ('runtimeLineageSessionKeys' in updates && !isSameTranscript(ticket.runtimeLineageSessionKeys, updates.runtimeLineageSessionKeys)) return true;
   if ('runtimeTranscript' in updates && !isSameTranscript(ticket.runtimeTranscript, updates.runtimeTranscript)) return true;
   if ('runtimeChildSessionIds' in updates && !isSameTranscript(ticket.runtimeChildSessionIds, updates.runtimeChildSessionIds)) return true;
   return false;
 }
 
+function getTicketRuntimeSessionKeys(ticket: KanbanTicket): Set<string> {
+  return new Set(
+    mergeRuntimeSessionKeys(
+      ticket.runtimeLineageSessionKeys,
+      ticket.runtimeParentSessionKey,
+      ticket.runtimeSessionKey,
+    ) ?? [],
+  );
+}
+
 function getApprovalsForTicket(ticket: KanbanTicket, approvals: ApprovalItem[]): ApprovalItem[] {
+  const runtimeSessionKeys = getTicketRuntimeSessionKeys(ticket);
   return approvals.filter((approval) => {
-    if (ticket.runtimeSessionKey && approval.sessionKey) {
-      return approval.sessionKey === ticket.runtimeSessionKey;
+    if (approval.sessionKey) {
+      return runtimeSessionKeys.size > 0 && runtimeSessionKeys.has(approval.sessionKey);
     }
     if (ticket.assigneeId && approval.agentId) {
       return approval.agentId === ticket.assigneeId;
@@ -338,6 +375,21 @@ export function TaskKanban() {
     };
   }, [tickets, updateTicket]);
 
+  useEffect(() => {
+    const shouldPollApprovals = tickets.some((ticket) =>
+      ticket.runtimeSessionId && ACTIVE_RUNTIME_WORK_STATES.has(ticket.workState),
+    );
+    if (!shouldPollApprovals) return undefined;
+
+    const timer = window.setInterval(() => {
+      void fetchApprovals();
+    }, RUNTIME_WAIT_POLL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [tickets, fetchApprovals]);
+
   const startRuntimeWork = async (ticket: KanbanTicket) => {
     updateTicket(ticket.id, {
       status: 'in-progress',
@@ -348,6 +400,8 @@ export function TaskKanban() {
     });
 
     try {
+      const assigneeSessionKey = agents.find((entry) => entry.id === ticket.assigneeId)?.mainSessionKey
+        ?? `agent:${ticket.assigneeId ?? 'main'}:main`;
       const response = await hostApiFetch<{
         success: boolean;
         session: RuntimeSessionResponse;
@@ -355,7 +409,7 @@ export function TaskKanban() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parentSessionKey: `agent:${ticket.assigneeId ?? 'main'}:main`,
+          parentSessionKey: ticket.runtimeSessionKey ?? assigneeSessionKey,
           ...(ticket.runtimeSessionId ? { parentRuntimeId: ticket.runtimeSessionId } : {}),
           agentName: ticket.assigneeRole ?? ticket.assigneeId,
           prompt: [ticket.title, ticket.description].filter(Boolean).join('\n\n'),
@@ -504,28 +558,33 @@ export function TaskKanban() {
                 onDragLeave={() => setDragOverCol(null)}
                 onDrop={() => handleDrop(col.key)}
               >
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex items-center justify-between" aria-label={`${col.label} column`}>
                   <span className="text-[14px] font-semibold text-[#000000]">{col.label}</span>
-                  <span className="text-[13px] text-[#8e8e93]">{colTickets.length}</span>
+                  <span className="text-[13px] text-[#8e8e93]" aria-label={`${colTickets.length} tickets`}>{colTickets.length}</span>
                 </div>
-                <div className={cn(
-                  'flex min-h-[120px] flex-1 flex-col gap-3 rounded-xl p-3 transition-colors',
-                  isOver ? 'bg-[#f0f7ff] ring-2 ring-clawx-ac/30' : 'bg-[#f9f9f9]',
-                )}>
+                <div
+                  role="list"
+                  aria-label={`${col.label} tickets`}
+                  className={cn(
+                    'flex min-h-[120px] flex-1 flex-col gap-3 rounded-xl p-3 transition-colors',
+                    isOver ? 'bg-[#f0f7ff] ring-2 ring-clawx-ac/30' : 'bg-[#f9f9f9]',
+                  )}
+                >
                   {colTickets.length === 0 ? (
                     <div className="flex items-center justify-center py-8 text-[13px] text-[#c6c6c8]">
                       拖拽到此处                    </div>
                   ) : (
                     colTickets.map((ticket) => (
-                      <TicketCard
-                        key={ticket.id}
-                        ticket={ticket}
-                        agents={agents}
-                        isDragging={dragId === ticket.id}
-                        onClick={() => setDetailTicket(ticket)}
-                        onDragStart={() => handleDragStart(ticket.id)}
-                        onDragEnd={handleDragEnd}
-                      />
+                      <div key={ticket.id} role="listitem">
+                        <TicketCard
+                          ticket={ticket}
+                          agents={agents}
+                          isDragging={dragId === ticket.id}
+                          onClick={() => setDetailTicket(ticket)}
+                          onDragStart={() => handleDragStart(ticket.id)}
+                          onDragEnd={handleDragEnd}
+                        />
+                      </div>
                     ))
                   )}
                 </div>
@@ -646,6 +705,14 @@ function CreateModal({
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleSubmit = () => {
     if (!title.trim()) return;
     onCreate({
@@ -658,9 +725,9 @@ function CreateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" role="dialog" aria-modal="true" aria-labelledby="create-modal-title">
       <div className="w-[420px] rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-[16px] font-semibold text-[#000000]">新建任务</h2>
+        <h2 id="create-modal-title" className="mb-4 text-[16px] font-semibold text-[#000000]">新建任务</h2>
         <div className="mb-3">
           <p className="mb-1.5 text-[13px] font-medium text-[#000000]">任务标题</p>
           <input
@@ -793,21 +860,76 @@ function DetailPanel({
   const [followup, setFollowup] = useState('');
   const [wizard, setWizard] = useState<ApprovalItem | null>(null);
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null);
+  const [runtimeChildren, setRuntimeChildren] = useState<RuntimeSessionResponse[]>([]);
+  const [runtimeChildrenLoading, setRuntimeChildrenLoading] = useState(false);
+  const [runtimeChildrenError, setRuntimeChildrenError] = useState<string | null>(null);
   const reviewText = reviewing?.toolInput
     ? JSON.stringify(reviewing.toolInput, null, 2)
     : (reviewing?.prompt ?? '');
   const riskPreview = reviewText.toLowerCase();
   const isDangerous = ['rm -rf', 'sudo', 'del ', 'format ', 'powershell -command remove-item'].some((token) => riskPreview.includes(token));
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (reviewing) { setReviewing(null); return; }
+        if (wizard) { setWizard(null); return; }
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, reviewing, wizard]);
+
+  useEffect(() => {
+    if (!ticket.runtimeSessionId || !ticket.runtimeChildSessionIds || ticket.runtimeChildSessionIds.length === 0) {
+      setRuntimeChildren([]);
+      setRuntimeChildrenError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadRuntimeChildren = async () => {
+      setRuntimeChildrenLoading(true);
+      setRuntimeChildrenError(null);
+      try {
+        const response = await hostApiFetch<{ success?: boolean; sessions?: RuntimeSessionResponse[] }>('/api/sessions/subagents');
+        if (cancelled) return;
+        const childIds = new Set(ticket.runtimeChildSessionIds);
+        const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
+        const matchingChildren = sessions
+          .filter((session) => childIds.has(session.id))
+          .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+        setRuntimeChildren(matchingChildren);
+      } catch (error) {
+        if (!cancelled) {
+          setRuntimeChildren([]);
+          setRuntimeChildrenError(String(error));
+        }
+      } finally {
+        if (!cancelled) setRuntimeChildrenLoading(false);
+      }
+    };
+
+    void loadRuntimeChildren();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ticket.runtimeSessionId, ticket.runtimeChildSessionIds]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/20" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-panel-title"
         className="flex h-full w-[380px] flex-col bg-white shadow-[-4px_0_24px_rgba(0,0,0,0.08)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-black/[0.06] px-5 py-4">
-          <span className="text-[14px] font-semibold text-[#000000]">任务详情</span>
+          <span id="detail-panel-title" className="text-[14px] font-semibold text-[#000000]">任务详情</span>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -816,7 +938,7 @@ function DetailPanel({
             >
               删除
             </button>
-            <button type="button" onClick={onClose} className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
+            <button type="button" onClick={onClose} aria-label="Close detail panel" className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
           </div>
         </div>
 
@@ -907,8 +1029,38 @@ function DetailPanel({
                   </div>
                 )}
                 {ticket.runtimeChildSessionIds && ticket.runtimeChildSessionIds.length > 0 && (
-                  <div className="mb-2 rounded-lg bg-[#f8fafc] px-3 py-2 text-[12px] text-[#475467]">
-                    Child runs: {ticket.runtimeChildSessionIds.length}
+                  <div className="mb-3 rounded-xl border border-black/[0.06] bg-[#fafafa] px-3 py-3" data-testid="ticket-runtime-children">
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Child runs</p>
+                      <span className="text-[11px] text-[#8e8e93]">{ticket.runtimeChildSessionIds.length}</span>
+                    </div>
+                    {runtimeChildrenLoading ? (
+                      <p className="text-[12px] text-[#8e8e93]">Loading child runs...</p>
+                    ) : runtimeChildrenError ? (
+                      <p className="text-[12px] text-[#ef4444]">{runtimeChildrenError}</p>
+                    ) : runtimeChildren.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        {runtimeChildren.map((child) => (
+                          <div key={child.id} className="rounded-lg bg-white px-3 py-2 text-[12px] text-[#475467] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-medium text-[#111827]">{child.id}</span>
+                              <span className="text-[11px] text-[#8e8e93]">{child.status ?? 'unknown'}</span>
+                            </div>
+                            {child.transcript && child.transcript.length > 0 && (
+                              <p className="mt-1 truncate text-[11px] text-[#8e8e93]">{child.transcript.at(-1)}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {ticket.runtimeChildSessionIds.map((childId) => (
+                          <div key={childId} className="rounded-lg bg-white px-3 py-2 text-[12px] text-[#475467] shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                            {childId}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="mb-3 rounded-xl border border-black/[0.06] bg-[#fafafa] px-3 py-3">
@@ -1044,14 +1196,14 @@ function DetailPanel({
       )}
 
       {reviewing && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-label="Approval review">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="detail-review-modal-title" aria-label="Approval review">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
+                <h3 id="detail-review-modal-title" className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
                 <p className="mt-1 text-[12px] text-[#6b7280]">Agent: {reviewing.agentId ?? 'unknown'} · Command: {reviewing.command ?? 'unknown'}</p>
               </div>
-              <button type="button" onClick={() => setReviewing(null)} className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
+              <button type="button" onClick={() => setReviewing(null)} aria-label="Close review modal" className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
             </div>
 
             {isDangerous && (
@@ -1132,6 +1284,15 @@ function ApprovalsSection({
     : (reviewing?.prompt ?? '');
   const riskPreview = reviewText.toLowerCase();
   const isDangerous = ['rm -rf', 'sudo', 'del ', 'format ', 'powershell -command remove-item'].some((token) => riskPreview.includes(token));
+
+  useEffect(() => {
+    if (!reviewing) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setReviewing(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [reviewing]);
 
   return (
     <>
@@ -1238,14 +1399,14 @@ function ApprovalsSection({
       )}
 
       {reviewing && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-label="Approval review">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="approvals-review-modal-title" aria-label="Approval review">
           <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
+                <h3 id="approvals-review-modal-title" className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
                 <p className="mt-1 text-[12px] text-[#6b7280]">Agent: {reviewing.agentId ?? 'unknown'} · Command: {reviewing.command ?? 'unknown'}</p>
               </div>
-              <button type="button" onClick={() => setReviewing(null)} className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
+              <button type="button" onClick={() => setReviewing(null)} aria-label="Close review modal" className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
             </div>
 
             {isDangerous && (

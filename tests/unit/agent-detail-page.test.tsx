@@ -3,7 +3,24 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AgentDetail } from '@/pages/AgentDetail';
 
-const { agentsStoreState } = vi.hoisted(() => ({
+const mockCronJobs = [
+  {
+    id: 'job-status-report',
+    name: 'Status Report',
+    message: 'Send a morning status update',
+    schedule: '0 9 * * 1-5',
+    sessionTarget: 'researcher',
+    enabled: true,
+    createdAt: '2026-01-01T08:00:00Z',
+    updatedAt: '2026-02-01T08:00:00Z',
+    lastRun: {
+      time: '2026-03-24T08:00:00Z',
+      success: true,
+    },
+  },
+];
+
+const { agentsStoreState, hostApiFetchMock } = vi.hoisted(() => ({
   agentsStoreState: {
     agents: [] as Array<{
       id: string;
@@ -17,15 +34,22 @@ const { agentsStoreState } = vi.hoisted(() => ({
       agentDir: string;
       mainSessionKey: string;
       channelTypes: string[];
+      reportsTo?: string | null;
+      directReports?: string[];
     }>,
     loading: false,
     error: null as string | null,
     fetchAgents: vi.fn(async () => undefined),
   },
+  hostApiFetchMock: vi.fn(),
 }));
 
 vi.mock('@/stores/agents', () => ({
   useAgentsStore: () => agentsStoreState,
+}));
+
+vi.mock('@/lib/host-api', () => ({
+  hostApiFetch: hostApiFetchMock,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -40,6 +64,8 @@ vi.mock('react-i18next', () => ({
 describe('AgentDetail page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    hostApiFetchMock.mockResolvedValue(mockCronJobs);
+
     agentsStoreState.loading = false;
     agentsStoreState.error = null;
     agentsStoreState.agents = [
@@ -55,6 +81,8 @@ describe('AgentDetail page', () => {
         agentDir: '~/.openclaw/agents/main',
         mainSessionKey: 'agent:main:main',
         channelTypes: ['feishu'],
+        reportsTo: null,
+        directReports: ['researcher'],
       },
       {
         id: 'researcher',
@@ -68,6 +96,8 @@ describe('AgentDetail page', () => {
         agentDir: '~/.openclaw/agents/researcher',
         mainSessionKey: 'agent:researcher:main',
         channelTypes: ['telegram', 'discord'],
+        reportsTo: 'main',
+        directReports: [],
       },
     ];
   });
@@ -93,6 +123,12 @@ describe('AgentDetail page', () => {
     expect(screen.getByText('Researcher reports to Main')).toBeInTheDocument();
     expect(screen.getByText('telegram')).toBeInTheDocument();
     expect(screen.getByText('discord')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/cron/jobs');
+    });
+    expect(await screen.findByText('Status Report')).toBeInTheDocument();
+    expect(screen.getByText('0 9 * * 1-5')).toBeInTheDocument();
   });
 
   it('shows a not-found state for unknown agents', async () => {

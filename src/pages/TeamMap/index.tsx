@@ -4,6 +4,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { useAgentsStore } from '@/stores/agents';
 import { useChatStore } from '@/stores/chat';
 import type { AgentSummary } from '@/types/agent';
@@ -47,6 +48,7 @@ function AgentNode({
   isActive: boolean;
   onClick?: () => void;
 }) {
+  const { t } = useTranslation('common');
   const gradient = isRoot ? 'linear-gradient(135deg, #10b981, #059669)' : agentGradient(idx);
   const icon = isRoot ? '✦' : agentIcon(idx);
 
@@ -79,7 +81,7 @@ function AgentNode({
       <div className="mt-2 flex items-center justify-center gap-2 text-[12px]">
         <span className={cn('flex items-center gap-1', isActive ? 'text-clawx-ac' : 'text-[#8e8e93]')}>
           <span className={cn('h-[6px] w-[6px] rounded-full', isActive ? 'bg-clawx-ac' : 'bg-[#d1d5db]')} />
-          {isActive ? '活跃' : '待命'}
+          {isActive ? t('teamMap.status.active') : t('teamMap.status.idle')}
         </span>
         {agent.channelTypes.length > 0 && (
           <span className="text-[#10b981]">{agent.channelTypes.length} ch</span>
@@ -135,11 +137,12 @@ function ConnectorLines({ childCount }: { childCount: number }) {
 /* ─── Empty state ─── */
 
 function EmptyState() {
+  const { t } = useTranslation('common');
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
       <span className="text-[40px]">🤖</span>
-      <p className="text-[14px] text-[#8e8e93]">暂无 Agent</p>
-      <p className="text-[12px] text-[#c6c6c8]">在「员工总览」页面创建 Agent 后显示</p>
+      <p className="text-[14px] text-[#8e8e93]">{t('teamMap.empty.title')}</p>
+      <p className="text-[12px] text-[#c6c6c8]">{t('teamMap.empty.description')}</p>
     </div>
   );
 }
@@ -147,6 +150,7 @@ function EmptyState() {
 /* ─── Main component ─── */
 
 export function TeamMap() {
+  const { t } = useTranslation('common');
   const [activeTab, setActiveTab] = useState<'Teams' | 'Hierarchy'>('Hierarchy');
   const [scale, setScale] = useState(1);
   const [selectedAgent, setSelectedAgent] = useState<AgentSummary | null>(null);
@@ -172,17 +176,17 @@ export function TeamMap() {
         <div className="absolute right-5 top-4 flex items-center gap-4 text-[12px] text-[#3c3c43]">
           <span className="flex items-center gap-1.5">
             <span className="h-[7px] w-[7px] rounded-full bg-clawx-ac" />
-            活跃
+            {t('teamMap.status.active')}
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-[7px] w-[7px] rounded-full bg-[#8e8e93]" />
-            待命
+            {t('teamMap.status.idle')}
           </span>
           {scale !== 1 && (
             <span className="text-[11px] text-[#c6c6c8]">{Math.round(scale * 100)}%</span>
           )}
           {loading && (
-            <span className="text-[#c6c6c8]">加载中...</span>
+            <span className="text-[#c6c6c8]">{t('status.loading')}</span>
           )}
         </div>
 
@@ -235,9 +239,9 @@ export function TeamMap() {
         {/* Zoom controls (bottom-left) */}
         <div className="absolute bottom-4 left-4 flex flex-col gap-1">
           {([
-            { icon: '+', action: zoomIn, title: '放大' },
-            { icon: '−', action: zoomOut, title: '缩小' },
-            { icon: '⛶', action: zoomFit, title: '重置' },
+            { icon: '+', action: zoomIn, title: t('teamMap.zoom.in') },
+            { icon: '−', action: zoomOut, title: t('teamMap.zoom.out') },
+            { icon: '⛶', action: zoomFit, title: t('teamMap.zoom.reset') },
           ] as const).map(({ icon, action, title }) => (
             <button
               key={icon}
@@ -254,7 +258,7 @@ export function TeamMap() {
         {/* Tab switcher (bottom-center) */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
           <div className="flex rounded-lg border border-black/10 bg-white p-0.5 shadow-sm">
-            {([['Teams', '团队视图'], ['Hierarchy', '层级图']] as const).map(([tab, label]) => (
+            {([['Teams', t('teamMap.tabs.teams')], ['Hierarchy', t('teamMap.tabs.hierarchy')]] as const).map(([tab, label]) => (
               <button
                 key={tab}
                 type="button"
@@ -294,8 +298,9 @@ function TeamsView({
   sessionLastActivity: Record<string, number>;
   onSelectAgent: (agent: AgentSummary) => void;
 }) {
+  const { t } = useTranslation('common');
   if (loading) {
-    return <div className="flex flex-1 items-center justify-center text-[13px] text-[#8e8e93]">加载中...</div>;
+    return <div className="flex flex-1 items-center justify-center text-[13px] text-[#8e8e93]">{t('status.loading')}</div>;
   }
   if (agents.length === 0) {
     return <EmptyState />;
@@ -303,7 +308,7 @@ function TeamsView({
 
   // Group agents by their channel types
   const channelGroups = new Map<string, AgentSummary[]>();
-  channelGroups.set('全部', agents);
+  channelGroups.set(t('teamMap.allGroup'), agents);
   for (const agent of agents) {
     for (const ch of agent.channelTypes) {
       const prev = channelGroups.get(ch) ?? [];
@@ -345,6 +350,7 @@ function TeamsView({
 /* ─── Agent detail drawer ─── */
 
 function AgentDetailDrawer({ agent, onClose }: { agent: AgentSummary; onClose: () => void }) {
+  const { t } = useTranslation('common');
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-end"
@@ -355,10 +361,10 @@ function AgentDetailDrawer({ agent, onClose }: { agent: AgentSummary; onClose: (
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex h-[52px] shrink-0 items-center justify-between border-b border-black/[0.06] px-5">
-          <span className="text-[14px] font-semibold text-[#000000]">Agent 详情</span>
+          <span className="text-[14px] font-semibold text-[#000000]">{t('teamMap.drawer.title')}</span>
           <button
             type="button"
-            aria-label="关闭"
+            aria-label={t('actions.close')}
             onClick={onClose}
             className="flex h-7 w-7 items-center justify-center rounded-full text-[16px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
           >
@@ -373,26 +379,26 @@ function AgentDetailDrawer({ agent, onClose }: { agent: AgentSummary; onClose: (
           <p className="mt-0.5 text-[12px] text-[#8e8e93]">{agent.id}</p>
           {agent.isDefault && (
             <span className="mt-2 rounded-full bg-clawx-ac/10 px-2.5 py-0.5 text-[11px] font-medium text-clawx-ac">
-              默认 Agent
+              {t('teamMap.drawer.defaultAgent')}
             </span>
           )}
         </div>
         <div className="border-t border-black/[0.06] px-5 py-4 space-y-3">
           <div className="flex justify-between text-[13px]">
-            <span className="text-[#8e8e93]">模型</span>
+            <span className="text-[#8e8e93]">{t('teamMap.drawer.model')}</span>
             <span className="text-[#000000]">{agent.modelDisplay || '—'}</span>
           </div>
           <div className="flex justify-between text-[13px]">
-            <span className="text-[#8e8e93]">工作区</span>
+            <span className="text-[#8e8e93]">{t('teamMap.drawer.workspace')}</span>
             <span className="max-w-[180px] truncate text-right text-[#000000]">{agent.workspace || '—'}</span>
           </div>
           <div className="flex justify-between text-[13px]">
-            <span className="text-[#8e8e93]">会话 Key</span>
+            <span className="text-[#8e8e93]">{t('teamMap.drawer.sessionKey')}</span>
             <span className="max-w-[180px] truncate text-right text-[#000000]">{agent.mainSessionKey || '—'}</span>
           </div>
           {agent.channelTypes.length > 0 && (
             <div>
-              <p className="mb-1.5 text-[13px] text-[#8e8e93]">频道</p>
+              <p className="mb-1.5 text-[13px] text-[#8e8e93]">{t('teamMap.drawer.channels')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {agent.channelTypes.map((ch) => (
                   <span key={ch} className="rounded-md bg-[#f2f2f7] px-2 py-0.5 text-[12px] text-[#3c3c43]">

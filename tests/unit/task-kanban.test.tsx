@@ -106,7 +106,7 @@ describe('TaskKanban', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
 
-    expect(await screen.findByRole('dialog', { name: 'Approval review' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Tool approval review' })).toBeInTheDocument();
     expect(screen.getByText(/rm -rf \/tmp\/unsafe/)).toBeInTheDocument();
     expect(screen.getByText(/危险操作/)).toBeInTheDocument();
 
@@ -429,6 +429,15 @@ describe('TaskKanban', () => {
           cwd: '/workspace',
         },
       },
+      {
+        id: 'approval-parent',
+        sessionKey: 'agent:planner-1:main',
+        command: 'ToolRead',
+        agentId: 'planner-1',
+        toolInput: {
+          path: '/workspace/README.md',
+        },
+      },
     ];
     localStorage.setItem('clawport-kanban', JSON.stringify([
       {
@@ -441,6 +450,7 @@ describe('TaskKanban', () => {
         workState: 'waiting_approval',
         runtimeSessionId: 'runtime-approval',
         runtimeSessionKey: 'agent:planner-1:main:subagent:runtime-approval',
+        runtimeParentSessionKey: 'agent:planner-1:main',
         runtimeTranscript: ['Started task', 'Need approval'],
         createdAt: '2026-03-25T00:00:00.000Z',
         updatedAt: '2026-03-25T00:00:00.000Z',
@@ -452,10 +462,13 @@ describe('TaskKanban', () => {
 
     const approvalsPanel = screen.getByTestId('ticket-runtime-approvals');
     expect(within(approvalsPanel).getByText('ShellExec')).toBeInTheDocument();
+    expect(within(approvalsPanel).getByText('ToolRead')).toBeInTheDocument();
 
-    fireEvent.click(within(approvalsPanel).getByRole('button', { name: 'Review' }));
+    const shellExecCard = within(approvalsPanel).getByText('ShellExec').closest('div.rounded-lg');
+    expect(shellExecCard).not.toBeNull();
+    fireEvent.click(within(shellExecCard as HTMLElement).getByRole('button', { name: 'Review' }));
 
-    expect(await screen.findByRole('dialog', { name: 'Approval review' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: 'Tool approval review' })).toBeInTheDocument();
   });
 
   it('retries runtime work as a child session and preserves lineage metadata', async () => {
@@ -506,5 +519,70 @@ describe('TaskKanban', () => {
       runtimeParentSessionId: 'runtime-parent',
       runtimeRootSessionId: 'runtime-parent',
     }));
+  });
+
+  it('loads child runtime sessions into the detail panel', async () => {
+    localStorage.setItem('clawport-kanban', JSON.stringify([
+      {
+        id: 'ticket-runtime-tree',
+        title: 'Review runtime tree',
+        description: 'Inspect child runs',
+        status: 'review',
+        priority: 'medium',
+        assigneeId: 'planner-1',
+        workState: 'done',
+        runtimeSessionId: 'runtime-parent',
+        runtimeSessionKey: 'agent:planner-1:main:subagent:runtime-parent',
+        runtimeChildSessionIds: ['runtime-child-1', 'runtime-child-2'],
+        runtimeTranscript: ['parent transcript'],
+        createdAt: '2026-03-25T00:00:00.000Z',
+        updatedAt: '2026-03-25T00:00:00.000Z',
+      },
+    ]));
+
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/sessions/subagents') {
+        return {
+          success: true,
+          sessions: [
+            {
+              id: 'runtime-parent',
+              sessionKey: 'agent:planner-1:main:subagent:runtime-parent',
+              status: 'completed',
+              transcript: ['parent transcript'],
+              childRuntimeIds: ['runtime-child-1', 'runtime-child-2'],
+            },
+            {
+              id: 'runtime-child-1',
+              parentRuntimeId: 'runtime-parent',
+              depth: 1,
+              sessionKey: 'agent:planner-1:main:subagent:runtime-parent:subagent:runtime-child-1',
+              status: 'completed',
+              transcript: ['child run 1 complete'],
+            },
+            {
+              id: 'runtime-child-2',
+              parentRuntimeId: 'runtime-parent',
+              depth: 1,
+              sessionKey: 'agent:planner-1:main:subagent:runtime-parent:subagent:runtime-child-2',
+              status: 'waiting_approval',
+              transcript: ['child run 2 waiting'],
+            },
+          ],
+        };
+      }
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<TaskKanban />);
+    fireEvent.click(screen.getByText('Review runtime tree'));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/sessions/subagents');
+    });
+
+    expect(await screen.findByText('runtime-child-1')).toBeInTheDocument();
+    expect(screen.getByText('runtime-child-2')).toBeInTheDocument();
+    expect(screen.getByText(/child run 1 complete/)).toBeInTheDocument();
   });
 });

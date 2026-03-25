@@ -12,7 +12,10 @@ interface AgentsState {
   error: string | null;
   fetchAgents: () => Promise<void>;
   createAgent: (name: string, persona?: string) => Promise<void>;
-  updateAgent: (agentId: string, updates: { name?: string; persona?: string; model?: string }) => Promise<void>;
+  updateAgent: (
+    agentId: string,
+    updates: { name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null },
+  ) => Promise<void>;
   deleteAgent: (agentId: string) => Promise<void>;
   assignChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
   removeChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
@@ -63,7 +66,10 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }
   },
 
-  updateAgent: async (agentId: string, updates: { name?: string; persona?: string; model?: string }) => {
+  updateAgent: async (
+    agentId: string,
+    updates: { name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null },
+  ) => {
     set({ error: null });
     try {
       const snapshot = await hostApiFetch<AgentsSnapshot & { success?: boolean }>(

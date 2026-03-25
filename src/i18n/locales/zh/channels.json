@@ -338,5 +338,16 @@
             ]
         }
     },
-    "viewDocs": "查看文档"
+    "viewDocs": "查看文档",
+    "channelTitle": "CHANNEL 频道",
+    "configDetails": "配置详情",
+    "noChannels": "暂无已配置的频道",
+    "add": "+ 添加",
+    "disconnect": "断开连接",
+    "connecting": "连接中...",
+    "connect": "连接",
+    "sendTest": "发送测试",
+    "configInfo": "配置信息",
+    "runtimeCapabilities": "Runtime capabilities",
+    "notConfigured": "Not configured"
 }

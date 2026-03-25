@@ -3,7 +3,7 @@ import { readFile, readdir, writeFile, stat, mkdir, rename, unlink } from 'fs/pr
 import { existsSync, readFileSync } from 'fs';
 import { join, basename, dirname, resolve, relative, isAbsolute, posix, win32 } from 'path';
 import { homedir } from 'os';
-import { execFile } from 'child_process';
+import { execFile, spawnSync } from 'child_process';
 import type { HostApiContext } from '../context';
 import { sendJson, parseJsonBody } from '../route-utils';
 import { extractMemoryFromMessages, type MemoryGuardLevel } from './memory-extract';
@@ -860,6 +860,97 @@ export async function handleMemoryRoutes(
     try {
       await execOpenclaw(['memory', 'reindex'], 30000);
       sendJson(res, 200, { ok: true });
+    } catch (err) {
+      sendJson(res, 500, { error: String(err) });
+    }
+    return true;
+  }
+
+  // POST /api/memory/snapshot — git commit all memory files
+  if (url.pathname === '/api/memory/snapshot' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ scope?: string }>(req);
+      const scopes = await getMemoryScopes();
+      const activeScope = selectScope(scopes, body?.scope ?? null);
+      const workspaceDir = activeScope.workspaceDir;
+
+      const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
+      const commitMsg = `memory snapshot ${timestamp}`;
+
+      const addResult = spawnSync('git', ['add', '-A'], { cwd: workspaceDir, encoding: 'utf-8', timeout: 15000 });
+      if (addResult.status !== 0) {
+        const errText = (addResult.stderr ?? '').trim() || 'git add failed';
+        sendJson(res, 500, { success: false, message: errText });
+        return true;
+      }
+
+      const commitResult = spawnSync('git', ['commit', '-m', commitMsg], { cwd: workspaceDir, encoding: 'utf-8', timeout: 15000 });
+      if (commitResult.status !== 0) {
+        const stderr = (commitResult.stderr ?? '').trim();
+        const stdout = (commitResult.stdout ?? '').trim();
+        // "nothing to commit" is not an error
+        if (stdout.includes('nothing to commit') || stderr.includes('nothing to commit')) {
+          sendJson(res, 200, { success: true, message: 'Nothing to commit', commitHash: null });
+          return true;
+        }
+        sendJson(res, 500, { success: false, message: stderr || stdout || 'git commit failed' });
+        return true;
+      }
+
+      const logResult = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: workspaceDir, encoding: 'utf-8', timeout: 5000 });
+      const commitHash = (logResult.stdout ?? '').trim() || null;
+      sendJson(res, 200, { success: true, commitHash, message: commitMsg });
+    } catch (err) {
+      sendJson(res, 500, { success: false, message: String(err) });
+    }
+    return true;
+  }
+
+  // POST /api/memory/analyze — heuristic analysis of memory files
+  if (url.pathname === '/api/memory/analyze' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody<{ scope?: string }>(req);
+      const scopes = await getMemoryScopes();
+      const activeScope = selectScope(scopes, body?.scope ?? null);
+      const config = getMemoryConfig(activeScope.workspaceDir);
+      const files = await getMemoryFiles(activeScope, config);
+
+      const now = Date.now();
+      const sevenDaysAgo = now - 7 * 86400000;
+      const tenKB = 10 * 1024;
+
+      const staleFiles: string[] = [];
+      const largeFiles: string[] = [];
+      const emptyFiles: string[] = [];
+
+      for (const f of files) {
+        if (new Date(f.lastModified).getTime() < sevenDaysAgo) staleFiles.push(f.relativePath);
+        if (f.sizeBytes > tenKB) largeFiles.push(f.relativePath);
+        if (f.sizeBytes === 0 || f.content.trim() === '') emptyFiles.push(f.relativePath);
+      }
+
+      const recommendations: string[] = [];
+      if (emptyFiles.length > 0) recommendations.push(`Remove or populate ${emptyFiles.length} empty file(s).`);
+      if (largeFiles.length > 0) recommendations.push(`Split ${largeFiles.length} large file(s) (>10KB) into focused topic files.`);
+      if (staleFiles.length > 0) recommendations.push(`Review ${staleFiles.length} stale file(s) not modified in 7+ days.`);
+      if (files.length === 0) recommendations.push('No memory files found. Create MEMORY.md to get started.');
+      if (recommendations.length === 0) recommendations.push('Memory files look healthy.');
+
+      const deductions = emptyFiles.length * 5 + largeFiles.length * 10 + Math.min(staleFiles.length * 3, 30);
+      const healthScore = Math.max(0, Math.min(100, 100 - deductions));
+
+      const lastModifiedMs = files.reduce((max, f) => Math.max(max, new Date(f.lastModified).getTime()), 0);
+      const lastModified = lastModifiedMs > 0 ? new Date(lastModifiedMs).toISOString() : null;
+
+      sendJson(res, 200, {
+        healthScore,
+        staleFiles,
+        largeFiles,
+        emptyFiles,
+        recommendations,
+        totalFiles: files.length,
+        lastModified,
+      });
     } catch (err) {
       sendJson(res, 500, { error: String(err) });
     }

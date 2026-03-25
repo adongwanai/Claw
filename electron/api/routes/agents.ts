@@ -132,12 +132,14 @@ export async function handleAgentRoutes(
 
     if (parts.length === 1) {
       try {
-        const body = await parseJsonBody<{ name?: string; persona?: string; model?: string }>(req);
+        const body = await parseJsonBody<{ name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null }>(req);
         const agentId = decodeURIComponent(parts[0]);
         const snapshot = await updateAgentProfile(agentId, {
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.persona !== undefined ? { persona: body.persona } : {}),
           ...(body.model !== undefined ? { model: body.model } : {}),
+          ...(body.avatar !== undefined ? { avatar: body.avatar } : {}),
+          ...(body.reportsTo !== undefined ? { reportsTo: body.reportsTo } : {}),
         });
         scheduleGatewayReload(ctx, 'update-agent');
         sendJson(res, 200, { success: true, ...snapshot });

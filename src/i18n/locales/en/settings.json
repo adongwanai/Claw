@@ -303,5 +303,259 @@
       "files": "Files",
       "agent": "Agent"
     }
-  }
+  },
+  "settingsShell": {
+    "groups": {
+      "basic": "Basic",
+      "workflow": "Workflow",
+      "capability": "Capability",
+      "governance": "Governance"
+    },
+    "items": {
+      "general": { "label": "General Settings" },
+      "model-provider": { "label": "Models & Providers" },
+      "team-role-strategy": { "label": "Team & Role Strategy" },
+      "channel-advanced": { "label": "Advanced Channel Config" },
+      "automation-defaults": { "label": "Automation Defaults" },
+      "memory-knowledge": { "label": "Memory & Knowledge" },
+      "skills-mcp": { "label": "Skills & MCP" },
+      "tool-permissions": { "label": "Tool Permissions" },
+      "agent-avatars": { "label": "Agent Avatars" },
+      "migration-backup": { "label": "Migration & Backup" },
+      "auto-update": { "label": "App Updates" },
+      "feedback-developer": { "label": "Feedback & Developer" }
+    },
+    "meta": {
+      "general": {
+        "title": "General Settings",
+        "subtitle": "Manage global appearance, language, and app startup behavior.",
+        "kicker": "Appearance and behavior"
+      },
+      "model-provider": {
+        "title": "Models & Providers",
+        "subtitle": "Configure the core reasoning engine, bind third-party API keys, and define the global fallback model.",
+        "kicker": "API keys and model selection"
+      },
+      "team-role-strategy": {
+        "title": "Team Architecture",
+        "subtitle": "Control how the system derives sub-agents automatically and assigns default roles to different task classes.",
+        "kicker": "Role assignment and context boundaries"
+      },
+      "channel-advanced": {
+        "title": "Advanced Channel Config",
+        "subtitle": "Manage messaging strategy across Feishu, WeCom, Telegram, and other host environments.",
+        "kicker": "IM integrations, quiet rules, and routing"
+      },
+      "automation-defaults": {
+        "title": "Automation Defaults",
+        "subtitle": "Define concurrency pools and fault-breaker behavior for unattended workflows such as cron jobs.",
+        "kicker": "Scheduling limits, retries, and alerts"
+      },
+      "memory-knowledge": {
+        "title": "Memory & Knowledge Base",
+        "subtitle": "Manage long-term memory storage, summarization rules, and mounted local knowledge directories.",
+        "kicker": "Capabilities"
+      },
+      "skills-mcp": {
+        "title": "Skills & MCP Services",
+        "subtitle": "Manage internal executors (Skills) and external protocol services (mcp-servers).",
+        "kicker": "Capability modules"
+      },
+      "tool-permissions": {
+        "title": "Tool Permissions",
+        "subtitle": "Strictly define which tools and folders intelligent systems are allowed to modify.",
+        "kicker": "Capability sandbox and blocklists"
+      },
+      "agent-avatars": {
+        "title": "Agent Avatars",
+        "subtitle": "Upload custom avatar images for each agent.",
+        "kicker": "Avatar management"
+      },
+      "migration-backup": {
+        "title": "Migration & Backup",
+        "subtitle": "Protect configuration from loss or damage and support moving between primary and secondary machines.",
+        "kicker": "Sync, rollback, and migration"
+      },
+      "auto-update": {
+        "title": "App Updates",
+        "subtitle": "Manage automatic checks and downloads, and review current version and update progress.",
+        "kicker": "Versioning and updates"
+      },
+      "feedback-developer": {
+        "title": "Feedback & Developer",
+        "subtitle": "Continue to host real tooling such as updates, Doctor diagnostics, and developer mode.",
+        "kicker": "Governance"
+      }
+    }
+  },
+  "memoryKnowledge": {
+    "tabsAriaLabel": "Memory knowledge tabs",
+    "tabs": {
+      "strategy": "Strategy Settings",
+      "browser": "Data Browser"
+    }
+  },
+  "memoryStrategy": {
+    "global": {
+      "title": "Global Long-Term Memory Strategy",
+      "storageLabel": "Storage Backend",
+      "storageOptions": {
+        "sqlite": "Local SQLite + BM25 full-text search (default lightweight option)",
+        "postgres": "PostgreSQL + pgvector (cloud native)",
+        "chroma": "Chroma (vector-first)"
+      },
+      "embeddingLabel": "Embedding Size & Model",
+      "embeddingOptions": {
+        "small": "text-embedding-3-small (OpenAI, cost effective)",
+        "large": "text-embedding-3-large (OpenAI, high accuracy)",
+        "local": "nomic-embed-text (local, free)"
+      }
+    },
+    "automation": {
+      "title": "Automatic Consolidation & Summaries",
+      "contextConsolidation": {
+        "title": "Automatic rolling compression for multi-turn conversations (Context Consolidation)",
+        "description": "When active context exceeds 16k tokens, extract core knowledge into long-term memory and trim the frontend context."
+      },
+      "nightlyReflection": {
+        "title": "Nightly Reflection",
+        "description": "During very low overnight load, merge and summarize yesterday's IM interactions into the global profile."
+      }
+    },
+    "localKnowledge": {
+      "title": "Mount Local Knowledge Directories",
+      "examplePath": "D:/CompanyDocs/Handbook",
+      "exampleStats": "143 PDFs, 42 MDs",
+      "reindex": "Reindex",
+      "addDirectory": "+ Add local watch directory set"
+    }
+  },
+  "memoryBrowser": {
+    "fileListAria": "Memory file list",
+    "previewAria": "Memory preview",
+    "filesLabel": "Files ({{count}})",
+    "refreshAria": "Refresh memory file list",
+    "empty": "No memory files yet",
+    "selectFile": "Select a file on the left to view its content",
+    "loading": "Loading...",
+    "saved": "Saved",
+    "readFailed": "Read failed: {{error}}",
+    "saveFailed": "Save failed: {{error}}",
+    "saveFailedPrefix": "Save failed",
+    "actions": {
+      "edit": "Edit",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving..."
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo_one": "{{count}} minute ago",
+      "minutesAgo_other": "{{count}} minutes ago",
+      "hoursAgo_one": "{{count}} hour ago",
+      "hoursAgo_other": "{{count}} hours ago",
+      "daysAgo_one": "{{count}} day ago",
+      "daysAgo_other": "{{count}} days ago"
+    }
+  },
+  "migrationPanel": {
+    "migrate": {
+      "title": "Migrate from OpenClaw",
+      "description": "Automatically detect legacy OpenClaw workspaces on disk and migrate agents, skills, and IM channels without loss.",
+      "cta": "🪄 Launch Migration Wizard"
+    },
+    "backup": {
+      "title": "Cold Backup & Export",
+      "snapshotTitle": "Back up a full snapshot package",
+      "snapshotDescription": "Bundle settings, encrypted credentials, cron config, and knowledge graph data into a single .ktclaw archive.",
+      "importTitle": "Migrate from snapshot / overwrite import",
+      "importDescription": "Useful when moving to a new computer. Selecting a file will require restarting the app. Unsaved data will be lost.",
+      "importButton": "Choose .ktclaw Import"
+    },
+    "autoBackup": {
+      "title": "Automatic Incremental Backup",
+      "itemTitle": "Keep a local config history every day (Git-like)",
+      "itemDescription": "This allows one-click rollback after a bad MCP JSON change. Up to 5 history entries are kept."
+    },
+    "hardReset": {
+      "title": "Hard Reset",
+      "warning": "Clear all settings and related agent data... (this action cannot be undone)",
+      "button": "Clear and Restart"
+    }
+  },
+  "migrationWizard": {
+    "dialogAriaLabel": "Configuration migration wizard",
+    "header": {
+      "title": "Configuration Migration",
+      "subtitle": "Migrate settings from OpenClaw to AutoClaw"
+    },
+    "actions": {
+      "close": "Close migration wizard",
+      "previous": "‹ Previous",
+      "skip": "Skip",
+      "next": "› Next",
+      "start": "🚀 Start Migration"
+    },
+    "compatibility": {
+      "title": "Migration Compatibility Report",
+      "items": {
+        "channels": { "label": "Channels (IM Config)", "description": "Extract channel config from openclaw.json" },
+        "agentDefaults": { "label": "Agent Default Config", "description": "Migrate agents.defaults settings" },
+        "workspace": { "label": "Workspace Files (workspace/)", "description": "Copy files from workspace/ (39 KB)" },
+        "agents": { "label": "Agent Config (agents/)", "description": "Copy config under agents/ (16 KB)" },
+        "skills": { "label": "Skill Config (skills/)", "description": "Copy the skills/ directory (review custom scripts first)" },
+        "cron": { "label": "Cron Tasks (cron/)", "description": "Copy cron task configuration" },
+        "identity": { "label": "Identity Info (IDENTITY.md)", "description": "Copy the IDENTITY.md file" },
+        "memory": { "label": "Agent Memory Library", "description": "Memory library does not exist" },
+        "history": { "label": "Conversation History (0 sessions)", "description": "No conversation history found" },
+        "providers": { "label": "Model Provider Config", "description": "No custom model providers are available to migrate (zai/zhi…)" },
+        "browser": { "label": "Browser State", "description": "Browser data does not exist" },
+        "media": { "label": "Media Files", "description": "Media files do not exist" },
+        "plugins": { "label": "Plugins (plugins/)", "description": "AutoClaw uses a different plugin architecture and cannot migrate them directly" },
+        "gateway": { "label": "Gateway Config", "description": "Gateway architecture differs and cannot be migrated directly" }
+      }
+    },
+    "scope": {
+      "title": "Choose Migration Scope",
+      "subtitle": "Select the configuration items to migrate",
+      "selectAll": "Select all",
+      "clearAll": "Clear all",
+      "counter": "{{selected}}/{{total}}"
+    },
+    "confirm": {
+      "title": "Confirm Migration",
+      "checklist": {
+        "copyOnly": "Original config is not deleted (copy, not move)",
+        "keepDefaults": "Conflicts keep AutoClaw defaults",
+        "backupPath": "Back up to ~/.openclaw.backup/"
+      },
+      "securityNotice": "Security notice: skills/ may contain custom scripts, review them before migrating",
+      "acknowledge": "I understand the migration risks and want to continue"
+    }
+  },
+  "maintenance": {
+    "title": "Maintenance",
+    "rerunSetup": "Re-run Setup",
+    "resetAllSettings": "Reset All Settings",
+    "clearServerData": "Clear Server Data",
+    "runChecks": "Run checks",
+    "resetSuccess": "Settings reset to defaults",
+    "resetFailed": "Failed to reset settings: {{error}}",
+    "clearSuccess": "Server data cleared",
+    "clearFailed": "Failed to clear server data: {{error}}"
+  },
+  "backToWorkbench": "Back to Workbench",
+  "agentAvatars": "Agent Avatars",
+  "agentAvatarsLoading": "Loading...",
+  "agentAvatarsEmpty": "No agents found.",
+  "uploadAvatar": "Upload Avatar",
+  "removeAvatar": "Remove Avatar",
+  "avatarUpdated": "Avatar updated",
+  "avatarRemoved": "Avatar removed",
+  "avatarImageRequired": "Please select an image file.",
+  "avatarUploadFailed": "Failed to update avatar.",
+  "avatarReadFailed": "Unable to read image file.",
+  "avatarRemoveFailed": "Failed to remove avatar.",
+  "brandImageRequired": "Please select an image file for the brand asset.",
+  "brandReadFailed": "Unable to read brand asset."
 }

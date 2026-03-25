@@ -10,6 +10,9 @@ export interface AgentSummary {
   agentDir: string;
   mainSessionKey: string;
   channelTypes: string[];
+  avatar?: string | null;
+  reportsTo?: string | null;
+  directReports?: string[];
 }
 
 export interface AgentsSnapshot {

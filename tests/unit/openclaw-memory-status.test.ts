@@ -1,20 +1,22 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'fs';
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockSendJson, mockHomedir, mockExecFile, mockExecSync } = vi.hoisted(() => ({
+const { mockSendJson, mockParseJsonBody, mockHomedir, mockExecFile, mockExecSync, mockSpawnSync } = vi.hoisted(() => ({
   mockSendJson: vi.fn(),
+  mockParseJsonBody: vi.fn(),
   mockHomedir: vi.fn(),
   mockExecFile: vi.fn(),
   mockExecSync: vi.fn(),
+  mockSpawnSync: vi.fn(),
 }));
 
 vi.mock('@electron/api/route-utils', () => ({
   sendJson: (...args: unknown[]) => mockSendJson(...args),
-  parseJsonBody: vi.fn(),
+  parseJsonBody: (...args: unknown[]) => mockParseJsonBody(...args),
 }));
 
 vi.mock('os', async () => {
@@ -28,6 +30,7 @@ vi.mock('os', async () => {
 vi.mock('child_process', () => ({
   execFile: (...args: unknown[]) => mockExecFile(...args),
   execSync: (...args: unknown[]) => mockExecSync(...args),
+  spawnSync: (...args: unknown[]) => mockSpawnSync(...args),
 }));
 
 describe('GET /api/memory and POST /api/memory/reindex', () => {
@@ -42,6 +45,7 @@ describe('GET /api/memory and POST /api/memory/reindex', () => {
     workspaceDir = join(homeDir, '.openclaw', 'agents', 'main', 'workspace');
     await mkdir(workspaceDir, { recursive: true });
     mockHomedir.mockReturnValue(homeDir);
+    mockParseJsonBody.mockResolvedValue({});
     mockExecFile.mockImplementation((file, args, options, callback) => {
       callback(null, JSON.stringify({ indexed: true, totalEntries: 3 }), '');
       return {} as never;
@@ -226,5 +230,93 @@ describe('GET /api/memory and POST /api/memory/reindex', () => {
     const [, statusCode, payload] = mockSendJson.mock.calls[0] as [unknown, number, { ok?: boolean }];
     expect(statusCode).toBe(200);
     expect(payload.ok).toBe(true);
+  });
+
+  it('creates a git snapshot for the selected scope and returns the commit hash', async () => {
+    const analystWorkspace = join(homeDir, '.openclaw', 'agents', 'analyst', 'workspace');
+    await mkdir(join(analystWorkspace, 'memory'), { recursive: true });
+    writeFileSync(join(analystWorkspace, 'memory', 'notes.md'), 'snapshot me', 'utf-8');
+    mockParseJsonBody.mockResolvedValueOnce({ scope: 'analyst' });
+    mockSpawnSync
+      .mockReturnValueOnce({ status: 0, stderr: '', stdout: '' })
+      .mockReturnValueOnce({ status: 0, stderr: '', stdout: '[main abc123] memory snapshot' })
+      .mockReturnValueOnce({ status: 0, stderr: '', stdout: 'abc123\n' });
+
+    const { handleMemoryRoutes } = await import('@electron/api/routes/memory');
+    const handled = await handleMemoryRoutes(
+      { method: 'POST' } as IncomingMessage,
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/memory/snapshot'),
+      {} as never,
+    );
+
+    expect(handled).toBe(true);
+    expect(mockSpawnSync).toHaveBeenNthCalledWith(
+      1,
+      'git',
+      ['add', '-A'],
+      expect.objectContaining({ cwd: analystWorkspace }),
+    );
+    expect(mockSpawnSync).toHaveBeenNthCalledWith(
+      2,
+      'git',
+      ['commit', '-m', expect.stringContaining('memory snapshot')],
+      expect.objectContaining({ cwd: analystWorkspace }),
+    );
+    expect(mockSpawnSync).toHaveBeenNthCalledWith(
+      3,
+      'git',
+      ['rev-parse', '--short', 'HEAD'],
+      expect.objectContaining({ cwd: analystWorkspace }),
+    );
+
+    const [, statusCode, payload] = mockSendJson.mock.calls.at(-1) as [
+      unknown,
+      number,
+      { success?: boolean; commitHash?: string | null },
+    ];
+    expect(statusCode).toBe(200);
+    expect(payload.success).toBe(true);
+    expect(payload.commitHash).toBe('abc123');
+  });
+
+  it('analyzes memory health and reports stale, large, and empty files', async () => {
+    const analystWorkspace = join(homeDir, '.openclaw', 'agents', 'analyst', 'workspace');
+    await mkdir(join(analystWorkspace, 'memory'), { recursive: true });
+    writeFileSync(join(analystWorkspace, 'memory', 'empty.md'), '', 'utf-8');
+    writeFileSync(join(analystWorkspace, 'memory', 'large.md'), 'x'.repeat(12 * 1024), 'utf-8');
+    writeFileSync(join(analystWorkspace, 'memory', 'stale.md'), 'old notes', 'utf-8');
+    const staleDate = new Date('2026-03-01T00:00:00.000Z');
+    utimesSync(join(analystWorkspace, 'memory', 'stale.md'), staleDate, staleDate);
+    mockParseJsonBody.mockResolvedValueOnce({ scope: 'analyst' });
+
+    const { handleMemoryRoutes } = await import('@electron/api/routes/memory');
+    const handled = await handleMemoryRoutes(
+      { method: 'POST' } as IncomingMessage,
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/memory/analyze'),
+      {} as never,
+    );
+
+    expect(handled).toBe(true);
+    const [, statusCode, payload] = mockSendJson.mock.calls.at(-1) as [
+      unknown,
+      number,
+      {
+        healthScore?: number;
+        staleFiles?: string[];
+        largeFiles?: string[];
+        emptyFiles?: string[];
+        recommendations?: string[];
+        totalFiles?: number;
+      },
+    ];
+    expect(statusCode).toBe(200);
+    expect(payload.healthScore).toBeLessThan(100);
+    expect(payload.totalFiles).toBe(3);
+    expect(payload.emptyFiles).toContain('memory/empty.md');
+    expect(payload.largeFiles).toContain('memory/large.md');
+    expect(payload.staleFiles).toContain('memory/stale.md');
+    expect(payload.recommendations?.length).toBeGreaterThan(0);
   });
 });

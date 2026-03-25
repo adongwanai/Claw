@@ -67,6 +67,7 @@ function WindowsTitleBar() {
           onClick={handleMinimize}
           className="flex h-full w-11 items-center justify-center text-muted-foreground hover:bg-accent transition-colors"
           title="Minimize"
+          aria-label="Minimize window"
         >
           <Minus className="h-4 w-4" />
         </button>
@@ -74,6 +75,7 @@ function WindowsTitleBar() {
           onClick={handleMaximize}
           className="flex h-full w-11 items-center justify-center text-muted-foreground hover:bg-accent transition-colors"
           title={maximized ? 'Restore' : 'Maximize'}
+          aria-label={maximized ? 'Restore window' : 'Maximize window'}
         >
           {maximized ? <Copy className="h-3.5 w-3.5" /> : <Square className="h-3.5 w-3.5" />}
         </button>
@@ -81,6 +83,7 @@ function WindowsTitleBar() {
           onClick={handleClose}
           className="flex h-full w-11 items-center justify-center text-muted-foreground hover:bg-red-500 hover:text-white transition-colors"
           title="Close"
+          aria-label="Close window"
         >
           <X className="h-4 w-4" />
         </button>

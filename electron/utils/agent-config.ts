@@ -43,6 +43,8 @@ interface AgentListEntry extends Record<string, unknown> {
   workspace?: string;
   agentDir?: string;
   model?: string | AgentModelConfig;
+  avatar?: string | null;
+  reportsTo?: string | null;
 }
 
 interface AgentsConfig extends Record<string, unknown> {
@@ -88,6 +90,9 @@ export interface AgentSummary {
   agentDir: string;
   mainSessionKey: string;
   channelTypes: string[];
+  avatar?: string | null;
+  reportsTo: string | null;
+  directReports: string[];
 }
 
 export interface AgentsSnapshot {
@@ -491,8 +496,19 @@ async function buildSnapshotFromConfig(config: AgentConfigDocument): Promise<Age
       agentDir: entry.agentDir || getDefaultAgentDirPath(entry.id),
       mainSessionKey: buildAgentMainSessionKey(config, entry.id),
       channelTypes: configuredChannels.filter((ct) => ownedChannels.has(ct)),
+      avatar: typeof entry.avatar === 'string' ? entry.avatar : null,
+      reportsTo: entry.reportsTo ?? (entry.id !== defaultAgentId ? defaultAgentId : null),
+      directReports: [],
     };
   });
+
+  // Build directReports from reportsTo relationships
+  for (const agent of agents) {
+    if (agent.reportsTo) {
+      const parent = agents.find((a) => a.id === agent.reportsTo);
+      if (parent) parent.directReports.push(agent.id);
+    }
+  }
 
   return {
     agents,
@@ -557,7 +573,7 @@ export async function createAgent(name: string, persona?: string): Promise<Agent
 
 export async function updateAgentProfile(
   agentId: string,
-  updates: { name?: string; persona?: string; model?: string },
+  updates: { name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null },
 ): Promise<AgentsSnapshot> {
   return withConfigLock(async () => {
     const config = await readOpenClawConfig() as AgentConfigDocument;
@@ -587,6 +603,22 @@ export async function updateAgentProfile(
         updatedEntry.model = trimmedModel;
       } else {
         delete updatedEntry.model;
+      }
+    }
+
+    if (updates.avatar !== undefined) {
+      if (updates.avatar) {
+        updatedEntry.avatar = updates.avatar;
+      } else {
+        delete updatedEntry.avatar;
+      }
+    }
+
+    if (updates.reportsTo !== undefined) {
+      if (updates.reportsTo && entries.some((e) => e.id === updates.reportsTo)) {
+        updatedEntry.reportsTo = updates.reportsTo;
+      } else {
+        delete updatedEntry.reportsTo;
       }
     }
 

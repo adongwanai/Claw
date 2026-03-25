@@ -77,15 +77,22 @@ tail -30 continue/progress.txt
   - Wave 4：Settings `Re-run Setup` / `Reset All Settings` / `Clear Server Data`
   - Wave 4：Settings global `logo / icon upload`
   - Wave 4：standalone read-only `/agents/:agentId`
-- 因此下面旧清单里，涉及上述能力的“剩余”描述请以本段为准，不要重复实现已完成部分。
+  - Session 25：i18n Memory (~45) + Costs (~50) 迁至 `t()` 调用；locale 新增 ~100 key
+  - Session 25：`reportsTo/directReports` 持久化到 agent config + API + AgentDetail 前端
+  - Session 25：测试 setup 初始化 i18n `changeLanguage('zh')` 保持兼容
+  - Session 25：修复 Settings `EditableChipListProps` TS 编译错误
+  - Session 26：Settings shell / memory / migration 子面板迁至 locale；TeamOverview / TeamMap 页面壳层迁至 locale
+  - Session 26：avatar 持久化链打通到 agent snapshot / shared types / store / Settings / AgentDetail
+  - Session 26：Kanban approval lineage session-key binding + active approval polling + child run detail list
+  - Session 26：新增 AgentDetail / Settings / Memory route+page / TaskKanban / TeamOverview / TeamMap 回归测试
+- 因此下面旧清单里，涉及上述能力的"剩余"描述请以本段为准，不要重复实现已完成部分。
 - 当前真正还缺的重点：
-  - P0 i18n：继续清理其他页面历史硬编码文案
-  - Runtime / registry：tool execution path / deeper skill bridge / finer approval tree binding
-  - Channels：multi-user isolation / richer capability runtime
-  - Memory：git snapshot、AI analysis、QMD collection
-  - Agent detail：real `reportsTo/directReports` persistence、cron relation view、avatar upload/remove
-  - Settings：agent image override
+  - P0 i18n：继续清理 Channels / Cron / TaskKanban / AskUserQuestionWizard / Sidebar 等剩余历史硬编码文案
+  - Runtime / registry：tool execution path / deeper skill bridge / structured runtime history / runtime tree drill-down
+  - Channels：multi-user isolation deeper capability runtime
+  - Agent detail：cron relation view deeper linkage
   - Wave 5：update / UX / a11y / 工程治理
+
 
 ---
 
@@ -131,8 +138,11 @@ tail -30 continue/progress.txt
   - `completed` 自动进入 review-ready 状态并展示 `workResult`
   - runtime session records 跨主进程重启持久化与恢复
   - detail panel 按 runtime `sessionKey` 绑定当前 ticket 的 approvals，可直接 `Review / Respond`
+  - approval lineage session-key binding（当前 run + parent lineage）
+  - active runtime approval polling
+  - detail panel child run list（不再只显示 child count）
 - 剩余：
-  - 更深的 agent work / retry / 状态联动（approval 更细粒度绑定、后续 agent work 深化）
+  - 更深的 agent work / retry / 状态联动（structured runtime history、child run 切换/钻取、tool/thinking 结构化展示）
 
 #### 6. Cron 深化
 

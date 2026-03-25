@@ -1,26 +1,13 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
-// Step 1: Compatibility report items
-const COMPAT_ITEMS = [
-  { id: 'channels', label: 'Channels (IM 通道配置)', desc: '从 openclaw.json 中提取 channels 配置', pass: true },
-  { id: 'agentDefaults', label: 'Agent 默认配置', desc: '迁移 agents.defaults 设置', pass: true },
-  { id: 'workspace', label: '工作区文件 (workspace/)', desc: '复制 workspace/ 目录下的文件 (39 KB)', pass: true },
-  { id: 'agents', label: 'Agent 配置 (agents/)', desc: '复制 agents/ 目录下的配置 (16 KB)', pass: true },
-  { id: 'skills', label: '技能配置 (skills/)', desc: '复制 skills/ 目录（请注意安全提醒）', pass: true },
-  { id: 'cron', label: '定时任务 (cron/)', desc: '复制 cron/ 定时任务配置', pass: true },
-  { id: 'identity', label: '身份信息 (IDENTITY.md)', desc: '复制 IDENTITY.md 身份文件', pass: true },
-  { id: 'memory', label: 'Agent 记忆库', desc: '记忆库不存在', pass: false },
-  { id: 'history', label: '对话历史 (0 个会话)', desc: '未找到对话历史', pass: false },
-  { id: 'providers', label: '模型提供商配置', desc: '没有可迁移的自定义模型提供商（zai/zhi…', pass: false },
-  { id: 'browser', label: '浏览器状态', desc: '浏览器数据不存在', pass: false },
-  { id: 'media', label: '媒体文件', desc: '媒体文件不存在', pass: false },
-  { id: 'plugins', label: '插件 (plugins/)', desc: 'AutoClaw 使用不同的插件架构，无法迁移', pass: false },
-  { id: 'gateway', label: 'Gateway 配置', desc: 'Gateway 架构不同，无法直接迁移', pass: false },
-] as const;
-
-// Step 2: Only the passing items are selectable
-const SCOPE_ITEMS = COMPAT_ITEMS.filter((item) => item.pass);
+type CompatItem = {
+  id: string;
+  label: string;
+  desc: string;
+  pass: boolean;
+};
 
 type SettingsMigrationWizardProps = {
   open: boolean;
@@ -28,8 +15,26 @@ type SettingsMigrationWizardProps = {
 };
 
 export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigrationWizardProps) {
+  const { t } = useTranslation('settings');
+  const compatItems: CompatItem[] = [
+    { id: 'channels', label: t('migrationWizard.compatibility.items.channels.label'), desc: t('migrationWizard.compatibility.items.channels.description'), pass: true },
+    { id: 'agentDefaults', label: t('migrationWizard.compatibility.items.agentDefaults.label'), desc: t('migrationWizard.compatibility.items.agentDefaults.description'), pass: true },
+    { id: 'workspace', label: t('migrationWizard.compatibility.items.workspace.label'), desc: t('migrationWizard.compatibility.items.workspace.description'), pass: true },
+    { id: 'agents', label: t('migrationWizard.compatibility.items.agents.label'), desc: t('migrationWizard.compatibility.items.agents.description'), pass: true },
+    { id: 'skills', label: t('migrationWizard.compatibility.items.skills.label'), desc: t('migrationWizard.compatibility.items.skills.description'), pass: true },
+    { id: 'cron', label: t('migrationWizard.compatibility.items.cron.label'), desc: t('migrationWizard.compatibility.items.cron.description'), pass: true },
+    { id: 'identity', label: t('migrationWizard.compatibility.items.identity.label'), desc: t('migrationWizard.compatibility.items.identity.description'), pass: true },
+    { id: 'memory', label: t('migrationWizard.compatibility.items.memory.label'), desc: t('migrationWizard.compatibility.items.memory.description'), pass: false },
+    { id: 'history', label: t('migrationWizard.compatibility.items.history.label'), desc: t('migrationWizard.compatibility.items.history.description'), pass: false },
+    { id: 'providers', label: t('migrationWizard.compatibility.items.providers.label'), desc: t('migrationWizard.compatibility.items.providers.description'), pass: false },
+    { id: 'browser', label: t('migrationWizard.compatibility.items.browser.label'), desc: t('migrationWizard.compatibility.items.browser.description'), pass: false },
+    { id: 'media', label: t('migrationWizard.compatibility.items.media.label'), desc: t('migrationWizard.compatibility.items.media.description'), pass: false },
+    { id: 'plugins', label: t('migrationWizard.compatibility.items.plugins.label'), desc: t('migrationWizard.compatibility.items.plugins.description'), pass: false },
+    { id: 'gateway', label: t('migrationWizard.compatibility.items.gateway.label'), desc: t('migrationWizard.compatibility.items.gateway.description'), pass: false },
+  ];
+  const scopeItems = compatItems.filter((item) => item.pass);
   const [step, setStep] = useState(1);
-  const [selected, setSelected] = useState<string[]>(SCOPE_ITEMS.map((i) => i.id));
+  const [selected, setSelected] = useState<string[]>(scopeItems.map((i) => i.id));
   const [acknowledged, setAcknowledged] = useState(false);
 
   if (!open) return null;
@@ -40,7 +45,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const allSelected = selected.length === SCOPE_ITEMS.length;
+  const allSelected = selected.length === scopeItems.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -49,6 +54,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
       <div
         role="dialog"
         aria-modal="true"
+        aria-label={t('migrationWizard.dialogAriaLabel')}
         className="relative flex w-full max-w-[520px] flex-col overflow-hidden rounded-[20px] bg-white shadow-[0_24px_60px_rgba(0,0,0,0.22)]"
         style={{ maxHeight: '90vh' }}
       >
@@ -59,13 +65,14 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
               🗂
             </div>
             <div>
-              <h1 className="text-[17px] font-semibold text-[#000000]">配置迁移</h1>
-              <p className="text-[12px] text-[#8e8e93]">从 OpenClaw 迁移配置到 AutoClaw</p>
+              <h1 className="text-[17px] font-semibold text-[#000000]">{t('migrationWizard.header.title')}</h1>
+              <p className="text-[12px] text-[#8e8e93]">{t('migrationWizard.header.subtitle')}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => onOpenChange(false)}
+            aria-label={t('migrationWizard.actions.close')}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e5e5ea] text-[#3c3c43] hover:bg-[#d1d1d6]"
           >
             ✕
@@ -87,19 +94,21 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-2">
-          {step === 1 && <CompatibilityStep />}
+          {step === 1 && <CompatibilityStep items={compatItems} t={t} />}
           {step === 2 && (
             <ScopeStep
+              items={scopeItems}
               selected={selected}
               allSelected={allSelected}
               onToggle={toggleItem}
               onToggleAll={() =>
-                setSelected(allSelected ? [] : SCOPE_ITEMS.map((i) => i.id))
+                setSelected(allSelected ? [] : scopeItems.map((i) => i.id))
               }
+              t={t}
             />
           )}
           {step === 3 && (
-            <ConfirmStep acknowledged={acknowledged} onAcknowledgeChange={setAcknowledged} />
+            <ConfirmStep acknowledged={acknowledged} onAcknowledgeChange={setAcknowledged} t={t} />
           )}
         </div>
 
@@ -110,7 +119,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
             onClick={() => (step > 1 ? setStep((s) => s - 1) : onOpenChange(false))}
             className="flex items-center gap-1 rounded-full border border-black/10 px-4 py-2 text-[13px] font-medium text-[#000000] hover:bg-[#f2f2f7]"
           >
-            ‹ 上一步
+            {t('migrationWizard.actions.previous')}
           </button>
 
           <div className="flex items-center gap-3">
@@ -120,7 +129,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
                 onClick={() => setStep((s) => s + 1)}
                 className="rounded-full px-4 py-2 text-[13px] font-medium text-[#8e8e93] hover:text-[#000000]"
               >
-                跳过
+                {t('migrationWizard.actions.skip')}
               </button>
             )}
             {step < totalSteps ? (
@@ -129,7 +138,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
                 onClick={() => setStep((s) => s + 1)}
                 className="flex items-center gap-1 rounded-full bg-[#ff6a00] px-5 py-2 text-[13px] font-semibold text-white hover:bg-[#e05d00]"
               >
-                › 下一步
+                {t('migrationWizard.actions.next')}
               </button>
             ) : (
               <button
@@ -145,7 +154,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
                     : 'cursor-not-allowed bg-[#c7c7cc]',
                 )}
               >
-                🚀 开始迁移
+                {t('migrationWizard.actions.start')}
               </button>
             )}
           </div>
@@ -155,7 +164,7 @@ export function SettingsMigrationWizard({ open, onOpenChange }: SettingsMigratio
   );
 }
 
-function CompatibilityStep() {
+function CompatibilityStep({ items, t }: { items: CompatItem[]; t: (key: string, options?: Record<string, unknown>) => string }) {
   return (
     <div className="space-y-4 py-2">
       {/* Icon + title */}
@@ -169,12 +178,12 @@ function CompatibilityStep() {
           <line x1="13" y1="39" x2="20" y2="28" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round" />
           <line x1="26" y1="32" x2="42" y2="32" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
-        <h2 className="mt-1 text-[22px] font-bold text-[#000000]">迁移兼容性报告</h2>
+        <h2 className="mt-1 text-[22px] font-bold text-[#000000]">{t('migrationWizard.compatibility.title')}</h2>
       </div>
 
       {/* Items */}
       <div className="space-y-3">
-        {COMPAT_ITEMS.map((item) => (
+        {items.map((item) => (
           <div key={item.id} className="flex items-center gap-3">
             {/* Status icon */}
             {item.pass ? (
@@ -207,13 +216,15 @@ function CompatibilityStep() {
 }
 
 type ScopeStepProps = {
+  items: CompatItem[];
   selected: string[];
   allSelected: boolean;
   onToggle: (id: string) => void;
   onToggleAll: () => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
 };
 
-function ScopeStep({ selected, allSelected, onToggle, onToggleAll }: ScopeStepProps) {
+function ScopeStep({ items, selected, allSelected, onToggle, onToggleAll, t }: ScopeStepProps) {
   return (
     <div className="space-y-4 py-2">
       {/* Icon + title */}
@@ -226,8 +237,8 @@ function ScopeStep({ selected, allSelected, onToggle, onToggleAll }: ScopeStepPr
           <line x1="13" y1="39" x2="20" y2="28" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round" />
           <line x1="26" y1="32" x2="42" y2="32" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
-        <h2 className="mt-1 text-[22px] font-bold text-[#000000]">选择迁移范围</h2>
-        <p className="mt-1 text-[13px] text-[#8e8e93]">选择要迁移的配置项</p>
+        <h2 className="mt-1 text-[22px] font-bold text-[#000000]">{t('migrationWizard.scope.title')}</h2>
+        <p className="mt-1 text-[13px] text-[#8e8e93]">{t('migrationWizard.scope.subtitle')}</p>
       </div>
 
       {/* Select-all row */}
@@ -237,16 +248,16 @@ function ScopeStep({ selected, allSelected, onToggle, onToggleAll }: ScopeStepPr
           onClick={onToggleAll}
           className="text-[13px] text-[#3c3c43] hover:text-[#000000]"
         >
-          {allSelected ? '取消全选' : '全选'}
+          {allSelected ? t('migrationWizard.scope.clearAll') : t('migrationWizard.scope.selectAll')}
         </button>
         <span className="text-[13px] text-[#8e8e93]">
-          {selected.length}/{SCOPE_ITEMS.length}
+          {t('migrationWizard.scope.counter', { selected: selected.length, total: items.length })}
         </span>
       </div>
 
       {/* Items */}
       <div className="space-y-2">
-        {SCOPE_ITEMS.map((item) => {
+        {items.map((item) => {
           const isSelected = selected.includes(item.id);
           return (
             <button
@@ -281,9 +292,10 @@ function ScopeStep({ selected, allSelected, onToggle, onToggleAll }: ScopeStepPr
 type ConfirmStepProps = {
   acknowledged: boolean;
   onAcknowledgeChange: (v: boolean) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
 };
 
-function ConfirmStep({ acknowledged, onAcknowledgeChange }: ConfirmStepProps) {
+function ConfirmStep({ acknowledged, onAcknowledgeChange, t }: ConfirmStepProps) {
   return (
     <div className="space-y-5 py-4">
       {/* Warning icon + title */}
@@ -299,15 +311,15 @@ function ConfirmStep({ acknowledged, onAcknowledgeChange }: ConfirmStepProps) {
           <line x1="26" y1="22" x2="26" y2="34" stroke="#1c1c1e" strokeWidth="2.5" strokeLinecap="round" />
           <circle cx="26" cy="40" r="1.5" fill="#1c1c1e" />
         </svg>
-        <h2 className="mt-3 text-[22px] font-bold text-[#000000]">确认执行迁移</h2>
+        <h2 className="mt-3 text-[22px] font-bold text-[#000000]">{t('migrationWizard.confirm.title')}</h2>
       </div>
 
       {/* Checklist */}
       <div className="space-y-4">
         {[
-          '原配置不删除（复制非移动）',
-          '冲突保留 AutoClaw 默认值',
-          '备份至 ~/.openclaw.backup/',
+          t('migrationWizard.confirm.checklist.copyOnly'),
+          t('migrationWizard.confirm.checklist.keepDefaults'),
+          t('migrationWizard.confirm.checklist.backupPath'),
         ].map((item) => (
           <div key={item} className="flex items-center gap-3">
             <span className="text-[15px] text-[#3c3c43]">✓</span>
@@ -321,7 +333,7 @@ function ConfirmStep({ acknowledged, onAcknowledgeChange }: ConfirmStepProps) {
         <span className="text-[15px]">🛡️</span>
         <span className="text-[15px]">💧</span>
         <span className="text-[13px] text-[#3c3c43]">
-          安全提醒：skills/ 可能含自定义脚本，迁移前建议审查
+          {t('migrationWizard.confirm.securityNotice')}
         </span>
       </div>
 
@@ -341,7 +353,7 @@ function ConfirmStep({ acknowledged, onAcknowledgeChange }: ConfirmStepProps) {
         >
           {acknowledged ? '✓' : ''}
         </span>
-        <span className="text-[14px] text-[#3c3c43]">我已了解迁移风险，确认执行</span>
+        <span className="text-[14px] text-[#3c3c43]">{t('migrationWizard.confirm.acknowledge')}</span>
       </button>
     </div>
   );

@@ -236,4 +236,82 @@ describe('Memory page', () => {
       );
     });
   });
+
+  it('creates a snapshot, renders analysis output, and manages extra paths locally', async () => {
+    vi.mocked(hostApiFetch).mockImplementation(async (path, init) => {
+      if (typeof path !== 'string') {
+        throw new Error('Unexpected path type');
+      }
+
+      if (path.startsWith('/api/memory') && !init) {
+        const parsed = new URL(path, 'http://127.0.0.1');
+        const scope = (parsed.searchParams.get('scope') as ScopeId | null) ?? 'main';
+        const query = parsed.searchParams.get('q') ?? '';
+        return buildMemoryResponse(scope, query);
+      }
+
+      if (path === '/api/memory/snapshot' && init?.method === 'POST') {
+        return {
+          success: true,
+          commitHash: 'abc123',
+          message: 'memory snapshot 2026-03-25 15:00:00',
+        };
+      }
+
+      if (path === '/api/memory/analyze' && init?.method === 'POST') {
+        return {
+          healthScore: 72,
+          staleFiles: ['memory/daily/2026-03-01.md'],
+          largeFiles: ['memory/handbook.md'],
+          emptyFiles: ['memory/empty.md'],
+          recommendations: ['Review 1 stale file.', 'Split 1 large file.'],
+          totalFiles: 3,
+          lastModified: '2026-03-24T00:00:00.000Z',
+        };
+      }
+
+      throw new Error(`Unexpected hostApiFetch call: ${path}`);
+    });
+
+    render(<Memory />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Git 快照' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(hostApiFetch)).toHaveBeenCalledWith(
+        '/api/memory/snapshot',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    expect(await screen.findByText(/快照成功/)).toBeInTheDocument();
+    expect(screen.getByText(/abc123/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 分析' }));
+
+    await waitFor(() => {
+      expect(vi.mocked(hostApiFetch)).toHaveBeenCalledWith(
+        '/api/memory/analyze',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+    expect(await screen.findByText('AI 分析结果')).toBeInTheDocument();
+    expect(screen.getByText(/健康度 72/)).toBeInTheDocument();
+    expect(screen.getByText(/memory\/handbook\.md/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '额外来源' }));
+    fireEvent.change(screen.getByPlaceholderText('输入绝对路径或相对路径…'), {
+      target: { value: 'knowledge/brief.md' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '添加' }));
+
+    expect(await screen.findByText('knowledge/brief.md')).toBeInTheDocument();
+    expect(localStorage.getItem('memory_extra_paths')).toBe(JSON.stringify(['knowledge/brief.md']));
+
+    fireEvent.click(screen.getByRole('button', { name: '移除额外路径 knowledge/brief.md' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('knowledge/brief.md')).not.toBeInTheDocument();
+    });
+    expect(localStorage.getItem('memory_extra_paths')).toBe(JSON.stringify([]));
+  });
 });

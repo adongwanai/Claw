@@ -3,10 +3,12 @@
  * 合并原 SettingsMonitoringPanel 的全部功能
  */
 import { Fragment, useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
 import { RefreshCw, TrendingUp, Zap, DollarSign, BarChart3, Plus, Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { SkeletonText } from '@/components/ui/Skeleton';
 
 /* ─── Types ─── */
 
@@ -94,12 +96,13 @@ interface AlertRule {
 
 type TabId = 'realtime' | 'dashboard' | 'usage' | 'alerts';
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'realtime', label: '实时用量' },
-  { id: 'dashboard', label: '大盘监控' },
-  { id: 'usage', label: '用量分析' },
-  { id: 'alerts', label: '告警策略' },
-];
+const TAB_IDS: TabId[] = ['realtime', 'dashboard', 'usage', 'alerts'];
+const TAB_LABEL_KEYS: Record<TabId, string> = {
+  realtime: 'costs.tabRealtime',
+  dashboard: 'costs.tabDashboard',
+  usage: 'costs.tabUsage',
+  alerts: 'costs.tabAlerts',
+};
 
 /* ─── Helpers ─── */
 
@@ -126,6 +129,7 @@ function formatDate(ts: string): string {
 /* ─── Main component ─── */
 
 export function Costs() {
+  const { t } = useTranslation('common');
   const [activeTab, setActiveTab] = useState<TabId>('realtime');
   const [entries, setEntries] = useState<TokenUsageEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -190,7 +194,7 @@ export function Costs() {
 
   const modelMap = new Map<string, { tokens: number; cost: number; count: number }>();
   for (const e of entries) {
-    const key = e.model ?? '未知模型';
+    const key = e.model ?? t('costs.unknownModel');
     const prev = modelMap.get(key) ?? { tokens: 0, cost: 0, count: 0 };
     modelMap.set(key, { tokens: prev.tokens + e.totalTokens, cost: prev.cost + (e.costUsd ?? 0), count: prev.count + 1 });
   }
@@ -200,7 +204,7 @@ export function Costs() {
     <div className="flex h-full flex-col bg-[#f2f2f7]">
       {/* Header */}
       <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-[#c6c6c8] bg-white px-5">
-        <h1 className="text-[15px] font-semibold text-[#000000]">费用 / 监控</h1>
+        <h1 className="text-[15px] font-semibold text-[#000000]">{t('costs.title')}</h1>
         <div className="flex items-center gap-3">
           {activeTab === 'realtime' && (
             <>
@@ -232,9 +236,9 @@ export function Costs() {
               onChange={(e) => setLimit(Number(e.target.value))}
               className="h-8 rounded-lg border border-[#c6c6c8] bg-[#f2f2f7] px-2 text-[12px] text-[#3c3c43] outline-none"
             >
-              <option value={50}>最近 50 条</option>
-              <option value={200}>最近 200 条</option>
-              <option value={500}>最近 500 条</option>
+              <option value={50}>{t('costs.recent50')}</option>
+              <option value={200}>{t('costs.recent200')}</option>
+              <option value={500}>{t('costs.recent500')}</option>
             </select>
             </>
           )}
@@ -245,26 +249,26 @@ export function Costs() {
             className="flex h-8 items-center gap-1.5 rounded-lg px-3 text-[13px] text-[#3c3c43] transition-colors hover:bg-[#f2f2f7] disabled:opacity-50"
           >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-            刷新
+            {t('actions.refresh')}
           </button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex shrink-0 gap-6 border-b border-[#c6c6c8] bg-white px-5">
-        {TABS.map((tab) => (
+        {TAB_IDS.map((tabId) => (
           <button
-            key={tab.id}
+            key={tabId}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setActiveTab(tabId)}
             className={cn(
               'border-b-2 pb-3 pt-3 text-[13px] font-medium transition-colors',
-              activeTab === tab.id
+              activeTab === tabId
                 ? 'border-clawx-ac text-clawx-ac'
                 : 'border-transparent text-[#8e8e93] hover:text-[#000000]',
             )}
           >
-            {tab.label}
+            {t(TAB_LABEL_KEYS[tabId])}
           </button>
         ))}
       </div>
@@ -314,14 +318,15 @@ function RealtimeTab({
   totalCost: number;
   modelRows: [string, { tokens: number; cost: number; count: number }][];
 }) {
+  const { t } = useTranslation('common');
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-4 gap-3">
         {[
-          { icon: <Zap className="h-4 w-4" />, label: '输入 Token', value: formatTokens(totalInput), color: '#007aff' },
-          { icon: <TrendingUp className="h-4 w-4" />, label: '输出 Token', value: formatTokens(totalOutput), color: '#10b981' },
-          { icon: <BarChart3 className="h-4 w-4" />, label: '缓存 Token', value: formatTokens(totalCache), color: '#f59e0b' },
-          { icon: <DollarSign className="h-4 w-4" />, label: '总费用 (USD)', value: formatCost(totalCost), color: '#ff6a00' },
+          { icon: <Zap className="h-4 w-4" />, label: t('costs.inputTokens'), value: formatTokens(totalInput), color: '#007aff' },
+          { icon: <TrendingUp className="h-4 w-4" />, label: t('costs.outputTokens'), value: formatTokens(totalOutput), color: '#10b981' },
+          { icon: <BarChart3 className="h-4 w-4" />, label: t('costs.cacheTokens'), value: formatTokens(totalCache), color: '#f59e0b' },
+          { icon: <DollarSign className="h-4 w-4" />, label: t('costs.totalCostUsd'), value: formatCost(totalCost), color: '#ff6a00' },
         ].map((card) => (
           <div key={card.label} className="rounded-xl bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
             <div className="flex items-center gap-2 mb-2" style={{ color: card.color }}>
@@ -336,7 +341,7 @@ function RealtimeTab({
       {modelRows.length > 0 && (
         <div className="rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="border-b border-[#f2f2f7] px-5 py-3">
-            <span className="text-[13px] font-semibold text-[#000000]">模型用量分布</span>
+            <span className="text-[13px] font-semibold text-[#000000]">{t('costs.modelDistribution')}</span>
           </div>
           <div className="divide-y divide-[#f2f2f7]">
             {modelRows.map(([model, stats]) => {
@@ -363,25 +368,25 @@ function RealtimeTab({
 
       <div className="rounded-xl bg-white shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
         <div className="border-b border-[#f2f2f7] px-5 py-3">
-          <span className="text-[13px] font-semibold text-[#000000]">最近记录 ({entries.length})</span>
+          <span className="text-[13px] font-semibold text-[#000000]">{t('costs.recentRecords')} ({entries.length})</span>
         </div>
         {entries.length === 0 && !loading ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <span className="text-[28px] opacity-30">💸</span>
-            <span className="text-[13px] text-[#8e8e93]">暂无用量数据</span>
+            <span className="text-[13px] text-[#8e8e93]">{t('costs.noUsageData')}</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="border-b border-[#f2f2f7] text-left text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8e8e93]">
-                  <th className="px-5 py-2.5">时间</th>
+                  <th className="px-5 py-2.5">{t('costs.time')}</th>
                   <th className="px-3 py-2.5">Agent</th>
-                  <th className="px-3 py-2.5">模型</th>
-                  <th className="px-3 py-2.5 text-right">输入</th>
-                  <th className="px-3 py-2.5 text-right">输出</th>
-                  <th className="px-3 py-2.5 text-right">缓存</th>
-                  <th className="px-5 py-2.5 text-right">费用</th>
+                  <th className="px-3 py-2.5">{t('costs.model')}</th>
+                  <th className="px-3 py-2.5 text-right">{t('costs.input')}</th>
+                  <th className="px-3 py-2.5 text-right">{t('costs.output')}</th>
+                  <th className="px-3 py-2.5 text-right">{t('costs.cache')}</th>
+                  <th className="px-5 py-2.5 text-right">{t('costs.cost')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f2f2f7]">
@@ -418,6 +423,7 @@ function DashboardTab({
   cronRows: CronSummary[];
   analysis: CostsAnalysis | null;
 }) {
+  const { t } = useTranslation('common');
   const [expandedCronId, setExpandedCronId] = useState<string | null>(null);
   const timeline = summary?.timeline ?? [];
   const totals = summary?.totals;
@@ -425,10 +431,10 @@ function DashboardTab({
   // Build KPI cards from real data when available
   const kpiCards = totals
     ? [
-        { label: '总 Token 用量', value: formatTokens(totals.totalTokens), meta: `${totals.sessions} 次会话`, tone: 'text-[#667085]' },
-        { label: '输入 Token', value: formatTokens(totals.inputTokens), meta: `占比 ${totals.totalTokens > 0 ? Math.round(totals.inputTokens / totals.totalTokens * 100) : 0}%`, tone: 'text-[#667085]' },
-        { label: '缓存节省', value: formatTokens(totals.cacheTokens), meta: `Hit Rate: ${totals.totalTokens > 0 ? Math.round(totals.cacheTokens / totals.totalTokens * 100) : 0}%`, tone: 'text-emerald-600' },
-        { label: '预估花费 (USD)', value: formatCost(totals.costUsd), meta: '30 天累计', tone: 'text-[#ff6a00]' },
+        { label: t('costs.totalTokenUsage'), value: formatTokens(totals.totalTokens), meta: `${totals.sessions} ${t('costs.sessions')}`, tone: 'text-[#667085]' },
+        { label: t('costs.inputTokens'), value: formatTokens(totals.inputTokens), meta: `${t('costs.proportion')} ${totals.totalTokens > 0 ? Math.round(totals.inputTokens / totals.totalTokens * 100) : 0}%`, tone: 'text-[#667085]' },
+        { label: t('costs.cacheSavingsLabel'), value: formatTokens(totals.cacheTokens), meta: `Hit Rate: ${totals.totalTokens > 0 ? Math.round(totals.cacheTokens / totals.totalTokens * 100) : 0}%`, tone: 'text-emerald-600' },
+        { label: t('costs.estimatedCost'), value: formatCost(totals.costUsd), meta: '30 days', tone: 'text-[#ff6a00]' },
       ]
     : null;
 
@@ -455,11 +461,11 @@ function DashboardTab({
         </div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-4">
-          {['总 Token 用量', '输入 Token', '缓存节省', '预估花费 (USD)'].map((label) => (
+          {[t('costs.totalTokenUsage'), t('costs.inputTokens'), t('costs.cacheSavingsLabel'), t('costs.estimatedCost')].map((label) => (
             <div key={label} className="rounded-[18px] border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
               <div className="text-[13px] text-[#8e8e93]">{label}</div>
               <div className="mt-2 text-[28px] font-bold tracking-[-0.03em] text-[#c6c6c8]">—</div>
-              <div className="mt-2 text-[12px] text-[#c6c6c8]">暂无数据</div>
+              <div className="mt-2 text-[12px] text-[#c6c6c8]">{t('status.noData')}</div>
             </div>
           ))}
         </div>
@@ -525,7 +531,7 @@ function DashboardTab({
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
         <div className="rounded-xl border border-[#c6c6c8] bg-white p-5">
           <p className="mb-4 text-[14px] font-semibold text-[#334155]">
-            每日 Token 用量 {last7.length > 0 ? `(最近 ${last7.length} 天)` : '(7 Days)'}
+            {t('costs.dailyTokenUsage')} {last7.length > 0 ? `(${last7.length}d)` : '(7 Days)'}
           </p>
           <div className="relative flex h-48 items-end gap-4 border-b border-[#eef2f6] pb-4">
             {[32, 72, 112, 152].map((offset) => (
@@ -540,13 +546,13 @@ function DashboardTab({
                 </div>
               );
             }) : (
-              <div className="flex flex-1 items-center justify-center text-[13px] text-[#c6c6c8]">暂无数据</div>
+              <div className="flex flex-1 items-center justify-center text-[13px] text-[#c6c6c8]">{t('status.noData')}</div>
             )}
           </div>
         </div>
 
         <div className="rounded-xl border border-[#c6c6c8] bg-white p-5">
-          <p className="mb-4 text-[14px] font-semibold text-[#334155]">Token 分布</p>
+          <p className="mb-4 text-[14px] font-semibold text-[#334155]">{t('costs.tokenDistribution')}</p>
           {totals && totals.totalTokens > 0 ? (
             <div className="flex flex-col items-center gap-5">
               <div
@@ -583,7 +589,7 @@ function DashboardTab({
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
               <span className="text-[28px] opacity-30">📊</span>
-              <span className="text-[13px] text-[#8e8e93]">暂无 Token 分布数据</span>
+              <span className="text-[13px] text-[#8e8e93]">{t('costs.noUsageData')}</span>
             </div>
           )}
         </div>
@@ -591,17 +597,17 @@ function DashboardTab({
 
       {topAgents.length > 0 && (
         <div className="rounded-xl border border-[#c6c6c8] bg-white p-5">
-          <p className="mb-4 text-[14px] font-semibold text-[#334155]">Agent 用量排行</p>
+          <p className="mb-4 text-[14px] font-semibold text-[#334155]">{t('costs.agentUsageRanking')}</p>
           <div className="overflow-x-auto">
             <table aria-label="Agent usage ranking table" className="min-w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-[#eef2f6] text-[#8e8e93]">
                   <th className="py-3 font-medium">Agent</th>
-                  <th className="py-3 font-medium">会话数</th>
-                  <th className="py-3 font-medium">Input</th>
-                  <th className="py-3 font-medium">Output</th>
-                  <th className="py-3 font-medium">占比</th>
-                  <th className="py-3 text-right font-medium">费用 ($)</th>
+                  <th className="py-3 font-medium">{t('costs.sessions')}</th>
+                  <th className="py-3 font-medium">{t('costs.input')}</th>
+                  <th className="py-3 font-medium">{t('costs.output')}</th>
+                  <th className="py-3 font-medium">{t('costs.proportion')}</th>
+                  <th className="py-3 text-right font-medium">{t('costs.costUsd')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -719,11 +725,11 @@ function DashboardTab({
 
       {topAgents.length === 0 && (
         <div className="rounded-xl border border-[#c6c6c8] bg-white p-5">
-          <p className="mb-4 text-[14px] font-semibold text-[#334155]">Agent 用量排行</p>
+          <p className="mb-4 text-[14px] font-semibold text-[#334155]">{t('costs.agentUsageRanking')}</p>
           <div className="flex flex-col items-center gap-2 py-8 text-center">
             <span className="text-[28px] opacity-30">🤖</span>
-            <span className="text-[13px] text-[#8e8e93]">暂无 Agent 用量数据</span>
-            <span className="text-[12px] text-[#c6c6c8]">开始对话后将在此显示各 Agent 的 Token 消耗</span>
+            <span className="text-[13px] text-[#8e8e93]">{t('costs.noAgentData')}</span>
+            <span className="text-[12px] text-[#c6c6c8]">{t('costs.noAgentDataDesc')}</span>
           </div>
         </div>
       )}
@@ -734,6 +740,7 @@ function DashboardTab({
 /* ─── Usage Tab ─── */
 
 function UsageTab({ agentRows }: { agentRows: AgentSummary[] }) {
+  const { t } = useTranslation('common');
   const totalTokens = agentRows.reduce((s, a) => s + a.totalTokens, 0);
 
   if (agentRows.length === 0) {
@@ -741,8 +748,8 @@ function UsageTab({ agentRows }: { agentRows: AgentSummary[] }) {
       <div className="rounded-xl border border-[#c6c6c8] bg-white p-6">
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <span className="text-[40px] opacity-30">📊</span>
-          <p className="text-[14px] text-[#8e8e93]">暂无用量分析数据</p>
-          <p className="text-[12px] text-[#c6c6c8]">开始对话后将在此显示各 Agent 的 Token 用量分布</p>
+          <p className="text-[14px] text-[#8e8e93]">{t('costs.noUsageAnalysis')}</p>
+          <p className="text-[12px] text-[#c6c6c8]">{t('costs.noUsageAnalysisDesc')}</p>
         </div>
       </div>
     );
@@ -763,7 +770,7 @@ function UsageTab({ agentRows }: { agentRows: AgentSummary[] }) {
 
   return (
     <div className="rounded-xl border border-[#c6c6c8] bg-white p-6">
-      <p className="text-[12px] text-[#8e8e93]">统计范围: 全部 Agent 累计</p>
+      <p className="text-[12px] text-[#8e8e93]">{t('costs.statsScope')}</p>
       <div className="mt-1 text-[28px] font-bold tracking-[-0.04em] text-[#111827]">{formatTokens(totalTokens)} Total Tokens</div>
       <div className="mt-6 grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
         <div
@@ -795,6 +802,7 @@ function UsageTab({ agentRows }: { agentRows: AgentSummary[] }) {
 /* ─── Alerts Tab ─── */
 
 function AlertsTab() {
+  const { t } = useTranslation('common');
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [loading, setLoading] = useState(false);
   const [addName, setAddName] = useState('');
@@ -846,18 +854,18 @@ function AlertsTab() {
   };
 
   const TYPE_LABELS: Record<AlertRule['type'], string> = {
-    daily_token: '日均 Token',
-    cost_usd: '费用 (USD)',
-    session_count: '会话数',
+    daily_token: t('costs.dailyToken'),
+    cost_usd: t('costs.costUsdLabel'),
+    session_count: t('costs.sessionCount'),
   };
 
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
-        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">新增告警规则</h3>
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">{t('costs.newAlertRule')}</h3>
         <div className="flex items-end gap-3">
           <div className="flex-1">
-            <p className="mb-1 text-[12px] font-medium text-[#3c3c43]">规则名称</p>
+            <p className="mb-1 text-[12px] font-medium text-[#3c3c43]">{t('costs.ruleName')}</p>
             <input
               value={addName}
               onChange={(e) => setAddName(e.target.value)}
@@ -872,9 +880,9 @@ function AlertsTab() {
               onChange={(e) => setAddType(e.target.value as AlertRule['type'])}
               className="w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
             >
-              <option value="daily_token">日均 Token</option>
-              <option value="cost_usd">费用 (USD)</option>
-              <option value="session_count">会话数</option>
+              <option value="daily_token">{t('costs.dailyToken')}</option>
+              <option value="cost_usd">{t('costs.costUsdLabel')}</option>
+              <option value="session_count">{t('costs.sessionCount')}</option>
             </select>
           </div>
           <div className="w-[120px]">
@@ -894,7 +902,7 @@ function AlertsTab() {
             className="flex h-9 items-center gap-1.5 rounded-lg bg-clawx-ac px-3 text-[13px] text-white hover:bg-[#0056b3] disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
-            添加
+            {t('actions.add')}
           </button>
         </div>
       </section>
@@ -902,7 +910,9 @@ function AlertsTab() {
       <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
         <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">告警规则列表</h3>
         {loading ? (
-          <p className="text-[13px] text-[#8e8e93]">加载中...</p>
+          <div className="space-y-2 py-2">
+            <SkeletonText lines={3} />
+          </div>
         ) : rules.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <span className="text-[28px] opacity-30">🔔</span>

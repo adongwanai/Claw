@@ -1,12 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, AlertTriangle, BookOpen, FolderOpen, Info, RefreshCw, RotateCw, Save, X } from 'lucide-react';
+import { AlertCircle, AlertTriangle, BookOpen, FolderOpen, GitCommit, Info, Plus, RefreshCw, RotateCw, Save, Trash2, X, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
+import { SkeletonCard, SkeletonText } from '@/components/ui/Skeleton';
 
 type MemoryFileCategory = 'evergreen' | 'daily' | 'other';
 type HealthSeverity = 'critical' | 'warning' | 'info' | 'ok';
-type Tab = 'overview' | 'browser' | 'guide';
+type Tab = 'overview' | 'browser' | 'guide' | 'extras';
 type SortKey = 'date' | 'name' | 'size';
+
+interface SnapshotResult {
+  success: boolean;
+  commitHash: string | null;
+  message: string;
+}
+
+interface AnalysisResult {
+  healthScore: number;
+  staleFiles: string[];
+  largeFiles: string[];
+  emptyFiles: string[];
+  recommendations: string[];
+  totalFiles: number;
+  lastModified: string | null;
+}
 
 interface MemoryFileHighlight {
   start: number;
@@ -124,12 +142,15 @@ function formatBytes(bytes: number): string {
   return `${(kb / 1024).toFixed(1)}MB`;
 }
 
-function relativeTime(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60) return '刚刚';
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-  return `${Math.floor(diff / 86400)}天前`;
+function useRelativeTime() {
+  const { t } = useTranslation('common');
+  return useCallback((iso: string): string => {
+    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (diff < 60) return t('time.justNow');
+    if (diff < 3600) return t('time.minutesAgo', { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t('time.hoursAgo', { count: Math.floor(diff / 3600) });
+    return t('time.daysAgo', { count: Math.floor(diff / 86400) });
+  }, [t]);
 }
 
 const SEVERITY_COLOR: Record<HealthSeverity, string> = {
@@ -165,29 +186,113 @@ function OverviewTab({
   data,
   onReindex,
   reindexing,
+  onSnapshot,
+  snapshotting,
+  snapshotResult,
+  onAnalyze,
+  analyzing,
+  analysisResult,
+  scopeId: _scopeId,
 }: {
   data: MemoryApiResponse;
   onReindex: () => void;
   reindexing: boolean;
+  onSnapshot: () => void;
+  snapshotting: boolean;
+  snapshotResult: SnapshotResult | null;
+  onAnalyze: () => void;
+  analyzing: boolean;
+  analysisResult: AnalysisResult | null;
+  scopeId: string;
 }) {
+  const { t } = useTranslation('common');
+  const relativeTime = useRelativeTime();
+  void _scopeId;
   const { stats, status, health } = data;
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
-        <div className="text-[16px] font-semibold text-[#000000]">记忆健康评分: {health.score}</div>
+        <div className="text-[16px] font-semibold text-[#000000]">{t('memory.healthScore')}: {health.score}</div>
         <div className="mt-2 text-[12px] text-[#8e8e93]">
-          文件: {stats.totalFiles} · 大小: {formatBytes(stats.totalSizeBytes)} · 索引: {status.indexed ? '已建立' : '未建立'}
+          {t('memory.files')}: {stats.totalFiles} · {t('memory.fileSize')}: {formatBytes(stats.totalSizeBytes)} · {t('memory.index')}: {status.indexed ? t('memory.indexed') : t('memory.notIndexed')}
         </div>
-        <button
-          type="button"
-          onClick={onReindex}
-          disabled={reindexing}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-clawx-ac px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          <RotateCw className={cn('h-3 w-3', reindexing && 'animate-spin')} />
-          {reindexing ? '重建中…' : '重建索引'}
-        </button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onReindex}
+            disabled={reindexing}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-clawx-ac px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            <RotateCw className={cn('h-3 w-3', reindexing && 'animate-spin')} />
+            {reindexing ? t('memory.reindexing') : t('memory.reindex')}
+          </button>
+          <button
+            type="button"
+            onClick={onSnapshot}
+            disabled={snapshotting}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#3c3c43] px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-80 disabled:opacity-50"
+          >
+            <GitCommit className={cn('h-3 w-3', snapshotting && 'animate-spin')} />
+            {snapshotting ? t('memory.snapshotting') : t('memory.gitSnapshot')}
+          </button>
+          <button
+            type="button"
+            onClick={onAnalyze}
+            disabled={analyzing}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#f2f2f7] px-3 py-1.5 text-[12px] font-medium text-[#3c3c43] hover:bg-[#e5e5ea] disabled:opacity-50"
+          >
+            <Zap className={cn('h-3 w-3', analyzing && 'animate-spin')} />
+            {analyzing ? t('memory.analyzing') : t('memory.aiAnalysis')}
+          </button>
+        </div>
+        {snapshotResult && (
+          <div className={cn('mt-3 rounded-lg px-3 py-2 text-[12px]', snapshotResult.success ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-[#ef4444]/10 text-[#ef4444]')}>
+            {snapshotResult.success
+              ? `${t('memory.snapshotSuccess')}${snapshotResult.commitHash ? ` · ${snapshotResult.commitHash}` : ''} · ${snapshotResult.message}`
+              : `${t('memory.snapshotFailed')}: ${snapshotResult.message}`}
+          </div>
+        )}
       </div>
+
+      {analysisResult && (
+        <div className="rounded-2xl border border-black/[0.06] bg-white p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[14px] font-semibold text-[#000000]">{t('memory.analysisResult')}</div>
+            <div className={cn('text-[13px] font-bold', analysisResult.healthScore >= 80 ? 'text-[#10b981]' : analysisResult.healthScore >= 50 ? 'text-[#f59e0b]' : 'text-[#ef4444]')}>
+              {t('memory.healthDegree')} {analysisResult.healthScore}
+            </div>
+          </div>
+          <div className="text-[12px] text-[#8e8e93]">
+            {t('memory.totalFiles', { count: analysisResult.totalFiles })}
+            {analysisResult.lastModified ? ` · ${t('time.lastModified')}: ${relativeTime(analysisResult.lastModified)}` : ''}
+          </div>
+          {analysisResult.emptyFiles.length > 0 && (
+            <div className="rounded-lg bg-[#ef4444]/5 px-3 py-2">
+              <div className="text-[12px] font-medium text-[#ef4444]">{t('memory.emptyFiles')} ({analysisResult.emptyFiles.length})</div>
+              {analysisResult.emptyFiles.map((f) => <div key={f} className="text-[11px] text-[#8e8e93]">{f}</div>)}
+            </div>
+          )}
+          {analysisResult.largeFiles.length > 0 && (
+            <div className="rounded-lg bg-[#f59e0b]/5 px-3 py-2">
+              <div className="text-[12px] font-medium text-[#f59e0b]">{t('memory.largeFiles')} ({analysisResult.largeFiles.length})</div>
+              {analysisResult.largeFiles.map((f) => <div key={f} className="text-[11px] text-[#8e8e93]">{f}</div>)}
+            </div>
+          )}
+          {analysisResult.staleFiles.length > 0 && (
+            <div className="rounded-lg bg-[#007aff]/5 px-3 py-2">
+              <div className="text-[12px] font-medium text-[#007aff]">{t('memory.staleFiles')} ({analysisResult.staleFiles.length})</div>
+              {analysisResult.staleFiles.slice(0, 5).map((f) => <div key={f} className="text-[11px] text-[#8e8e93]">{f}</div>)}
+              {analysisResult.staleFiles.length > 5 && <div className="text-[11px] text-[#8e8e93]">{t('memory.moreFiles', { count: analysisResult.staleFiles.length - 5 })}</div>}
+            </div>
+          )}
+          <div className="space-y-1">
+            {analysisResult.recommendations.map((r, i) => (
+              <div key={i} className="text-[12px] text-[#3c3c43]">→ {r}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {health.checks.length > 0 ? (
         <div className="space-y-2">
           {health.checks.map((check) => (
@@ -196,7 +301,7 @@ function OverviewTab({
         </div>
       ) : (
         <div className="rounded-xl border border-black/[0.06] bg-white px-4 py-6 text-center text-[13px] text-[#10b981]">
-          所有检查通过
+          {t('memory.allChecksPassed')}
         </div>
       )}
     </div>
@@ -224,6 +329,8 @@ function BrowserTab({
   onSave: (relativePath: string, content: string, expectedMtime?: string) => Promise<void>;
   onRefresh: () => void;
 }) {
+  const { t } = useTranslation('common');
+  const relativeTime = useRelativeTime();
   const [sort, setSort] = useState<SortKey>('date');
   const [selected, setSelected] = useState<MemoryFileInfo | null>(null);
   const [editing, setEditing] = useState(false);
@@ -325,7 +432,7 @@ function BrowserTab({
         <input
           type="text"
           aria-label="Search Memory"
-          placeholder="搜索内容…"
+          placeholder={t('memory.searchPlaceholder')}
           value={searchQuery}
           onChange={(event) => onSearchQueryChange(event.target.value)}
           className="w-full rounded-lg border border-black/[0.08] bg-white px-3 py-2 text-[12px] outline-none focus:border-clawx-ac"
@@ -342,13 +449,13 @@ function BrowserTab({
                 sort === key ? 'bg-clawx-ac text-white' : 'bg-white text-[#8e8e93] hover:bg-[#f2f2f7]',
               )}
             >
-              {key === 'date' ? '时间' : key === 'name' ? '名称' : '大小'}
+              {t(`sort.${key}`)}
             </button>
           ))}
         </div>
         <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
           {sortedFiles.length === 0 && (
-            <div className="py-8 text-center text-[12px] text-[#8e8e93]">无文件</div>
+            <div className="py-8 text-center text-[12px] text-[#8e8e93]">{t('memory.noFiles')}</div>
           )}
           {sortedFiles.map((file) => (
             <button
@@ -387,7 +494,7 @@ function BrowserTab({
         {!selected ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-[#8e8e93]">
             <FolderOpen className="h-10 w-10 opacity-30" />
-            <span className="text-[13px]">选择左侧文件查看内容</span>
+            <span className="text-[13px]">{t('memory.selectFile')}</span>
           </div>
         ) : (
           <>
@@ -424,7 +531,7 @@ function BrowserTab({
                     disabled={selected.writable === false}
                     className="flex items-center gap-1 rounded-lg bg-[#f2f2f7] px-3 py-1.5 text-[12px] font-medium text-[#3c3c43] hover:bg-[#e5e5ea] disabled:opacity-50"
                   >
-                    编辑
+                    {t('actions.edit')}
                   </button>
                 ) : (
                   <>
@@ -433,7 +540,7 @@ function BrowserTab({
                       onClick={handleCancel}
                       className="flex items-center gap-1 rounded-lg bg-[#f2f2f7] px-3 py-1.5 text-[12px] font-medium text-[#3c3c43] hover:bg-[#e5e5ea]"
                     >
-                      <X className="h-3 w-3" /> 取消
+                      <X className="h-3 w-3" /> {t('actions.cancel')}
                     </button>
                     <button
                       type="button"
@@ -441,7 +548,7 @@ function BrowserTab({
                       disabled={saving}
                       className="flex items-center gap-1 rounded-lg bg-clawx-ac px-3 py-1.5 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50"
                     >
-                      <Save className="h-3 w-3" /> {saving ? '保存中…' : '保存'}
+                      <Save className="h-3 w-3" /> {saving ? t('status.saving') : t('actions.save')}
                     </button>
                   </>
                 )}
@@ -458,7 +565,7 @@ function BrowserTab({
                 />
               ) : (
                 <pre className="whitespace-pre-wrap break-words p-4 font-mono text-[12px] leading-5 text-[#000000]">
-                  {selected.content || <span className="text-[#8e8e93]">（空文件）</span>}
+                  {selected.content || <span className="text-[#8e8e93]">{t('memory.emptyFile')}</span>}
                 </pre>
               )}
             </div>
@@ -469,19 +576,84 @@ function BrowserTab({
   );
 }
 
-function GuideTab({ config }: { config: MemoryConfig }) {
+function ExtrasTab({ extraPaths, onAdd, onRemove }: {
+  extraPaths: string[];
+  onAdd: (path: string) => void;
+  onRemove: (path: string) => void;
+}) {
+  const [newPath, setNewPath] = useState('');
+  const { t } = useTranslation('common');
+
+  const handleAdd = () => {
+    const trimmed = newPath.trim();
+    if (!trimmed) return;
+    onAdd(trimmed);
+    setNewPath('');
+  };
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
-        <div className="text-[13px] font-semibold text-[#000000]">使用建议</div>
+        <div className="text-[14px] font-semibold text-[#000000]">{t('memory.extraSources')}</div>
+        <p className="mt-1 text-[12px] text-[#8e8e93]">{t('memory.extraSourcesDesc')}</p>
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={newPath}
+            onChange={(e) => setNewPath(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); }}
+            placeholder={t('memory.pathPlaceholder')}
+            className="flex-1 rounded-lg border border-black/[0.08] bg-[#f2f2f7] px-3 py-2 text-[12px] outline-none focus:border-clawx-ac"
+          />
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={!newPath.trim()}
+            className="inline-flex items-center gap-1 rounded-lg bg-clawx-ac px-3 py-2 text-[12px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            <Plus className="h-3.5 w-3.5" /> {t('actions.add')}
+          </button>
+        </div>
+      </div>
+      {extraPaths.length === 0 ? (
+        <div className="rounded-xl border border-black/[0.06] bg-white px-4 py-6 text-center text-[13px] text-[#8e8e93]">
+          {t('memory.noExtraPaths')}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {extraPaths.map((p) => (
+            <div key={p} className="flex items-center justify-between rounded-xl border border-black/[0.06] bg-white px-4 py-3">
+              <span className="flex-1 truncate font-mono text-[12px] text-[#3c3c43]">{p}</span>
+              <button
+                type="button"
+                onClick={() => onRemove(p)}
+                aria-label={t('memory.removeExtraPath', { path: p })}
+                className="ml-3 shrink-0 rounded-lg p-1.5 text-[#ef4444] hover:bg-[#ef4444]/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GuideTab({ config }: { config: MemoryConfig }) {
+  const { t } = useTranslation('common');
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
+        <div className="text-[13px] font-semibold text-[#000000]">{t('memory.usageTips')}</div>
         <ul className="mt-2 space-y-2 text-[12px] leading-5 text-[#3c3c43]">
-          <li>保持 `MEMORY.md` 简洁，核心信息优先。</li>
-          <li>每日日志放在 `memory/YYYY-MM-DD.md` 并定期清理。</li>
-          <li>保存后可执行重建索引，让检索快速反映最新内容。</li>
+          <li>{t('memory.tip1')}</li>
+          <li>{t('memory.tip2')}</li>
+          <li>{t('memory.tip3')}</li>
         </ul>
       </div>
       <div className="rounded-2xl border border-black/[0.06] bg-white p-5 text-[12px] text-[#3c3c43]">
-        向量搜索: {config.memorySearch.enabled ? '已启用' : '未启用'} ·
+        {t('memory.vectorSearch')}: {config.memorySearch.enabled ? t('status.enabled') : t('status.notEnabled')} ·
         Provider: {config.memorySearch.provider ?? 'default'}
       </div>
     </div>
@@ -489,6 +661,7 @@ function GuideTab({ config }: { config: MemoryConfig }) {
 }
 
 export function Memory() {
+  const { t } = useTranslation('common');
   const [tab, setTab] = useState<Tab>('overview');
   const [data, setData] = useState<MemoryApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -496,6 +669,13 @@ export function Memory() {
   const [reindexing, setReindexing] = useState(false);
   const [scopeId, setScopeId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [snapshotting, setSnapshotting] = useState(false);
+  const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [extraPaths, setExtraPaths] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('memory_extra_paths') ?? '[]') as string[]; } catch { return []; }
+  });
 
   const load = useCallback(async (nextScope = scopeId, nextQuery = searchQuery) => {
     setLoading(true);
@@ -546,19 +726,71 @@ export function Memory() {
     }
   }, [load]);
 
+  const handleSnapshot = useCallback(async () => {
+    setSnapshotting(true);
+    setSnapshotResult(null);
+    try {
+      const result = await hostApiFetch<SnapshotResult>('/api/memory/snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: scopeId || data?.activeScope || undefined }),
+      });
+      setSnapshotResult(result);
+    } catch (e) {
+      setSnapshotResult({ success: false, commitHash: null, message: String(e) });
+    } finally {
+      setSnapshotting(false);
+    }
+  }, [scopeId, data?.activeScope]);
+
+  const handleAnalyze = useCallback(async () => {
+    setAnalyzing(true);
+    setAnalysisResult(null);
+    try {
+      const result = await hostApiFetch<AnalysisResult>('/api/memory/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: scopeId || data?.activeScope || undefined }),
+      });
+      setAnalysisResult(result);
+    } catch (e) {
+      console.error('analyze failed', e);
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [scopeId, data?.activeScope]);
+
+  const handleAddExtraPath = useCallback((path: string) => {
+    setExtraPaths((prev) => {
+      if (prev.includes(path)) return prev;
+      const next = [...prev, path];
+      localStorage.setItem('memory_extra_paths', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const handleRemoveExtraPath = useCallback((path: string) => {
+    setExtraPaths((prev) => {
+      const next = prev.filter((p) => p !== path);
+      localStorage.setItem('memory_extra_paths', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   const tabs: { key: Tab; label: string; Icon: typeof FolderOpen }[] = [
-    { key: 'overview', label: '概览', Icon: Info },
-    { key: 'browser', label: '文件浏览', Icon: FolderOpen },
-    { key: 'guide', label: '使用指南', Icon: BookOpen },
+    { key: 'overview', label: t('memory.tabOverview'), Icon: Info },
+    { key: 'browser', label: t('memory.tabBrowser'), Icon: FolderOpen },
+    { key: 'extras', label: t('memory.tabExtras'), Icon: Plus },
+    { key: 'guide', label: t('memory.tabGuide'), Icon: BookOpen },
   ];
 
   return (
     <div className="flex h-full flex-col bg-[#f2f2f7]">
       <div className="flex items-center justify-between border-b border-black/[0.06] bg-white px-6 py-4">
         <div>
-          <h1 className="text-[17px] font-semibold text-[#000000]">🧠 记忆知识库</h1>
+          <h1 className="text-[17px] font-semibold text-[#000000]">{t('memory.title')}</h1>
           <p className="mt-0.5 text-[12px] text-[#8e8e93]">
-            {data ? data.workspaceDir : '管理 Agent 的长期记忆文件'}
+            {data ? data.workspaceDir : t('memory.subtitle')}
           </p>
         </div>
         <button
@@ -568,7 +800,7 @@ export function Memory() {
           className="flex items-center gap-1.5 rounded-lg bg-[#f2f2f7] px-3 py-2 text-[12px] font-medium text-[#3c3c43] hover:bg-[#e5e5ea] disabled:opacity-50"
         >
           <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-          刷新
+          {t('actions.refresh')}
         </button>
       </div>
 
@@ -591,18 +823,22 @@ export function Memory() {
 
       <div className="flex-1 overflow-y-auto p-6">
         {loading && (
-          <div className="flex items-center justify-center py-20 text-[13px] text-[#8e8e93]">
-            <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> 加载中…
+          <div className="space-y-3">
+            <SkeletonCard />
+            <SkeletonCard />
+            <div className="rounded-2xl border border-black/[0.06] bg-white p-5">
+              <SkeletonText lines={4} />
+            </div>
           </div>
         )}
         {error && !loading && (
           <div className="rounded-xl border border-[#ef4444]/20 bg-[#ef4444]/5 p-4 text-[13px] text-[#ef4444]">
-            加载失败：{error}
+            {t('status.loadFailed')}：{error}
           </div>
         )}
         {data && !loading && (
           <>
-            {tab === 'overview' && <OverviewTab data={data} onReindex={handleReindex} reindexing={reindexing} />}
+            {tab === 'overview' && <OverviewTab data={data} onReindex={handleReindex} reindexing={reindexing} onSnapshot={handleSnapshot} snapshotting={snapshotting} snapshotResult={snapshotResult} onAnalyze={handleAnalyze} analyzing={analyzing} analysisResult={analysisResult} scopeId={scopeId} />}
             {tab === 'browser' && (
               <BrowserTab
                 files={data.files}
@@ -625,6 +861,7 @@ export function Memory() {
               />
             )}
             {tab === 'guide' && <GuideTab config={data.config} />}
+            {tab === 'extras' && <ExtrasTab extraPaths={extraPaths} onAdd={handleAddExtraPath} onRemove={handleRemoveExtraPath} />}
           </>
         )}
       </div>

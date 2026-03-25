@@ -303,5 +303,256 @@
       "files": "文件",
       "agent": "Agent"
     }
-  }
+  },
+  "settingsShell": {
+    "groups": {
+      "basic": "基础",
+      "workflow": "工作流",
+      "capability": "能力",
+      "governance": "治理"
+    },
+    "items": {
+      "general": { "label": "常规设置" },
+      "model-provider": { "label": "模型与 Provider" },
+      "team-role-strategy": { "label": "团队与角色策略" },
+      "channel-advanced": { "label": "通道高级配置" },
+      "automation-defaults": { "label": "自动化默认策略" },
+      "memory-knowledge": { "label": "记忆与知识" },
+      "skills-mcp": { "label": "Skills 与 MCP" },
+      "tool-permissions": { "label": "工具权限" },
+      "agent-avatars": { "label": "分身头像" },
+      "migration-backup": { "label": "迁移与备份" },
+      "auto-update": { "label": "应用更新" },
+      "feedback-developer": { "label": "反馈与开发者" }
+    },
+    "meta": {
+      "general": {
+        "title": "常规设置",
+        "subtitle": "管理全局外观、语言以及应用启动行为。",
+        "kicker": "外观与体验、应用行为"
+      },
+      "model-provider": {
+        "title": "模型与服务商",
+        "subtitle": "配置核心推理引擎，绑定第三方 API Key，并指定全局兜底模型。",
+        "kicker": "API Key 配置、大语言模型选择"
+      },
+      "team-role-strategy": {
+        "title": "团队架构",
+        "subtitle": "管理如何自动派生系统子 AI，并给不同类任务指定默认角色处理。",
+        "kicker": "角色分配、上下文共享边界"
+      },
+      "channel-advanced": {
+        "title": "通道高级配置",
+        "subtitle": "管理飞书、企业微信、Telegram 等多宿主环境的收发言策略。",
+        "kicker": "IM 集成、静默规则、消息路由"
+      },
+      "automation-defaults": {
+        "title": "自动化默认策略",
+        "subtitle": "定义 Cron 等无人值守工作流的并发资源池和异常熔断逻辑。",
+        "kicker": "定时调度限制、错误重试与告警"
+      },
+      "memory-knowledge": {
+        "title": "Memory 记忆与知识库",
+        "subtitle": "管理长期记忆存储策略、自动浓缩规则和本地知识目录挂载。",
+        "kicker": "能力"
+      },
+      "skills-mcp": {
+        "title": "Skills 与 MCP 服务",
+        "subtitle": "管理内部执行器 (Skills) 和外部协议服务 (mcp-servers)。",
+        "kicker": "能力组件拔插"
+      },
+      "tool-permissions": {
+        "title": "工具权限",
+        "subtitle": "严格规范哪些工具甚至哪个文件夹允许被智能系统修改。",
+        "kicker": "能力沙箱与拦截黑名单"
+      },
+      "agent-avatars": {
+        "title": "分身头像",
+        "subtitle": "为每个 Agent 分身上传自定义头像图片。",
+        "kicker": "头像管理"
+      },
+      "migration-backup": {
+        "title": "迁移与备份",
+        "subtitle": "防止配置迷失、意外损毁并支持在主副工作计算机间的转移。",
+        "kicker": "配置同步、回滚、系统迁移"
+      },
+      "auto-update": {
+        "title": "应用更新",
+        "subtitle": "管理自动检查与下载更新策略，查看当前版本与更新进度。",
+        "kicker": "版本管理、自动更新"
+      },
+      "feedback-developer": {
+        "title": "反馈与开发者",
+        "subtitle": "继续承载更新、Doctor 诊断和开发者模式等真实功能。",
+        "kicker": "治理"
+      }
+    }
+  },
+  "memoryKnowledge": {
+    "tabsAriaLabel": "记忆与知识页签",
+    "tabs": {
+      "strategy": "策略配置 (Settings)",
+      "browser": "数据浏览器 (Browser)"
+    }
+  },
+  "memoryStrategy": {
+    "global": {
+      "title": "全局长期记忆策略",
+      "storageLabel": "存储底层",
+      "storageOptions": {
+        "sqlite": "Local SQLite + BM25 全文检索 (默认最轻量)",
+        "postgres": "PostgreSQL + pgvector (云原生)",
+        "chroma": "Chroma (向量优先)"
+      },
+      "embeddingLabel": "Embeddings 大小与模型",
+      "embeddingOptions": {
+        "small": "text-embedding-3-small (OpenAI, 高性价比)",
+        "large": "text-embedding-3-large (OpenAI, 高精度)",
+        "local": "nomic-embed-text (本地, 免费)"
+      }
+    },
+    "automation": {
+      "title": "自动浓缩与总结",
+      "contextConsolidation": {
+        "title": "多轮对话自动滚动压缩 (Context Consolidation)",
+        "description": "当活跃上下文 > 16k tokens 后，提取核心知识覆盖至长记忆并修剪前端。"
+      },
+      "nightlyReflection": {
+        "title": "每日复盘生成 (Nightly Reflection)",
+        "description": "利用凌晨系统极低负载时，把昨天的 IM 互动合并梳理到全局画像中。"
+      }
+    },
+    "localKnowledge": {
+      "title": "挂载本地目录知识",
+      "examplePath": "D:/CompanyDocs/Handbook",
+      "exampleStats": "143 PDFs, 42 MDs",
+      "reindex": "重做索引",
+      "addDirectory": "+ 添加本地监控目录集"
+    }
+  },
+  "memoryBrowser": {
+    "fileListAria": "记忆文件列表",
+    "previewAria": "记忆预览",
+    "filesLabel": "文件 ({{count}})",
+    "refreshAria": "刷新记忆文件列表",
+    "empty": "暂无记忆文件",
+    "selectFile": "选择左侧文件查看内容",
+    "loading": "加载中...",
+    "saved": "已保存",
+    "readFailed": "读取失败: {{error}}",
+    "saveFailed": "保存失败: {{error}}",
+    "saveFailedPrefix": "保存失败",
+    "actions": {
+      "edit": "编辑",
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中..."
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}}分钟前",
+      "hoursAgo": "{{count}}小时前",
+      "daysAgo": "{{count}}天前"
+    }
+  },
+  "migrationPanel": {
+    "migrate": {
+      "title": "从 OpenClaw 迁移配置 (Migrate from OpenClaw)",
+      "description": "自动检测本地磁盘上的 OpenClaw 旧版工作区，一键无损迁移 Agent、Skills 及 IM 通道等历史配置。",
+      "cta": "🪄 启动迁移向导"
+    },
+    "backup": {
+      "title": "冷备与导出",
+      "snapshotTitle": "备份完整快照包 (Snapshot)",
+      "snapshotDescription": "将一切 Settings, Credentials (AES256加密), Cron 配置, 知识图谱打进单个 .ktclaw 存档。",
+      "importTitle": "从快照迁移 / 覆盖式导入",
+      "importDescription": "适用于换新电脑，选择文件后需重启应用。（当前未保存数据将丢失）。",
+      "importButton": "选择 .ktclaw 导入"
+    },
+    "autoBackup": {
+      "title": "自动增量备份",
+      "itemTitle": "每日本地保留配置历史 (Git-like)",
+      "itemDescription": "这允许当你改错某个复杂 MCP JSON 后无痛一键回滚。（上限 5 档历史）"
+    },
+    "hardReset": {
+      "title": "恢复出厂 (Hard Reset)",
+      "warning": "清除所有设置与关联 Agent 数据... (此操作无法撤销)",
+      "button": "清空并重启"
+    }
+  },
+  "migrationWizard": {
+    "dialogAriaLabel": "配置迁移向导",
+    "header": {
+      "title": "配置迁移",
+      "subtitle": "从 OpenClaw 迁移配置到 AutoClaw"
+    },
+    "actions": {
+      "close": "关闭迁移向导",
+      "previous": "‹ 上一步",
+      "skip": "跳过",
+      "next": "› 下一步",
+      "start": "🚀 开始迁移"
+    },
+    "compatibility": {
+      "title": "迁移兼容性报告",
+      "items": {
+        "channels": { "label": "Channels (IM 通道配置)", "description": "从 openclaw.json 中提取 channels 配置" },
+        "agentDefaults": { "label": "Agent 默认配置", "description": "迁移 agents.defaults 设置" },
+        "workspace": { "label": "工作区文件 (workspace/)", "description": "复制 workspace/ 目录下的文件 (39 KB)" },
+        "agents": { "label": "Agent 配置 (agents/)", "description": "复制 agents/ 目录下的配置 (16 KB)" },
+        "skills": { "label": "技能配置 (skills/)", "description": "复制 skills/ 目录（请注意安全提醒）" },
+        "cron": { "label": "定时任务 (cron/)", "description": "复制 cron/ 定时任务配置" },
+        "identity": { "label": "身份信息 (IDENTITY.md)", "description": "复制 IDENTITY.md 身份文件" },
+        "memory": { "label": "Agent 记忆库", "description": "记忆库不存在" },
+        "history": { "label": "对话历史 (0 个会话)", "description": "未找到对话历史" },
+        "providers": { "label": "模型提供商配置", "description": "没有可迁移的自定义模型提供商（zai/zhi…" },
+        "browser": { "label": "浏览器状态", "description": "浏览器数据不存在" },
+        "media": { "label": "媒体文件", "description": "媒体文件不存在" },
+        "plugins": { "label": "插件 (plugins/)", "description": "AutoClaw 使用不同的插件架构，无法迁移" },
+        "gateway": { "label": "Gateway 配置", "description": "Gateway 架构不同，无法直接迁移" }
+      }
+    },
+    "scope": {
+      "title": "选择迁移范围",
+      "subtitle": "选择要迁移的配置项",
+      "selectAll": "全选",
+      "clearAll": "取消全选",
+      "counter": "{{selected}}/{{total}}"
+    },
+    "confirm": {
+      "title": "确认执行迁移",
+      "checklist": {
+        "copyOnly": "原配置不删除（复制非移动）",
+        "keepDefaults": "冲突保留 AutoClaw 默认值",
+        "backupPath": "备份至 ~/.openclaw.backup/"
+      },
+      "securityNotice": "安全提醒：skills/ 可能含自定义脚本，迁移前建议审查",
+      "acknowledge": "我已了解迁移风险，确认执行"
+    }
+  },
+  "maintenance": {
+    "title": "维护",
+    "rerunSetup": "重新运行设置",
+    "resetAllSettings": "重置所有设置",
+    "clearServerData": "清除服务器数据",
+    "runChecks": "运行检查",
+    "resetSuccess": "设置已恢复默认值",
+    "resetFailed": "重置设置失败：{{error}}",
+    "clearSuccess": "服务器数据已清除",
+    "clearFailed": "清除服务器数据失败：{{error}}"
+  },
+  "backToWorkbench": "返回工作台",
+  "agentAvatars": "分身头像",
+  "agentAvatarsLoading": "加载中...",
+  "agentAvatarsEmpty": "未找到分身",
+  "uploadAvatar": "上传头像",
+  "removeAvatar": "移除头像",
+  "avatarUpdated": "头像已更新",
+  "avatarRemoved": "头像已移除",
+  "avatarImageRequired": "请选择图片文件。",
+  "avatarUploadFailed": "更新头像失败。",
+  "avatarReadFailed": "读取图片文件失败。",
+  "avatarRemoveFailed": "移除头像失败。",
+  "brandImageRequired": "请选择品牌图片文件。",
+  "brandReadFailed": "读取品牌图片失败。"
 }

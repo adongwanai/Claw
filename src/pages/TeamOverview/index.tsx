@@ -4,6 +4,7 @@
  */
 import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 import { useAgentsStore } from '@/stores/agents';
 import { useChatStore } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
@@ -27,13 +28,16 @@ function agentIcon(idx: number) { return AVATAR_ICONS[idx % AVATAR_ICONS.length]
 
 /* ─── Time helper ─── */
 
-function formatLastActive(ts: number | undefined): string {
-  if (!ts) return '从未';
+function formatLastActive(
+  ts: number | undefined,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string {
+  if (!ts) return t('teamOverview.time.never');
   const diff = Date.now() - ts;
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  return `${Math.floor(diff / 86_400_000)} 天前`;
+  if (diff < 60_000) return t('teamOverview.time.justNow');
+  if (diff < 3_600_000) return t('teamOverview.time.minutesAgo', { count: Math.floor(diff / 60_000) });
+  if (diff < 86_400_000) return t('teamOverview.time.hoursAgo', { count: Math.floor(diff / 3_600_000) });
+  return t('teamOverview.time.daysAgo', { count: Math.floor(diff / 86_400_000) });
 }
 
 /* ─── Channel icon map ─── */
@@ -48,6 +52,7 @@ const CHANNEL_ICONS: Record<string, string> = {
 /* ─── Create Agent Modal ─── */
 
 function CreateAgentModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => Promise<void> }) {
+  const { t } = useTranslation('common');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -65,27 +70,27 @@ function CreateAgentModal({ onClose, onCreate }: { onClose: () => void; onCreate
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="w-[360px] rounded-2xl bg-white p-6 shadow-xl">
-        <h2 className="mb-4 text-[16px] font-semibold text-[#000000]">雇佣新员工</h2>
+        <h2 className="mb-4 text-[16px] font-semibold text-[#000000]">{t('teamOverview.createModal.title')}</h2>
         <div className="mb-5">
-          <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Agent 名称</p>
+          <p className="mb-1.5 text-[13px] font-medium text-[#000000]">{t('teamOverview.createModal.nameLabel')}</p>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && void handleSubmit()}
-            placeholder="例如：数据分析师"
+            placeholder={t('teamOverview.createModal.placeholder')}
             className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
           />
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">取消</button>
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">{t('actions.cancel')}</button>
           <button
             type="button"
             onClick={() => void handleSubmit()}
             disabled={loading || !name.trim()}
             className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50"
           >
-            {loading ? '创建中...' : '确认创建'}
+            {loading ? t('teamOverview.createModal.creating') : t('teamOverview.createModal.confirm')}
           </button>
         </div>
       </div>
@@ -96,6 +101,7 @@ function CreateAgentModal({ onClose, onCreate }: { onClose: () => void; onCreate
 /* ─── Main component ─── */
 
 export function TeamOverview() {
+  const { t } = useTranslation('common');
   const [createOpen, setCreateOpen] = useState(false);
 
   const { agents, loading, error, fetchAgents, createAgent, deleteAgent } = useAgentsStore();
@@ -113,13 +119,16 @@ export function TeamOverview() {
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
-            <h1 className="text-[26px] font-semibold text-[#000000]">员工与分工总览</h1>
+            <h1 className="text-[26px] font-semibold text-[#000000]">{t('teamOverview.title')}</h1>
             <p className="mt-1 text-[13px] text-[#8e8e93]">
               {loading
-                ? '加载中...'
+                ? t('status.loading')
                 : error
-                  ? '加载失败'
-                  : `${agents.length} 个 Agent · ${isGatewayUp ? 'Gateway 在线' : 'Gateway 离线'}`}
+                  ? t('status.loadFailed')
+                  : t('teamOverview.summary', {
+                    count: agents.length,
+                    gateway: isGatewayUp ? t('teamOverview.gateway.online') : t('teamOverview.gateway.offline'),
+                  })}
             </p>
           </div>
           <button
@@ -127,13 +136,13 @@ export function TeamOverview() {
             onClick={() => setCreateOpen(true)}
             className="flex items-center gap-1.5 rounded-lg border border-black/10 bg-white px-4 py-2 text-[13px] font-medium text-[#000000] shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-all hover:-translate-y-[1px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
           >
-            + 雇佣新员工
+            {t('teamOverview.hireButton')}
           </button>
         </div>
 
         {/* States */}
         {loading && (
-          <div className="flex flex-1 items-center justify-center text-[14px] text-[#8e8e93]">加载中...</div>
+          <div className="flex flex-1 items-center justify-center text-[14px] text-[#8e8e93]">{t('status.loading')}</div>
         )}
         {!loading && error && (
           <div className="flex flex-1 items-center justify-center text-[14px] text-[#ef4444]">{error}</div>
@@ -141,8 +150,8 @@ export function TeamOverview() {
         {!loading && !error && agents.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
             <span className="text-[40px]">🤖</span>
-            <p className="text-[14px] text-[#8e8e93]">暂无 Agent</p>
-            <p className="text-[12px] text-[#c6c6c8]">点击右上角「+ 雇佣新员工」开始</p>
+            <p className="text-[14px] text-[#8e8e93]">{t('teamOverview.empty.title')}</p>
+            <p className="text-[12px] text-[#c6c6c8]">{t('teamOverview.empty.description')}</p>
           </div>
         )}
 
@@ -182,6 +191,7 @@ function AgentCard({
   lastActivity: number | undefined;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation('common');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
@@ -199,7 +209,7 @@ function AgentCard({
           <div className="flex items-center gap-1.5">
             <p className="truncate text-[15px] font-semibold text-[#000000]">{agent.name}</p>
             {agent.isDefault && (
-              <span className="shrink-0 rounded-full bg-[#f0f7ff] px-1.5 py-0.5 text-[10px] font-medium text-clawx-ac">默认</span>
+              <span className="shrink-0 rounded-full bg-[#f0f7ff] px-1.5 py-0.5 text-[10px] font-medium text-clawx-ac">{t('teamOverview.defaultBadge')}</span>
             )}
           </div>
           <p className="truncate text-[12px] text-[#8e8e93]">{agent.id}</p>
@@ -211,18 +221,18 @@ function AgentCard({
 
       {/* Stats */}
       <div className="space-y-2">
-        <Row label="模型">
+        <Row label={t('teamOverview.card.model')}>
           <span className={cn('font-mono text-[12px]', agent.inheritedModel ? 'text-[#8e8e93]' : 'text-[#3c3c43]')}>
             {agent.modelDisplay}
-            {agent.inheritedModel && <span className="ml-1 text-[10px] text-[#c6c6c8]">(继承)</span>}
+            {agent.inheritedModel && <span className="ml-1 text-[10px] text-[#c6c6c8]">{t('teamOverview.card.inherited')}</span>}
           </span>
         </Row>
-        <Row label="最近活跃">
-          <span className="text-[13px] text-[#3c3c43]">{formatLastActive(lastActivity)}</span>
+        <Row label={t('teamOverview.card.lastActive')}>
+          <span className="text-[13px] text-[#3c3c43]">{formatLastActive(lastActivity, t)}</span>
         </Row>
-        <Row label="频道">
+        <Row label={t('teamOverview.card.channels')}>
           {agent.channelTypes.length === 0 ? (
-            <span className="text-[13px] text-[#c6c6c8]">未配置</span>
+            <span className="text-[13px] text-[#c6c6c8]">{t('teamOverview.card.notConfigured')}</span>
           ) : (
             <div className="flex items-center gap-1">
               {agent.channelTypes.map((ch) => (
@@ -239,20 +249,20 @@ function AgentCard({
       <div className="mt-4 flex justify-end">
         {confirmDelete ? (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#8e8e93]">确认删除？</span>
+            <span className="text-[11px] text-[#8e8e93]">{t('teamOverview.card.confirmDelete')}</span>
             <button
               type="button"
               onClick={() => { onDelete(); setConfirmDelete(false); }}
               className="rounded-md bg-[#ef4444] px-2 py-0.5 text-[11px] font-medium text-white hover:bg-[#dc2626]"
             >
-              删除
+              {t('actions.delete')}
             </button>
             <button
               type="button"
               onClick={() => setConfirmDelete(false)}
               className="text-[11px] text-[#8e8e93] hover:text-[#3c3c43]"
             >
-              取消
+              {t('actions.cancel')}
             </button>
           </div>
         ) : (
@@ -261,7 +271,7 @@ function AgentCard({
             onClick={() => setConfirmDelete(true)}
             className="text-[11px] text-[#c6c6c8] hover:text-[#ef4444]"
           >
-            解雇
+            {t('teamOverview.card.dismiss')}
           </button>
         )}
       </div>

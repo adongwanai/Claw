@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
 import { RefreshCw, FileText, Save, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface MemoryFile {
   name: string;
@@ -17,15 +18,16 @@ function formatBytes(bytes: number): string {
   return `${(kb / 1024).toFixed(1)}MB`;
 }
 
-function relativeTime(ms: number): string {
+function formatRelativeTime(ms: number, t: (key: string, options?: Record<string, unknown>) => string): string {
   const diff = Math.floor((Date.now() - ms) / 1000);
-  if (diff < 60) return '刚刚';
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-  return `${Math.floor(diff / 86400)}天前`;
+  if (diff < 60) return t('memoryBrowser.time.justNow');
+  if (diff < 3600) return t('memoryBrowser.time.minutesAgo', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('memoryBrowser.time.hoursAgo', { count: Math.floor(diff / 3600) });
+  return t('memoryBrowser.time.daysAgo', { count: Math.floor(diff / 86400) });
 }
 
 export function SettingsMemoryBrowser() {
+  const { t } = useTranslation('settings');
   const [files, setFiles] = useState<MemoryFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +67,11 @@ export function SettingsMemoryBrowser() {
       setFileContent(data.content);
       setDraft(data.content);
     } catch (e) {
-      setFileContent(`读取失败: ${String(e)}`);
+      setFileContent(t('memoryBrowser.readFailed', { error: String(e) }));
     } finally {
       setFileLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const saveFile = useCallback(async () => {
     if (!selectedFile) return;
@@ -83,30 +85,30 @@ export function SettingsMemoryBrowser() {
       });
       setFileContent(draft);
       setEditing(false);
-      setSaveMsg('已保存');
+      setSaveMsg(t('memoryBrowser.saved'));
       void fetchFiles();
     } catch (e) {
-      setSaveMsg(`保存失败: ${String(e)}`);
+      setSaveMsg(t('memoryBrowser.saveFailed', { error: String(e) }));
     } finally {
       setSaving(false);
     }
-  }, [selectedFile, draft, fetchFiles]);
+  }, [selectedFile, draft, fetchFiles, t]);
 
   return (
     <div className="flex min-h-[540px] gap-0 overflow-hidden rounded-xl border border-black/[0.08]">
       {/* Left panel */}
       <section
         role="region"
-        aria-label="记忆文件列表"
+        aria-label={t('memoryBrowser.fileListAria')}
         className="flex w-[220px] shrink-0 flex-col border-r border-black/[0.06] bg-white"
       >
         <div className="flex items-center justify-between border-b border-black/[0.06] px-3 py-2.5">
           <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8e8e93]">
-            文件 ({files.length})
+            {t('memoryBrowser.filesLabel', { count: files.length })}
           </span>
           <button
             type="button"
-            aria-label="刷新记忆文件列表"
+            aria-label={t('memoryBrowser.refreshAria')}
             onClick={() => void fetchFiles()}
             disabled={loading}
             className="flex h-5 w-5 items-center justify-center rounded text-[#8e8e93] hover:text-[#000000] disabled:opacity-40"
@@ -120,7 +122,7 @@ export function SettingsMemoryBrowser() {
             <div className="px-3 py-2 text-[11px] text-[#ef4444]">{error}</div>
           )}
           {!error && files.length === 0 && !loading && (
-            <div className="px-3 py-6 text-center text-[12px] text-[#8e8e93]">暂无记忆文件</div>
+            <div className="px-3 py-6 text-center text-[12px] text-[#8e8e93]">{t('memoryBrowser.empty')}</div>
           )}
           {files.map((file) => (
             <button
@@ -137,7 +139,7 @@ export function SettingsMemoryBrowser() {
                 <span className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#000000]">{file.name}</span>
               </div>
               <span className="pl-4 text-[11px] text-[#8e8e93]">
-                {formatBytes(file.size)} · {relativeTime(file.mtime)}
+                {formatBytes(file.size)} · {formatRelativeTime(file.mtime, t)}
               </span>
             </button>
           ))}
@@ -147,12 +149,12 @@ export function SettingsMemoryBrowser() {
       {/* Right panel */}
       <section
         role="region"
-        aria-label="记忆预览"
+        aria-label={t('memoryBrowser.previewAria')}
         className="flex flex-1 flex-col overflow-hidden bg-white"
       >
         {!selectedFile ? (
           <div className="flex flex-1 items-center justify-center text-[13px] text-[#8e8e93]">
-            选择左侧文件查看内容
+            {t('memoryBrowser.selectFile')}
           </div>
         ) : (
           <>
@@ -160,7 +162,7 @@ export function SettingsMemoryBrowser() {
               <span className="text-[12px] font-medium text-[#000000]">{selectedFile.name}</span>
               <div className="flex items-center gap-2">
                 {saveMsg && (
-                  <span className={cn('text-[11px]', saveMsg.startsWith('保存失败') ? 'text-[#ef4444]' : 'text-[#10b981]')}>
+                  <span className={cn('text-[11px]', saveMsg.startsWith(t('memoryBrowser.saveFailedPrefix')) ? 'text-[#ef4444]' : 'text-[#10b981]')}>
                     {saveMsg}
                   </span>
                 )}
@@ -171,7 +173,7 @@ export function SettingsMemoryBrowser() {
                       onClick={() => { setEditing(false); setDraft(fileContent); setSaveMsg(''); }}
                       className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-[#8e8e93] hover:bg-[#f2f2f7]"
                     >
-                      <X className="h-3 w-3" /> 取消
+                      <X className="h-3 w-3" /> {t('memoryBrowser.actions.cancel')}
                     </button>
                     <button
                       type="button"
@@ -179,7 +181,7 @@ export function SettingsMemoryBrowser() {
                       disabled={saving}
                       className="flex h-6 items-center gap-1 rounded bg-clawx-ac px-2 text-[11px] font-medium text-white hover:bg-[#0062cc] disabled:opacity-50"
                     >
-                      <Save className="h-3 w-3" /> {saving ? '保存中...' : '保存'}
+                      <Save className="h-3 w-3" /> {saving ? t('memoryBrowser.actions.saving') : t('memoryBrowser.actions.save')}
                     </button>
                   </>
                 ) : (
@@ -188,7 +190,7 @@ export function SettingsMemoryBrowser() {
                     onClick={() => { setEditing(true); setSaveMsg(''); }}
                     className="flex h-6 items-center gap-1 rounded px-2 text-[11px] text-[#3c3c43] hover:bg-[#f2f2f7]"
                   >
-                    编辑
+                    {t('memoryBrowser.actions.edit')}
                   </button>
                 )}
               </div>
@@ -196,7 +198,7 @@ export function SettingsMemoryBrowser() {
 
             <div className="flex-1 overflow-y-auto px-5 py-5">
               {fileLoading ? (
-                <div className="text-[13px] text-[#8e8e93]">加载中...</div>
+                <div className="text-[13px] text-[#8e8e93]">{t('memoryBrowser.loading')}</div>
               ) : editing ? (
                 <textarea
                   value={draft}
