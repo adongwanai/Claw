@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { ApprovalItem } from '@/stores/approvals';
 
 interface Props {
@@ -137,7 +138,10 @@ function getQuestionPrefill(question: WizardQuestion, index: number, answers: Re
   return null;
 }
 
-function renderContextSummary(context: unknown): string | null {
+function renderContextSummary(
+  context: unknown,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
   if (!context || typeof context !== 'object') {
     return null;
   }
@@ -148,17 +152,18 @@ function renderContextSummary(context: unknown): string | null {
     : candidate;
 
   if (typeof requested.command === 'string' && requested.command.trim()) {
-    return `Command: ${requested.command.trim()}`;
+    return t('askUserQuestion.context.command', { value: requested.command.trim() });
   }
 
   if (typeof requested.toolName === 'string' && requested.toolName.trim()) {
-    return `Tool: ${requested.toolName.trim()}`;
+    return t('askUserQuestion.context.tool', { value: requested.toolName.trim() });
   }
 
   return null;
 }
 
 function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props) {
+  const { t } = useTranslation('common');
   const structuredToolInput = useMemo(() => getStructuredToolInput(approval), [approval]);
   const questions = useMemo(() => {
     const structured = toQuestions(structuredToolInput?.questions);
@@ -166,8 +171,8 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
   }, [approval.prompt, structuredToolInput]);
   const prefilledAnswers = useMemo(() => structuredToolInput?.answers ?? {}, [structuredToolInput]);
   const contextSummary = useMemo(
-    () => renderContextSummary(structuredToolInput?.context ?? structuredToolInput?.requestedToolInput),
-    [structuredToolInput],
+    () => renderContextSummary(structuredToolInput?.context ?? structuredToolInput?.requestedToolInput, t),
+    [structuredToolInput, t],
   );
   const [step, setStep] = useState(0);
   const [singleAnswers, setSingleAnswers] = useState<Record<string, string>>(() => {
@@ -274,13 +279,13 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
 
       <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: BORDER }}>
         <div className="text-[14px] font-semibold text-[#111827]">
-          AskUserQuestion Approval
+          {t('askUserQuestion.title')}
         </div>
         <button
           type="button"
           onClick={onDismiss}
           className="rounded-md p-1 text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#111827]"
-          aria-label="Close wizard"
+          aria-label={t('askUserQuestion.closeWizard')}
         >
           <X size={18} />
         </button>
@@ -296,7 +301,7 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
               onClick={() => goToStep(index)}
               className="h-2.5 w-2.5 rounded-full transition-all"
               style={{ background: active ? ACCENT : BORDER }}
-              aria-label={`Go to step ${index + 1}`}
+              aria-label={t('askUserQuestion.goToStep', { step: index + 1 })}
             />
           );
         })}
@@ -305,14 +310,14 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
       <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col overflow-auto px-6 py-8">
         {questions.length === 0 ? (
           <>
-            <h2 className="text-[22px] font-semibold text-[#111827]">No structured questions found</h2>
+            <h2 className="text-[22px] font-semibold text-[#111827]">{t('askUserQuestion.emptyTitle')}</h2>
             <p className="mt-2 text-[14px] text-[#6b7280]">
-              Approval prompt did not contain valid JSON questions. You can still provide a response below.
+              {t('askUserQuestion.emptyDescription')}
             </p>
             <textarea
               value={fallbackAnswer}
               onChange={(event) => setFallbackAnswer(event.target.value)}
-              placeholder="Type your response..."
+              placeholder={t('askUserQuestion.responsePlaceholder')}
               rows={8}
               className="mt-6 w-full rounded-xl border px-4 py-3 text-[14px] outline-none focus:border-clawx-ac"
               style={{ borderColor: BORDER, background: SECONDARY_BG }}
@@ -321,10 +326,10 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
         ) : (
           <>
             <div className="mb-2 text-[12px] font-medium text-[#6b7280]">
-              Step {step + 1} / {total}
+              {t('askUserQuestion.stepCounter', { current: step + 1, total })}
             </div>
             <h2 className="text-[24px] font-semibold leading-tight text-[#111827]">
-              {current?.header || 'Question'}
+              {current?.header || t('askUserQuestion.questionLabel')}
             </h2>
             <p className="mt-2 text-[16px] leading-relaxed text-[#374151]">
               {current?.question}
@@ -367,13 +372,13 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
             </div>
 
             <div className="mt-5">
-              <div className="mb-1.5 text-[12px] font-medium text-[#6b7280]">Other</div>
+              <div className="mb-1.5 text-[12px] font-medium text-[#6b7280]">{t('askUserQuestion.otherOption')}</div>
               <input
                 value={otherAnswers[currentKey] ?? ''}
                 onChange={(event) =>
                   setOtherAnswers((prev) => ({ ...prev, [currentKey]: event.target.value }))
                 }
-                placeholder="Type a custom answer..."
+                placeholder={t('askUserQuestion.customAnswerPlaceholder')}
                 className="w-full rounded-xl border bg-white px-3 py-2.5 text-[14px] outline-none focus:border-clawx-ac"
                 style={{ borderColor: BORDER }}
               />
@@ -394,7 +399,7 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
             className="rounded-lg border px-3 py-1.5 text-[13px] text-[#374151] disabled:cursor-not-allowed disabled:opacity-50"
             style={{ borderColor: BORDER, background: BG }}
           >
-            Back
+            {t('actions.back')}
           </button>
           {questions.length > 0 && (
             <button
@@ -404,7 +409,7 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
               className="rounded-lg border px-3 py-1.5 text-[13px] text-[#6b7280] disabled:cursor-not-allowed disabled:opacity-50"
               style={{ borderColor: BORDER, background: BG }}
             >
-              Skip
+              {t('actions.skip')}
             </button>
           )}
           <button
@@ -414,7 +419,7 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
             className="rounded-lg border px-3 py-1.5 text-[13px] text-[#374151] disabled:cursor-not-allowed disabled:opacity-50"
             style={{ borderColor: BORDER, background: BG }}
           >
-            Next
+            {t('actions.next')}
           </button>
         </div>
 
@@ -424,7 +429,7 @@ function AskUserQuestionWizardContent({ approval, onRespond, onDismiss }: Props)
           className="rounded-lg px-4 py-2 text-[13px] font-medium text-white"
           style={{ background: ACCENT }}
         >
-          Submit
+          {t('askUserQuestion.submit')}
         </button>
       </div>
     </div>

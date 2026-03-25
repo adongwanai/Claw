@@ -93,9 +93,10 @@ tail -30 continue/progress.txt
   - Session 28：Feishu onboarding wizard 收口为单一应用内状态机：create/link/configure/app-scope recheck/user auth 一体化，不再跳转单独 Feishu 配置弹窗
   - Session 28：Channels 页面与新 Feishu wizard 文案迁回 locale；`Channels` 这批新增/残留硬编码完成一轮收口
   - Session 28：Agent detail 新增 backend-owned `/api/agents/:agentId/cron-relations`，并可 deep link 到对应 Cron pipeline detail
+  - Session 28c：`AskUserQuestionWizard` 外壳文案迁回 `common` locale，P0 i18n 收口进一步前推到 Cron / TaskKanban / Sidebar
 - 因此下面旧清单里，涉及上述能力的"剩余"描述请以本段为准，不要重复实现已完成部分。
 - 当前真正还缺的重点：
-  - P0 i18n：继续清理 Channels / Cron / TaskKanban / AskUserQuestionWizard / Sidebar 等剩余历史硬编码文案
+  - P0 i18n：继续清理 Cron / TaskKanban / Sidebar 等剩余历史硬编码文案
   - Runtime / registry：tool execution path / deeper skill bridge / structured runtime history / runtime tree drill-down
   - Channels：multi-user isolation deeper capability runtime
   - Wave 5：update / UX / a11y / 工程治理
@@ -112,7 +113,7 @@ tail -30 continue/progress.txt
 - 已补 locale parity / 覆盖检查：`scripts/i18n/check-parity.mjs`、`tests/unit/i18n-parity.test.ts`、`pnpm run i18n:check`
 - 已将本批 `MCP` / `Settings` 新增文案迁回 locale
 - 已移除全部日文支持：`README.ja-JP.md`、`src/i18n/locales/ja/*`、语言入口均已下线
-- 剩余：继续清理仓库其他页面历史硬编码文案
+- 剩余：继续清理仓库其他页面历史硬编码文案（当前重点已缩到 Cron / TaskKanban / Sidebar）
 - 说明：MCP 页面现已按用户补充定义收口为“KTClaw 本身可以调用的 MCP 服务管理页”，启停语义与 Skills 靠近，同时保留 runtime / tool discovery / logs
 
 ### P1

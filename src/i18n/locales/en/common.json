@@ -207,6 +207,23 @@
         "errorPrefix": "Error",
         "sendMessagePlaceholder": "Send a message in {{name}}..."
     },
+    "askUserQuestion": {
+        "title": "AskUserQuestion Approval",
+        "closeWizard": "Close wizard",
+        "goToStep": "Go to step {{step}}",
+        "emptyTitle": "No structured questions found",
+        "emptyDescription": "The approval prompt did not contain valid JSON questions. You can still provide a response below.",
+        "responsePlaceholder": "Type your response...",
+        "stepCounter": "Step {{current}} / {{total}}",
+        "questionLabel": "Question",
+        "otherOption": "Other",
+        "customAnswerPlaceholder": "Type a custom answer...",
+        "submit": "Submit",
+        "context": {
+            "command": "Command: {{value}}",
+            "tool": "Tool: {{value}}"
+        }
+    },
     "teamOverview": {
         "title": "Team Overview",
         "summary": "{{count}} Agents · {{gateway}}",

@@ -2271,3 +2271,29 @@ Focus: PLAN-2026-03-24-PLATFORM-CLOSURE (Channels Feishu closure, Channels i18n,
 - P0 i18n still needs the larger Cron / TaskKanban / AskUserQuestionWizard / Sidebar cleanup
 - runtime / registry still lacks structured runtime history + Kanban child-run drill-down
 - Channels still needs deeper multi-user isolation / capability runtime work
+
+---
+
+[2026-03-25 22:24 +08:00] Session 28c: AskUserQuestion Wizard i18n
+Focus: P0 i18n closure
+
+### Completed
+1. `src/pages/TaskKanban/AskUserQuestionWizard.tsx`
+   - migrated wizard shell strings to locale calls
+   - localized title / close label / step dots / empty state / response placeholder / step counter / "Question" fallback / "Other" input / back-skip-next-submit buttons
+   - localized structured context summary prefixes for command/tool
+
+2. `src/i18n/locales/zh/common.json`
+   - added `askUserQuestion.*` keys for the wizard shell in Chinese
+
+3. `src/i18n/locales/en/common.json`
+   - added English parity for `askUserQuestion.*`
+
+### Verification
+- `pnpm run typecheck` -> pass
+- `pnpm run lint` -> pass
+
+### Remaining
+- P0 i18n now mainly remains in Cron / TaskKanban shell / Sidebar
+- runtime / registry still lacks structured runtime history + Kanban child-run drill-down
+- Channels still needs deeper multi-user isolation / capability runtime work

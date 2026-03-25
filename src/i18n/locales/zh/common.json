@@ -207,6 +207,23 @@
         "errorPrefix": "错误",
         "sendMessagePlaceholder": "在 {{name}} 发送消息..."
     },
+    "askUserQuestion": {
+        "title": "AskUserQuestion 审批",
+        "closeWizard": "关闭向导",
+        "goToStep": "跳到第 {{step}} 步",
+        "emptyTitle": "未找到结构化问题",
+        "emptyDescription": "当前审批 prompt 不包含有效的 JSON 问题结构，你仍然可以在下方直接填写回复。",
+        "responsePlaceholder": "输入你的回复...",
+        "stepCounter": "第 {{current}} / {{total}} 步",
+        "questionLabel": "问题",
+        "otherOption": "其他",
+        "customAnswerPlaceholder": "输入自定义答案...",
+        "submit": "提交",
+        "context": {
+            "command": "Command: {{value}}",
+            "tool": "Tool: {{value}}"
+        }
+    },
     "teamOverview": {
         "title": "员工与分工总览",
         "summary": "{{count}} 个 Agent · {{gateway}}",
