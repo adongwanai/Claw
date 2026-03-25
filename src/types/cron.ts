@@ -20,6 +20,13 @@ export interface CronJobDelivery {
   to?: string;
 }
 
+export interface CronPipelinePolicy {
+  failureAlertAfter?: number;
+  failureAlertCooldownSeconds?: number;
+  failureAlertChannel?: string;
+  deliveryBestEffort?: boolean;
+}
+
 /**
  * Cron job last run info
  */
@@ -49,6 +56,10 @@ export interface CronJob {
   schedule: string | CronSchedule;
   target?: CronJobTarget;
   delivery?: CronJobDelivery;
+  failureAlertAfter?: number;
+  failureAlertCooldownSeconds?: number;
+  failureAlertChannel?: string;
+  deliveryBestEffort?: boolean;
   sessionTarget?: string;
   enabled: boolean;
   createdAt: string;
@@ -67,6 +78,11 @@ export interface CronJobCreateInput {
   message: string;
   schedule: string;
   enabled?: boolean;
+  delivery?: CronJobDelivery;
+  failureAlertAfter?: number;
+  failureAlertCooldownSeconds?: number;
+  failureAlertChannel?: string;
+  deliveryBestEffort?: boolean;
 }
 
 /**
@@ -77,6 +93,11 @@ export interface CronJobUpdateInput {
   message?: string;
   schedule?: string;
   enabled?: boolean;
+  delivery?: CronJobDelivery;
+  failureAlertAfter?: number;
+  failureAlertCooldownSeconds?: number;
+  failureAlertChannel?: string;
+  deliveryBestEffort?: boolean;
 }
 
 /**

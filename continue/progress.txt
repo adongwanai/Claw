@@ -1864,3 +1864,40 @@ Focus: Continue remaining Wave 2 and Wave 3 work by binding approvals to ticket 
 ### 下一步
 - 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`
 - 优先推进 Cron pipeline 建模闭环，或继续补 Channels 的 auth gate / multi-user / rate limiting
+[2026-03-25 11:44 +08:00] Session: Session-22 cron-pipeline-wizard
+Focus: Continue Wave 3 by turning the Cron pipeline backlog into a real create/edit loop with alert and delivery policy fields
+
+### 完成内容
+1. Wave 3 Cron pipeline wizard / graph
+   - `src/pages/Cron/index.tsx`
+   - create modal 升级为 Pipeline Wizard
+   - 新增 `Delivery mode / channel / target`
+   - 新增 `failureAlertAfter / failureAlertCooldownSeconds / failureAlertChannel / deliveryBestEffort`
+   - Pipelines tab 增 `Trigger → Agent → Delivery` 图形摘要
+   - 现有 job 支持 `编辑`，形成 create/edit 闭环
+2. Wave 3 Cron route fields
+   - `src/types/cron.ts`
+   - cron 类型补齐 pipeline / alert policy 字段
+   - `electron/api/routes/cron.ts`
+   - `cron.add / cron.update / cron.list` 透传并返回 alert / best-effort 策略字段
+3. 测试
+   - `tests/unit/cron-page.test.tsx`
+   - 覆盖 create wizard 与 edit loop
+   - `tests/unit/cron-routes.test.ts`
+   - 覆盖 route 透传 pipeline policy 字段
+
+### 验证结果
+- `pnpm exec vitest run tests/unit/cron-page.test.tsx tests/unit/cron-routes.test.ts --project jsdom --project node` → `6/6` 通过
+- `pnpm run typecheck` → 通过
+- `pnpm run lint` → 通过
+- `pnpm run build:vite` → 通过
+
+### 剩余待办
+- P0 i18n 收口：继续清理其他页面历史硬编码文案
+- Wave 2：更完整的 subagent tree orchestration / tool execution path / deeper skill bridge
+- Wave 3：Channels auth gate / multi-user isolation / rate limiting / Costs realtime stream
+- Wave 4~5：Memory / Agent detail / Settings / update / UX / a11y / 工程治理
+
+### 下一步
+- 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`
+- 优先推进 Channels 的 auth gate / multi-user isolation，或开始 Memory 深化第一批

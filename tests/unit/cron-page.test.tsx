@@ -92,6 +92,21 @@ describe('Cron page richer detail views', () => {
     expect(screen.getByText(/Channel delivery failed/i)).toBeInTheDocument();
   });
 
+  it('supports status filtering and shows update and error overview banners', () => {
+    render(<Cron />);
+
+    expect(screen.getByText(/最近更新时间/)).toBeInTheDocument();
+    expect(screen.getByText(/配置或执行异常/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '仅失败' }));
+
+    expect(screen.getByText('Release Check')).toBeInTheDocument();
+    expect(screen.queryByText('Daily Digest')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '全部状态' }));
+    expect(screen.getByText('Daily Digest')).toBeInTheDocument();
+  });
+
   it('opens a richer detail panel from pipelines and loads run context', async () => {
     render(<Cron />);
 
@@ -107,5 +122,104 @@ describe('Cron page richer detail views', () => {
     });
     expect(screen.getByText(/glm-5-turbo/i)).toBeInTheDocument();
     expect(screen.getByText(/Feishu delivery did not acknowledge/i)).toBeInTheDocument();
+  });
+
+  it('creates a cron job through the pipeline wizard with delivery and alert fields', async () => {
+    render(<Cron />);
+
+    fireEvent.click(screen.getByRole('button', { name: '+ 新建任务' }));
+    fireEvent.change(screen.getByPlaceholderText('例如：每日晨报'), {
+      target: { value: 'Pipeline Digest' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('发送给 Agent 的指令内容...'), {
+      target: { value: 'Build a release digest' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('0 7 * * *'), {
+      target: { value: '0 9 * * 1' },
+    });
+    fireEvent.change(screen.getByLabelText('Delivery mode'), {
+      target: { value: 'announce' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('feishu'), {
+      target: { value: 'feishu' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('release-room'), {
+      target: { value: 'release-room' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('3'), {
+      target: { value: '2' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('600'), {
+      target: { value: '900' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('ops-alerts'), {
+      target: { value: 'ops-alerts' },
+    });
+    fireEvent.click(screen.getByLabelText('Best effort delivery'));
+    fireEvent.click(screen.getByRole('button', { name: '确认创建' }));
+
+    await waitFor(() => {
+      expect(cronStoreState.createJob).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'Pipeline Digest',
+        message: 'Build a release digest',
+        schedule: '0 9 * * 1',
+        delivery: {
+          mode: 'announce',
+          channel: 'feishu',
+          to: 'release-room',
+        },
+        failureAlertAfter: 2,
+        failureAlertCooldownSeconds: 900,
+        failureAlertChannel: 'ops-alerts',
+        deliveryBestEffort: true,
+      }));
+    });
+  });
+
+  it('shows pipeline graph metadata and supports editing an existing cron pipeline', async () => {
+    render(<Cron />);
+
+    fireEvent.click(screen.getByRole('button', { name: '流水线 Pipelines' }));
+    expect(screen.getAllByText(/Trigger → Agent → Delivery/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[0]);
+
+    expect(await screen.findByDisplayValue('Release Check')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('Release Check'), {
+      target: { value: 'Release Check Updated' },
+    });
+    fireEvent.change(screen.getByDisplayValue('feishu'), {
+      target: { value: 'wecom' },
+    });
+    fireEvent.change(screen.getByDisplayValue('release-room'), {
+      target: { value: 'platform-room' },
+    });
+    fireEvent.change(screen.getByDisplayValue('3'), {
+      target: { value: '5' },
+    });
+    fireEvent.change(screen.getByDisplayValue('600'), {
+      target: { value: '1200' },
+    });
+    fireEvent.change(screen.getByDisplayValue('ops-alerts'), {
+      target: { value: 'security-alerts' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存修改' }));
+
+    await waitFor(() => {
+      expect(cronStoreState.updateJob).toHaveBeenCalledWith(
+        'job-release-check',
+        expect.objectContaining({
+          name: 'Release Check Updated',
+          delivery: {
+            mode: 'announce',
+            channel: 'wecom',
+            to: 'platform-room',
+          },
+          failureAlertAfter: 5,
+          failureAlertCooldownSeconds: 1200,
+          failureAlertChannel: 'security-alerts',
+        }),
+      );
+    });
   });
 });

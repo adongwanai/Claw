@@ -110,36 +110,103 @@ const JOB_COLORS = [
 
 const TABS = ['总览 Overview', '排期表 Schedule', '流水线 Pipelines'] as const;
 type Tab = (typeof TABS)[number];
+type StatusFilter = 'all' | 'failed' | 'enabled';
 
 /* ─── Main component ─── */
 
 export function Cron() {
   const [activeTab, setActiveTab] = useState<Tab>('总览 Overview');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<CronJob | null>(null);
   const [createName, setCreateName] = useState('');
   const [createMessage, setCreateMessage] = useState('');
   const [createSchedule, setCreateSchedule] = useState('0 7 * * *');
+  const [createDeliveryMode, setCreateDeliveryMode] = useState('none');
+  const [createDeliveryChannel, setCreateDeliveryChannel] = useState('');
+  const [createDeliveryTo, setCreateDeliveryTo] = useState('');
+  const [createFailureAlertAfter, setCreateFailureAlertAfter] = useState('3');
+  const [createFailureAlertCooldownSeconds, setCreateFailureAlertCooldownSeconds] = useState('600');
+  const [createFailureAlertChannel, setCreateFailureAlertChannel] = useState('ops-alerts');
+  const [createDeliveryBestEffort, setCreateDeliveryBestEffort] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
 
-  const { jobs, loading, error, fetchJobs, createJob, deleteJob, toggleJob, triggerJob } = useCronStore();
+  const { jobs, loading, error, fetchJobs, createJob, updateJob, deleteJob, toggleJob, triggerJob } = useCronStore();
 
   useEffect(() => { void fetchJobs(); }, [fetchJobs]);
+
+  const resetWizard = () => {
+    setCreateName('');
+    setCreateMessage('');
+    setCreateSchedule('0 7 * * *');
+    setCreateDeliveryMode('none');
+    setCreateDeliveryChannel('');
+    setCreateDeliveryTo('');
+    setCreateFailureAlertAfter('3');
+    setCreateFailureAlertCooldownSeconds('600');
+    setCreateFailureAlertChannel('ops-alerts');
+    setCreateDeliveryBestEffort(false);
+    setEditingJob(null);
+  };
+
+  const openCreateWizard = () => {
+    resetWizard();
+    setCreateOpen(true);
+  };
+
+  const openEditWizard = (job: CronJob) => {
+    setEditingJob(job);
+    setCreateName(job.name);
+    setCreateMessage(job.message);
+    setCreateSchedule(typeof job.schedule === 'string' ? job.schedule : formatSchedule(job.schedule));
+    setCreateDeliveryMode(job.delivery?.mode ?? 'none');
+    setCreateDeliveryChannel(job.delivery?.channel ?? '');
+    setCreateDeliveryTo(job.delivery?.to ?? '');
+    setCreateFailureAlertAfter(String(job.failureAlertAfter ?? 3));
+    setCreateFailureAlertCooldownSeconds(String(job.failureAlertCooldownSeconds ?? 600));
+    setCreateFailureAlertChannel(job.failureAlertChannel ?? 'ops-alerts');
+    setCreateDeliveryBestEffort(job.deliveryBestEffort ?? false);
+    setCreateOpen(true);
+  };
 
   const handleCreate = async () => {
     if (!createName.trim() || !createMessage.trim()) return;
     setCreateLoading(true);
     try {
-      await createJob({ name: createName.trim(), message: createMessage.trim(), schedule: createSchedule.trim(), enabled: true });
+      const payload = {
+        name: createName.trim(),
+        message: createMessage.trim(),
+        schedule: createSchedule.trim(),
+        enabled: true,
+        delivery: {
+          mode: createDeliveryMode,
+          ...(createDeliveryChannel.trim() ? { channel: createDeliveryChannel.trim() } : {}),
+          ...(createDeliveryTo.trim() ? { to: createDeliveryTo.trim() } : {}),
+        },
+        failureAlertAfter: Number(createFailureAlertAfter) || undefined,
+        failureAlertCooldownSeconds: Number(createFailureAlertCooldownSeconds) || undefined,
+        failureAlertChannel: createFailureAlertChannel.trim() || undefined,
+        deliveryBestEffort: createDeliveryBestEffort,
+      };
+
+      if (editingJob) {
+        await updateJob(editingJob.id, payload);
+      } else {
+        await createJob(payload);
+      }
       setCreateOpen(false);
-      setCreateName('');
-      setCreateMessage('');
-      setCreateSchedule('0 7 * * *');
+      resetWizard();
     } finally {
       setCreateLoading(false);
     }
   };
 
   const enabledCount = jobs.filter((j) => j.enabled).length;
+  const latestUpdatedAt = jobs.reduce<string | null>((latest, job) => {
+    if (!latest) return job.updatedAt;
+    return new Date(job.updatedAt).getTime() > new Date(latest).getTime() ? job.updatedAt : latest;
+  }, null);
+  const hasJobErrors = jobs.some((job) => job.lastRun?.error);
 
   return (
     <div className="flex h-full flex-col bg-[#f2f2f7] p-6">
@@ -152,6 +219,9 @@ export function Cron() {
             <p className="mt-1 text-[13px] text-[#8e8e93]">
               {loading ? '加载中...' : error ? '加载失败' : `${jobs.length} 个定时任务 · ${enabledCount} 个启用中`}
             </p>
+            {!loading && !error && latestUpdatedAt && (
+              <p className="mt-1 text-[12px] text-[#8e8e93]">最近更新时间：{formatTime(latestUpdatedAt)}</p>
+            )}
           </div>
           <div className="mt-1 flex items-center gap-2">
             <button
@@ -163,7 +233,7 @@ export function Cron() {
             </button>
             <button
               type="button"
-              onClick={() => setCreateOpen(true)}
+              onClick={openCreateWizard}
               className="rounded-lg bg-clawx-ac px-3 py-1.5 text-[13px] font-medium text-white hover:bg-[#0056b3]"
             >
               + 新建任务
@@ -191,14 +261,48 @@ export function Cron() {
 
         {/* Tab content */}
         {activeTab === '总览 Overview' && (
-          <OverviewTab
-            jobs={jobs}
-            loading={loading}
-            error={error}
-            onToggle={(id, enabled) => void toggleJob(id, enabled)}
-            onTrigger={(id) => void triggerJob(id)}
-            onDelete={(id) => void deleteJob(id)}
-          />
+          <>
+            <div className="border-b border-black/[0.06] px-8 py-3">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={cn('rounded-full px-3 py-1 text-[12px] font-medium transition-colors', statusFilter === 'all' ? 'bg-[#10b981] text-white' : 'bg-[#f2f2f7] text-[#3c3c43] hover:bg-[#e5e7eb]')}
+                >
+                  全部状态
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('failed')}
+                  className={cn('rounded-full px-3 py-1 text-[12px] font-medium transition-colors', statusFilter === 'failed' ? 'bg-[#ef4444] text-white' : 'bg-[#fef2f2] text-[#ef4444] hover:bg-[#fee2e2]')}
+                >
+                  仅失败
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('enabled')}
+                  className={cn('rounded-full px-3 py-1 text-[12px] font-medium transition-colors', statusFilter === 'enabled' ? 'bg-[#3b82f6] text-white' : 'bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]')}
+                >
+                  仅启用中
+                </button>
+              </div>
+              {hasJobErrors && (
+                <div className="rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] text-[#b91c1c]">
+                  配置或执行异常：当前有任务最近一次执行失败，请优先检查 delivery 配置和错误详情。
+                </div>
+              )}
+            </div>
+            <OverviewTab
+              jobs={jobs}
+              statusFilter={statusFilter}
+              loading={loading}
+              error={error}
+              onToggle={(id, enabled) => void toggleJob(id, enabled)}
+              onTrigger={(id) => void triggerJob(id)}
+              onDelete={(id) => void deleteJob(id)}
+              onEdit={openEditWizard}
+            />
+          </>
         )}
 
         {activeTab === '排期表 Schedule' && <ScheduleTab jobs={jobs} />}
@@ -208,6 +312,7 @@ export function Cron() {
             jobs={jobs}
             loading={loading}
             onTrigger={(id) => void triggerJob(id)}
+            onEdit={openEditWizard}
           />
         )}
       </div>
@@ -217,6 +322,10 @@ export function Cron() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="w-[400px] rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="mb-4 text-[16px] font-semibold text-[#000000]">新建定时任务</h2>
+            <div className="mb-4 rounded-xl border border-black/[0.06] bg-[#f8fafc] px-4 py-3">
+              <p className="text-[12px] font-medium text-[#6b7280]">Pipeline Wizard</p>
+              <p className="mt-1 text-[13px] text-[#334155]">Trigger → Agent → Delivery → Failure Alert</p>
+            </div>
             <div className="mb-3">
               <p className="mb-1.5 text-[13px] font-medium text-[#000000]">任务名称</p>
               <input value={createName} onChange={(e) => setCreateName(e.target.value)} placeholder="例如：每日晨报" className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac" />
@@ -230,10 +339,82 @@ export function Cron() {
               <input value={createSchedule} onChange={(e) => setCreateSchedule(e.target.value)} placeholder="0 7 * * *" className="w-full rounded-lg border border-black/10 px-3 py-2 font-mono text-[13px] outline-none focus:border-clawx-ac" />
               <p className="mt-1 text-[11px] text-[#8e8e93]">标准 5 段 cron 表达式，例如 <code>0 7 * * *</code> = 每天 07:00</p>
             </div>
+            <div className="mb-3 grid grid-cols-2 gap-3">
+              <label className="block">
+                <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Delivery mode</p>
+                <select
+                  aria-label="Delivery mode"
+                  value={createDeliveryMode}
+                  onChange={(e) => setCreateDeliveryMode(e.target.value)}
+                  className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
+                >
+                  <option value="none">none</option>
+                  <option value="announce">announce</option>
+                </select>
+              </label>
+              <label className="block">
+                <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Delivery channel</p>
+                <input
+                  value={createDeliveryChannel}
+                  onChange={(e) => setCreateDeliveryChannel(e.target.value)}
+                  placeholder="feishu"
+                  className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
+                />
+              </label>
+            </div>
+            <div className="mb-3 grid grid-cols-2 gap-3">
+              <label className="block">
+                <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Delivery target</p>
+                <input
+                  value={createDeliveryTo}
+                  onChange={(e) => setCreateDeliveryTo(e.target.value)}
+                  placeholder="release-room"
+                  className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
+                />
+              </label>
+              <label className="block">
+                <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Failure alert after</p>
+                <input
+                  value={createFailureAlertAfter}
+                  onChange={(e) => setCreateFailureAlertAfter(e.target.value)}
+                  placeholder="3"
+                  className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
+                />
+              </label>
+            </div>
+            <div className="mb-5 grid grid-cols-2 gap-3">
+              <label className="block">
+                <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Failure alert cooldown</p>
+                <input
+                  value={createFailureAlertCooldownSeconds}
+                  onChange={(e) => setCreateFailureAlertCooldownSeconds(e.target.value)}
+                  placeholder="600"
+                  className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
+                />
+              </label>
+              <label className="block">
+                <p className="mb-1.5 text-[13px] font-medium text-[#000000]">Failure alert channel</p>
+                <input
+                  value={createFailureAlertChannel}
+                  onChange={(e) => setCreateFailureAlertChannel(e.target.value)}
+                  placeholder="ops-alerts"
+                  className="w-full rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
+                />
+              </label>
+            </div>
+            <label className="mb-5 flex items-center gap-2 text-[13px] text-[#3c3c43]">
+              <input
+                aria-label="Best effort delivery"
+                type="checkbox"
+                checked={createDeliveryBestEffort}
+                onChange={(e) => setCreateDeliveryBestEffort(e.target.checked)}
+              />
+              Best effort delivery
+            </label>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setCreateOpen(false)} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">取消</button>
+              <button type="button" onClick={() => { setCreateOpen(false); resetWizard(); }} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">取消</button>
               <button type="button" onClick={() => void handleCreate()} disabled={createLoading || !createName.trim() || !createMessage.trim()} className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50">
-                {createLoading ? '创建中...' : '确认创建'}
+                {createLoading ? (editingJob ? '保存中...' : '创建中...') : (editingJob ? '保存修改' : '确认创建')}
               </button>
             </div>
           </div>
@@ -246,30 +427,37 @@ export function Cron() {
 /* ─── Overview Tab ─── */
 
 function OverviewTab({
-  jobs, loading, error, onToggle, onTrigger, onDelete,
+  jobs, statusFilter, loading, error, onToggle, onTrigger, onDelete, onEdit,
 }: {
   jobs: CronJob[];
+  statusFilter: StatusFilter;
   loading: boolean;
   error: string | null;
   onToggle: (id: string, enabled: boolean) => void;
   onTrigger: (id: string) => void;
   onDelete: (id: string) => void;
+  onEdit: (job: CronJob) => void;
 }) {
   if (loading) return <div className="flex flex-1 items-center justify-center text-[14px] text-[#8e8e93]">加载中...</div>;
   if (error) return <div className="flex flex-1 items-center justify-center text-[14px] text-[#ef4444]">{error}</div>;
-  if (jobs.length === 0) {
+  const filteredJobs = jobs.filter((job) => {
+    if (statusFilter === 'failed') return Boolean(job.lastRun && !job.lastRun.success);
+    if (statusFilter === 'enabled') return job.enabled;
+    return true;
+  });
+  if (filteredJobs.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
         <span className="text-[40px]">⏰</span>
-        <p className="text-[14px] text-[#8e8e93]">暂无定时任务</p>
-        <p className="text-[12px] text-[#c6c6c8]">点击右上角「+ 新建任务」开始</p>
+        <p className="text-[14px] text-[#8e8e93]">{statusFilter === 'all' ? '暂无定时任务' : '当前筛选下暂无任务'}</p>
+        <p className="text-[12px] text-[#c6c6c8]">{statusFilter === 'all' ? '点击右上角「+ 新建任务」开始' : '切换筛选查看其他任务'}</p>
       </div>
     );
   }
   return (
     <div className="flex-1 overflow-y-auto px-8 py-4">
       <div className="flex flex-col gap-3">
-        {jobs.map((job) => (
+        {filteredJobs.map((job) => (
           <div key={job.id} className="flex items-center gap-4 rounded-xl border border-black/[0.06] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
             <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
             <div className="min-w-0 flex-1">
@@ -290,6 +478,9 @@ function OverviewTab({
               <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-[#8e8e93]">
                 <span>{`Delivery: ${formatDelivery(job)}`}</span>
                 <span>{`Session target: ${formatSessionTarget(job.sessionTarget)}`}</span>
+                {typeof job.failureAlertAfter === 'number' && (
+                  <span>{`Alert after ${job.failureAlertAfter} failures`}</span>
+                )}
               </div>
               {job.lastRun?.error ? (
                 <p className="mt-1 truncate text-[11px] text-[#ef4444]">{job.lastRun.error}</p>
@@ -297,6 +488,7 @@ function OverviewTab({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button type="button" onClick={() => onTrigger(job.id)} className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]">▶ 立即执行</button>
+              <button type="button" onClick={() => onEdit(job)} className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]">编辑</button>
               <button type="button" onClick={() => onToggle(job.id, !job.enabled)} className={cn('rounded-md border px-2.5 py-1 text-[12px] transition-colors', job.enabled ? 'border-[#f59e0b]/30 text-[#b45309] hover:bg-[#fef9c3]' : 'border-[#10b981]/30 text-[#059669] hover:bg-[#dcfce7]')}>
                 {job.enabled ? '暂停' : '启用'}
               </button>
@@ -520,10 +712,12 @@ function PipelinesTab({
   jobs,
   loading,
   onTrigger,
+  onEdit,
 }: {
   jobs: CronJob[];
   loading: boolean;
   onTrigger: (id: string) => void;
+  onEdit: (job: CronJob) => void;
 }) {
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
@@ -582,7 +776,13 @@ function PipelinesTab({
                           <span className={cn('h-2 w-2 shrink-0 rounded-full', job.enabled ? 'bg-[#10b981]' : 'bg-[#d1d5db]')} />
                           <span className="font-medium text-[#000000]">{job.name}</span>
                         </div>
+                        <p className="mt-0.5 truncate pl-4 text-[11px] text-[#3c3c43]">Trigger → Agent → Delivery</p>
                         <p className="mt-0.5 truncate pl-4 text-[11px] text-[#8e8e93]">{`Delivery: ${formatDelivery(job)}`}</p>
+                        {typeof job.failureAlertAfter === 'number' && (
+                          <p className="mt-0.5 truncate pl-4 text-[11px] text-[#8e8e93]">
+                            {`Alert after ${job.failureAlertAfter} failures${job.failureAlertChannel ? ` → ${job.failureAlertChannel}` : ''}`}
+                          </p>
+                        )}
                         {run?.error && (
                           <p className="mt-0.5 truncate pl-4 text-[11px] text-[#ef4444]">{run.error}</p>
                         )}
@@ -611,6 +811,13 @@ function PipelinesTab({
                             className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
                           >
                             ▶ 执行
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onEdit(job)}
+                            className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+                          >
+                            编辑
                           </button>
                           <button
                             type="button"

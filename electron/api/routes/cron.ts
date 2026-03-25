@@ -15,6 +15,10 @@ interface GatewayCronJob {
   schedule: { kind: string; expr?: string; everyMs?: number; at?: string; tz?: string };
   payload: { kind: string; message?: string; text?: string };
   delivery?: { mode: string; channel?: string; to?: string };
+  failureAlertAfter?: number;
+  failureAlertCooldownSeconds?: number;
+  failureAlertChannel?: string;
+  deliveryBestEffort?: boolean;
   sessionTarget?: string;
   state: {
     nextRunAtMs?: number;
@@ -286,6 +290,10 @@ function transformCronJob(job: GatewayCronJob) {
     schedule: job.schedule,
     target,
     delivery: job.delivery,
+    failureAlertAfter: job.failureAlertAfter,
+    failureAlertCooldownSeconds: job.failureAlertCooldownSeconds,
+    failureAlertChannel: job.failureAlertChannel,
+    deliveryBestEffort: job.deliveryBestEffort,
     sessionTarget: job.sessionTarget,
     enabled: job.enabled,
     createdAt: new Date(job.createdAtMs).toISOString(),
@@ -380,7 +388,17 @@ export async function handleCronRoutes(
 
   if (url.pathname === '/api/cron/jobs' && req.method === 'POST') {
     try {
-      const input = await parseJsonBody<{ name: string; message: string; schedule: string; enabled?: boolean }>(req);
+      const input = await parseJsonBody<{
+        name: string;
+        message: string;
+        schedule: string;
+        enabled?: boolean;
+        delivery?: { mode?: string; channel?: string; to?: string };
+        failureAlertAfter?: number;
+        failureAlertCooldownSeconds?: number;
+        failureAlertChannel?: string;
+        deliveryBestEffort?: boolean;
+      }>(req);
       const result = await ctx.gatewayManager.rpc('cron.add', {
         name: input.name,
         schedule: { kind: 'cron', expr: input.schedule },
@@ -388,7 +406,15 @@ export async function handleCronRoutes(
         enabled: input.enabled ?? true,
         wakeMode: 'next-heartbeat',
         sessionTarget: 'isolated',
-        delivery: { mode: 'none' },
+        delivery: {
+          mode: input.delivery?.mode ?? 'none',
+          ...(input.delivery?.channel ? { channel: input.delivery.channel } : {}),
+          ...(input.delivery?.to ? { to: input.delivery.to } : {}),
+        },
+        ...(typeof input.failureAlertAfter === 'number' ? { failureAlertAfter: input.failureAlertAfter } : {}),
+        ...(typeof input.failureAlertCooldownSeconds === 'number' ? { failureAlertCooldownSeconds: input.failureAlertCooldownSeconds } : {}),
+        ...(input.failureAlertChannel ? { failureAlertChannel: input.failureAlertChannel } : {}),
+        ...(typeof input.deliveryBestEffort === 'boolean' ? { deliveryBestEffort: input.deliveryBestEffort } : {}),
       });
       sendJson(res, 200, result && typeof result === 'object' ? transformCronJob(result as GatewayCronJob) : result);
     } catch (error) {
@@ -408,6 +434,14 @@ export async function handleCronRoutes(
       if (typeof patch.message === 'string') {
         patch.payload = { kind: 'agentTurn', message: patch.message };
         delete patch.message;
+      }
+      if (patch.delivery && typeof patch.delivery === 'object') {
+        const delivery = patch.delivery as Record<string, unknown>;
+        patch.delivery = {
+          mode: typeof delivery.mode === 'string' ? delivery.mode : 'none',
+          ...(typeof delivery.channel === 'string' && delivery.channel ? { channel: delivery.channel } : {}),
+          ...(typeof delivery.to === 'string' && delivery.to ? { to: delivery.to } : {}),
+        };
       }
       sendJson(res, 200, await ctx.gatewayManager.rpc('cron.update', { id, patch }));
     } catch (error) {

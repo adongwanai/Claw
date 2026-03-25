@@ -3,7 +3,7 @@
   "objective": "Build and polish the ClawX Electron + React workbench UI with full backend integration.",
   "current_phase": "execution",
   "current_focus": "PLAN-2026-03-24-PLATFORM-CLOSURE",
-  "last_updated": "2026-03-25T11:34:45+08:00",
+  "last_updated": "2026-03-25T11:44:45+08:00",
   "tasks": [
     {
       "id": "SESSION-8-001",
@@ -302,6 +302,20 @@
     {
       "id": "SESSION-21-002",
       "title": "Add channels capability and schema summary abstraction",
+      "type": "feature",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "SESSION-22-001",
+      "title": "Add cron pipeline wizard and pipeline graph editing loop",
+      "type": "feature",
+      "status": "done",
+      "priority": "P1"
+    },
+    {
+      "id": "SESSION-22-002",
+      "title": "Wire cron failure alert and deliveryBestEffort policy fields through routes",
       "type": "feature",
       "status": "done",
       "priority": "P1"

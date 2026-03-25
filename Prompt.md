@@ -119,10 +119,9 @@ tail -30 continue/progress.txt
   - delivery 配置概览
   - 配置错误 / 执行错误 banner
   - 最近更新时间
-- Pipeline 建模 / 编辑闭环：
+- 已完成：
   - `PipelineWizard`
   - `PipelineGraph`
-- 失败重试 / 失败告警 / 投递策略：
   - `failureAlertAfter`
   - `failureAlertCooldownSeconds`
   - `failureAlertChannel`
