@@ -184,12 +184,190 @@ async function ensureScopedChannelBinding(channelType: string, accountId?: strin
   await assignChannelToAgent(inferAgentIdFromAccountId(accountId), channelType).catch(() => undefined);
 }
 
+type NormalizedChannelStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+type NormalizedChannelAction = 'connect' | 'disconnect' | 'test' | 'send' | 'configure';
+
+type ChannelsStatusSnapshot = {
+  channels?: Record<string, { running?: boolean; error?: string; lastError?: string; configured?: boolean }>;
+  channelAccounts?: Record<string, Array<{
+    accountId?: string;
+    configured?: boolean;
+    connected?: boolean;
+    running?: boolean;
+    linked?: boolean;
+    lastError?: string;
+  }>>;
+  channelDefaultAccountId?: Record<string, string>;
+};
+
+type NormalizedChannelCapability = {
+  channelId: string;
+  channelType: string;
+  accountId?: string;
+  status: NormalizedChannelStatus;
+  availableActions: NormalizedChannelAction[];
+  capabilityFlags: {
+    supportsConnect: boolean;
+    supportsDisconnect: boolean;
+    supportsTest: boolean;
+    supportsSend: boolean;
+    supportsSchemaSummary: boolean;
+    supportsCredentialValidation: boolean;
+  };
+  configSchemaSummary: {
+    totalFieldCount: number;
+    requiredFieldCount: number;
+    optionalFieldCount: number;
+    sensitiveFieldCount: number;
+    fieldKeys: string[];
+  };
+};
+
+const CHANNEL_SCHEMA_SUMMARY_HINTS: Record<string, { required: string[]; optional: string[]; sensitive: string[] }> = {
+  feishu: { required: ['appId', 'appSecret'], optional: [], sensitive: ['appSecret'] },
+  dingtalk: {
+    required: ['clientId', 'clientSecret'],
+    optional: ['robotCode', 'corpId', 'agentId'],
+    sensitive: ['clientSecret'],
+  },
+  wecom: { required: ['botId', 'secret'], optional: [], sensitive: ['secret'] },
+  qqbot: { required: ['appId', 'clientSecret'], optional: [], sensitive: ['clientSecret'] },
+};
+
+const CREDENTIAL_VALIDATION_CHANNELS = new Set(['discord', 'telegram']);
+
+function summarizeSchema(channelType: string): NormalizedChannelCapability['configSchemaSummary'] {
+  const hint = CHANNEL_SCHEMA_SUMMARY_HINTS[channelType];
+  if (!hint) {
+    return {
+      totalFieldCount: 0,
+      requiredFieldCount: 0,
+      optionalFieldCount: 0,
+      sensitiveFieldCount: 0,
+      fieldKeys: [],
+    };
+  }
+  const fieldKeys = [...hint.required, ...hint.optional];
+  return {
+    totalFieldCount: fieldKeys.length,
+    requiredFieldCount: hint.required.length,
+    optionalFieldCount: hint.optional.length,
+    sensitiveFieldCount: hint.sensitive.length,
+    fieldKeys,
+  };
+}
+
+function resolveNormalizedStatus(
+  summary: { running?: boolean; error?: string; lastError?: string } | undefined,
+  account:
+    | {
+      connected?: boolean;
+      linked?: boolean;
+      running?: boolean;
+      lastError?: string;
+    }
+    | undefined,
+): NormalizedChannelStatus {
+  if (account?.connected === true || account?.linked === true) {
+    return 'connected';
+  }
+  if (
+    (typeof account?.lastError === 'string' && account.lastError.trim())
+    || (typeof summary?.error === 'string' && summary.error.trim())
+    || (typeof summary?.lastError === 'string' && summary.lastError.trim())
+  ) {
+    return 'error';
+  }
+  if (account?.running === true || summary?.running === true) {
+    return 'connecting';
+  }
+  return 'disconnected';
+}
+
+function getAvailableActions(status: NormalizedChannelStatus): NormalizedChannelAction[] {
+  if (status === 'connected') {
+    return ['disconnect', 'test', 'send', 'configure'];
+  }
+  return ['connect', 'test', 'send', 'configure'];
+}
+
+function buildCapability(
+  channelType: string,
+  accountId: string | undefined,
+  status: NormalizedChannelStatus,
+): NormalizedChannelCapability {
+  const availableActions = getAvailableActions(status);
+  return {
+    channelId: `${channelType}-${accountId || 'default'}`,
+    channelType,
+    accountId,
+    status,
+    availableActions,
+    capabilityFlags: {
+      supportsConnect: true,
+      supportsDisconnect: true,
+      supportsTest: true,
+      supportsSend: true,
+      supportsSchemaSummary: true,
+      supportsCredentialValidation: CREDENTIAL_VALIDATION_CHANNELS.has(channelType),
+    },
+    configSchemaSummary: summarizeSchema(channelType),
+  };
+}
+
+async function listNormalizedCapabilities(ctx: HostApiContext): Promise<NormalizedChannelCapability[]> {
+  const configuredChannelTypes = await listConfiguredChannels();
+  let statusSnapshot: ChannelsStatusSnapshot | null = null;
+  try {
+    statusSnapshot = await ctx.gatewayManager.rpc<ChannelsStatusSnapshot>('channels.status', { probe: true });
+  } catch {
+    // Fall back to configured-channel metadata when live status is unavailable.
+  }
+
+  const capabilities: NormalizedChannelCapability[] = [];
+  for (const channelType of configuredChannelTypes) {
+    const accounts = statusSnapshot?.channelAccounts?.[channelType] ?? [];
+    const summary = statusSnapshot?.channels?.[channelType];
+    if (accounts.length > 0) {
+      let pushedAnyAccount = false;
+      for (const account of accounts) {
+        if (account.configured === false) continue;
+        pushedAnyAccount = true;
+        const accountId = account.accountId || statusSnapshot?.channelDefaultAccountId?.[channelType] || 'default';
+        const status = resolveNormalizedStatus(summary, account);
+        capabilities.push(buildCapability(channelType, accountId, status));
+      }
+      if (pushedAnyAccount) {
+        continue;
+      }
+    }
+    const status = resolveNormalizedStatus(summary, undefined);
+    capabilities.push(buildCapability(channelType, statusSnapshot?.channelDefaultAccountId?.[channelType], status));
+  }
+
+  return capabilities;
+}
+
 export async function handleChannelRoutes(
   req: IncomingMessage,
   res: ServerResponse,
   url: URL,
   ctx: HostApiContext,
 ): Promise<boolean> {
+  if (url.pathname === '/api/channels/capabilities' && req.method === 'GET') {
+    try {
+      const allCapabilities = await listNormalizedCapabilities(ctx);
+      const requestedChannelId = url.searchParams.get('channelId');
+      const capabilities = requestedChannelId
+        ? allCapabilities.filter((item) => item.channelId === requestedChannelId)
+        : allCapabilities;
+      sendJson(res, 200, { success: true, capabilities });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error), capabilities: [] });
+    }
+    return true;
+  }
+
   if (url.pathname === '/api/channels/configured' && req.method === 'GET') {
     sendJson(res, 200, { success: true, channels: await listConfiguredChannels() });
     return true;

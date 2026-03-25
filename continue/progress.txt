@@ -1823,3 +1823,44 @@ Focus: Continue platform closure by making runtime sessions survive restart and 
 ### 下一步
 - 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`
 - 优先推进 Wave 3 的 Channels capability abstraction 或 Cron pipeline 建模闭环
+[2026-03-25 11:34 +08:00] Session: Session-21 kanban-approval-binding + channels-capability-abstraction
+Focus: Continue remaining Wave 2 and Wave 3 work by binding approvals to ticket runtime context and adding the first channels capability abstraction layer
+
+### 完成内容
+1. Wave 2 Kanban approval binding
+   - `src/pages/TaskKanban/index.tsx`
+   - ticket 增 `runtimeSessionKey`
+   - detail panel 可按 `sessionKey / agentId` 关联当前 runtime 的 approvals
+   - 在 ticket 详情内直接显示 `Review / Respond`
+   - ticket 内可直接打开 approval review dialog / AskUserQuestion wizard
+2. Wave 3 Channels capability abstraction 第一批
+   - `electron/api/routes/channels.ts`
+   - 新增 `GET /api/channels/capabilities`
+   - 统一返回 `status / availableActions / capabilityFlags / configSchemaSummary`
+   - `src/types/channel.ts`
+   - 新增 channel runtime capability 类型
+   - `src/pages/Channels/index.tsx`
+   - 选中频道时展示只读 `Runtime capabilities` 摘要
+3. 测试与清理
+   - `tests/unit/task-kanban.test.tsx`
+   - 新增 session-scoped approval 绑定用例
+   - `tests/unit/channels-routes.test.ts`
+   - 新增 channels capability route 用例
+   - `tests/unit/channels-page.test.tsx`
+   - 补 channels capability UI 用例并清理 act warning
+
+### 验证结果
+- `pnpm test -- tests/unit/task-kanban.test.tsx tests/unit/channels-page.test.tsx tests/unit/channels-routes.test.ts` → `18/18` 通过
+- `pnpm run typecheck` → 通过
+- `pnpm run lint` → 通过
+- `pnpm run build:vite` → 通过
+
+### 剩余待办
+- P0 i18n 收口：继续清理其他页面历史硬编码文案
+- Wave 2：更完整的 subagent tree orchestration / tool execution path / deeper skill bridge
+- Wave 3：Cron pipeline / failure alert / Channels multi-user isolation + auth gate + rate limiting / Costs realtime stream
+- Wave 4~5：Memory / Agent detail / Settings / update / UX / a11y / 工程治理
+
+### 下一步
+- 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`
+- 优先推进 Cron pipeline 建模闭环，或继续补 Channels 的 auth gate / multi-user / rate limiting

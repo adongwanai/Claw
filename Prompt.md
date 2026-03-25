@@ -108,6 +108,7 @@ tail -30 continue/progress.txt
   - `running / blocked / waiting_approval / completed / error/killed/stopped` → ticket `workState` / column 状态联动
   - `completed` 自动进入 review-ready 状态并展示 `workResult`
   - runtime session records 跨主进程重启持久化与恢复
+  - detail panel 按 runtime `sessionKey` 绑定当前 ticket 的 approvals，可直接 `Review / Respond`
 - 剩余：
   - 更深的 agent work / retry / 状态联动（approval 更细粒度绑定、后续 agent work 深化）
 
@@ -180,7 +181,10 @@ tail -30 continue/progress.txt
 #### 10. Channels / backend runtime 能力
 
 - IM 消息格式适配与 capability runtime
-- `actions/capabilities/schema/status` 抽象
+- 已完成第一批 `actions/capabilities/schema/status` 抽象
+  - `/api/channels/capabilities`
+  - normalized `status / availableActions / capabilityFlags / configSchemaSummary`
+  - Channels 详情页展示 runtime capabilities 摘要
 - 本地 API auth gate 深化
 - 多用户隔离与 rate limiting
 

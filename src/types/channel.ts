@@ -76,6 +76,35 @@ export interface ChannelMeta {
   isPlugin?: boolean;
 }
 
+export type ChannelCapabilityAction = 'connect' | 'disconnect' | 'test' | 'send' | 'configure';
+
+export interface ChannelCapabilityFlags {
+  supportsConnect: boolean;
+  supportsDisconnect: boolean;
+  supportsTest: boolean;
+  supportsSend: boolean;
+  supportsSchemaSummary: boolean;
+  supportsCredentialValidation: boolean;
+}
+
+export interface ChannelConfigSchemaSummary {
+  totalFieldCount: number;
+  requiredFieldCount: number;
+  optionalFieldCount: number;
+  sensitiveFieldCount: number;
+  fieldKeys: string[];
+}
+
+export interface ChannelRuntimeCapability {
+  channelId: string;
+  channelType: string;
+  accountId?: string;
+  status: ChannelStatus;
+  availableActions: ChannelCapabilityAction[];
+  capabilityFlags: ChannelCapabilityFlags;
+  configSchemaSummary: ChannelConfigSchemaSummary;
+}
+
 /**
  * Channel icons mapping
  */

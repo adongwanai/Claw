@@ -8,7 +8,13 @@ import { cn } from '@/lib/utils';
 import { useChannelsStore } from '@/stores/channels';
 import { useSettingsStore } from '@/stores/settings';
 import { hostApiFetch } from '@/lib/host-api';
-import { CHANNEL_ICONS, CHANNEL_NAMES, CHANNEL_META, type ChannelType } from '@/types/channel';
+import {
+  CHANNEL_ICONS,
+  CHANNEL_NAMES,
+  CHANNEL_META,
+  type ChannelType,
+  type ChannelRuntimeCapability,
+} from '@/types/channel';
 
 /* ─── Static channel type tabs ─── */
 
@@ -47,6 +53,7 @@ export function Channels() {
   const [addName, setAddName] = useState('');
   const [addLoading, setAddLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; msg: string } | null>(null);
+  const [runtimeCapabilities, setRuntimeCapabilities] = useState<Record<string, ChannelRuntimeCapability>>({});
   const isComposingRef = useRef(false);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
 
@@ -57,8 +64,36 @@ export function Channels() {
     void fetchChannels();
   }, [fetchChannels]);
 
+  useEffect(() => {
+    let active = true;
+    const fetchRuntimeCapabilities = async () => {
+      try {
+        const response = await hostApiFetch('/api/channels/capabilities') as
+          | { capabilities?: ChannelRuntimeCapability[] }
+          | undefined;
+        const list = Array.isArray(response?.capabilities) ? response.capabilities : [];
+        if (!active) return;
+        const next: Record<string, ChannelRuntimeCapability> = {};
+        for (const capability of list) {
+          next[capability.channelId] = capability;
+        }
+        setRuntimeCapabilities(next);
+      } catch {
+        if (!active) return;
+        setRuntimeCapabilities({});
+      }
+    };
+    void fetchRuntimeCapabilities();
+    return () => {
+      active = false;
+    };
+  }, [channels]);
+
   const filtered = channels.filter((c) => c.type === activeChannel);
   const selected = activeChannelId ? channels.find((c) => c.id === activeChannelId) ?? null : null;
+  const selectedRuntimeCapability = selected
+    ? runtimeCapabilities[selected.id] ?? runtimeCapabilities[`${selected.type}-${selected.accountId || 'default'}`] ?? null
+    : null;
   const meta = CHANNEL_META[activeChannel];
 
   const handleAdd = async () => {
@@ -288,6 +323,18 @@ export function Channels() {
                 {selected.error && (
                   <p className="mt-2 text-[12px] text-[#ef4444]">错误：{selected.error}</p>
                 )}
+              </div>
+            )}
+
+            {selectedRuntimeCapability && (
+              <div className="shrink-0 border-b border-black/[0.06] px-5 py-3" data-testid="channel-runtime-capabilities">
+                <p className="mb-1 text-[12px] font-medium text-[#8e8e93]">Runtime capabilities</p>
+                <p className="text-[12px] text-[#3c3c43]">
+                  Actions: {selectedRuntimeCapability.availableActions.join(', ') || 'none'}
+                </p>
+                <p className="mt-1 text-[12px] text-[#8e8e93]">
+                  Schema: {selectedRuntimeCapability.configSchemaSummary.totalFieldCount} fields (required {selectedRuntimeCapability.configSchemaSummary.requiredFieldCount})
+                </p>
               </div>
             )}
 

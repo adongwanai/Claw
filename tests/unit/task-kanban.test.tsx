@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { TaskKanban } from '@/pages/TaskKanban';
 
 const { agentsStoreState, approvalsStoreState, hostApiFetchMock } = vi.hoisted(() => ({
@@ -182,6 +182,7 @@ describe('TaskKanban', () => {
       success: true,
       session: {
         id: 'runtime-1',
+        sessionKey: 'agent:planner-1:main:subagent:runtime-1',
         prompt: 'Ship runtime task\n\nAsk planner to investigate',
         transcript: ['Ship runtime task\n\nAsk planner to investigate'],
         status: 'running',
@@ -197,13 +198,14 @@ describe('TaskKanban', () => {
 
     expect(hostApiFetchMock).toHaveBeenCalledWith('/api/sessions/spawn', expect.objectContaining({ method: 'POST' }));
     await waitFor(() => {
-      expect(screen.getByText(/runtime-1/)).toBeInTheDocument();
+      expect(screen.getAllByText(/runtime-1/).length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText(/Ask planner to investigate/).length).toBeGreaterThan(0);
     expect(readStoredTicket('ticket-runtime')).toEqual(expect.objectContaining({
       status: 'in-progress',
       workState: 'working',
       runtimeSessionId: 'runtime-1',
+      runtimeSessionKey: 'agent:planner-1:main:subagent:runtime-1',
     }));
   });
 
@@ -414,4 +416,45 @@ describe('TaskKanban', () => {
       expect(screen.getByRole('button', { name: 'Retry work' })).toBeInTheDocument();
     },
   );
+
+  it('shows session-linked approvals in the ticket detail panel', async () => {
+    approvalsStoreState.approvals = [
+      {
+        id: 'approval-linked',
+        sessionKey: 'agent:planner-1:main:subagent:runtime-approval',
+        command: 'ShellExec',
+        agentId: 'planner-1',
+        toolInput: {
+          command: 'rm -rf /tmp/unsafe',
+          cwd: '/workspace',
+        },
+      },
+    ];
+    localStorage.setItem('clawport-kanban', JSON.stringify([
+      {
+        id: 'ticket-approval',
+        title: 'Needs approval binding',
+        description: 'Review a dangerous command',
+        status: 'review',
+        priority: 'high',
+        assigneeId: 'planner-1',
+        workState: 'waiting_approval',
+        runtimeSessionId: 'runtime-approval',
+        runtimeSessionKey: 'agent:planner-1:main:subagent:runtime-approval',
+        runtimeTranscript: ['Started task', 'Need approval'],
+        createdAt: '2026-03-25T00:00:00.000Z',
+        updatedAt: '2026-03-25T00:00:00.000Z',
+      },
+    ]));
+
+    render(<TaskKanban />);
+    fireEvent.click(screen.getByText('Needs approval binding'));
+
+    const approvalsPanel = screen.getByTestId('ticket-runtime-approvals');
+    expect(within(approvalsPanel).getByText('ShellExec')).toBeInTheDocument();
+
+    fireEvent.click(within(approvalsPanel).getByRole('button', { name: 'Review' }));
+
+    expect(await screen.findByRole('dialog', { name: 'Approval review' })).toBeInTheDocument();
+  });
 });

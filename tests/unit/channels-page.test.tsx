@@ -68,10 +68,24 @@ describe('Channels page composer UX', () => {
     channelsStoreState.loading = false;
     channelsStoreState.error = null;
     settingsState.defaultModel = 'claude-sonnet-4-6';
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/capabilities') {
+        return { success: true, capabilities: [] };
+      }
+      return { success: true };
+    });
   });
 
   it('keeps composer draft when send fails', async () => {
-    hostApiFetchMock.mockRejectedValueOnce(new Error('send failed'));
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/capabilities') {
+        return { success: true, capabilities: [] };
+      }
+      if (path.includes('/send')) {
+        throw new Error('send failed');
+      }
+      return { success: true };
+    });
 
     render(<Channels />);
     fireEvent.click(screen.getByText('Dev Feishu'));
@@ -89,23 +103,77 @@ describe('Channels page composer UX', () => {
     expect(input).toHaveValue('hello from channel');
   });
 
-  it('does not send when Enter is pressed during IME composition', () => {
+  it('does not send when Enter is pressed during IME composition', async () => {
     render(<Channels />);
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/channels/capabilities');
+    });
     fireEvent.click(screen.getByText('Dev Feishu'));
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '输入法输入中' } });
     fireEvent.keyDown(input, { key: 'Enter', keyCode: 229, isComposing: true });
 
-    expect(hostApiFetchMock).not.toHaveBeenCalled();
+    const sendCalls = hostApiFetchMock.mock.calls.filter(([path]) =>
+      typeof path === 'string' && path.includes('/send'),
+    );
+    expect(sendCalls).toHaveLength(0);
     expect(input).toHaveValue('输入法输入中');
   });
 
-  it('uses settings default model in the composer model pill', () => {
+  it('uses settings default model in the composer model pill', async () => {
     settingsState.defaultModel = 'gpt-5.2';
+
+    render(<Channels />);
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/channels/capabilities');
+    });
+    fireEvent.click(screen.getByText('Dev Feishu'));
+
+    expect(screen.getByText('gpt-5.2')).toBeInTheDocument();
+  });
+
+  it('renders normalized runtime capabilities for the selected channel', async () => {
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/capabilities') {
+        return {
+          success: true,
+          capabilities: [
+            {
+              channelId: 'feishu-default',
+              channelType: 'feishu',
+              accountId: 'default',
+              status: 'connected',
+              availableActions: ['disconnect', 'test', 'send', 'configure'],
+              capabilityFlags: {
+                supportsConnect: true,
+                supportsDisconnect: true,
+                supportsTest: true,
+                supportsSend: true,
+                supportsSchemaSummary: true,
+                supportsCredentialValidation: false,
+              },
+              configSchemaSummary: {
+                totalFieldCount: 2,
+                requiredFieldCount: 2,
+                optionalFieldCount: 0,
+                sensitiveFieldCount: 1,
+                fieldKeys: ['appId', 'appSecret'],
+              },
+            },
+          ],
+        };
+      }
+      return { success: true };
+    });
 
     render(<Channels />);
     fireEvent.click(screen.getByText('Dev Feishu'));
 
-    expect(screen.getByText('gpt-5.2')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Runtime capabilities')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/Actions: disconnect, test, send, configure/)).toBeInTheDocument();
+    expect(screen.getByText(/Schema: 2 fields \(required 2\)/)).toBeInTheDocument();
   });
 });

@@ -29,6 +29,7 @@ interface KanbanTicket {
   workError?: string;
   workResult?: string;
   runtimeSessionId?: string;
+  runtimeSessionKey?: string;
   runtimeTranscript?: string[];
   createdAt: string;
   updatedAt: string;
@@ -36,6 +37,7 @@ interface KanbanTicket {
 
 interface RuntimeSessionResponse {
   id: string;
+  sessionKey?: string;
   status?: string;
   transcript?: string[];
   lastError?: string;
@@ -128,6 +130,7 @@ function mapRuntimeSessionToTicketUpdates(ticket: KanbanTicket, session: Runtime
   const runtimeResult = readRuntimeResult(session);
   const base: Partial<KanbanTicket> = {
     runtimeSessionId: session.id || ticket.runtimeSessionId,
+    runtimeSessionKey: session.sessionKey || ticket.runtimeSessionKey,
     runtimeTranscript: Array.isArray(session.transcript) ? session.transcript : ticket.runtimeTranscript,
   };
 
@@ -207,8 +210,21 @@ function hasRuntimeTicketChanges(ticket: KanbanTicket, updates: Partial<KanbanTi
   if ('workError' in updates && updates.workError !== ticket.workError) return true;
   if ('workResult' in updates && updates.workResult !== ticket.workResult) return true;
   if ('runtimeSessionId' in updates && updates.runtimeSessionId !== ticket.runtimeSessionId) return true;
+  if ('runtimeSessionKey' in updates && updates.runtimeSessionKey !== ticket.runtimeSessionKey) return true;
   if ('runtimeTranscript' in updates && !isSameTranscript(ticket.runtimeTranscript, updates.runtimeTranscript)) return true;
   return false;
+}
+
+function getApprovalsForTicket(ticket: KanbanTicket, approvals: ApprovalItem[]): ApprovalItem[] {
+  return approvals.filter((approval) => {
+    if (ticket.runtimeSessionKey && approval.sessionKey) {
+      return approval.sessionKey === ticket.runtimeSessionKey;
+    }
+    if (ticket.assigneeId && approval.agentId) {
+      return approval.agentId === ticket.assigneeId;
+    }
+    return false;
+  });
 }
 
 /* ─── Agent color helper ─── */
@@ -515,12 +531,15 @@ export function TaskKanban() {
         <DetailPanel
           ticket={detailTicket}
           agents={agents}
+          approvals={getApprovalsForTicket(detailTicket, approvals)}
           onClose={() => setDetailTicket(null)}
           onUpdate={(updates) => updateTicket(detailTicket.id, updates)}
           onDelete={() => deleteTicket(detailTicket.id)}
           onStartRuntime={() => void startRuntimeWork(detailTicket)}
           onSteerRuntime={(input) => void steerRuntimeWork(detailTicket, input)}
           onStopRuntime={() => void stopRuntimeWork(detailTicket)}
+          onApproveApproval={(id, reason) => void approveItem(id, reason)}
+          onRejectApproval={(id, reason) => void rejectItem(id, reason)}
         />
       )}
     </div>
@@ -730,25 +749,37 @@ function CreateModal({
 /* ─── Detail Panel ─── */
 
 function DetailPanel({
-  ticket, agents, onClose, onUpdate, onDelete,
+  ticket, agents, approvals, onClose, onUpdate, onDelete,
   onStartRuntime,
   onSteerRuntime,
   onStopRuntime,
+  onApproveApproval,
+  onRejectApproval,
 }: {
   ticket: KanbanTicket;
   agents: AgentSummary[];
+  approvals: ApprovalItem[];
   onClose: () => void;
   onUpdate: (updates: Partial<KanbanTicket>) => void;
   onDelete: () => void;
   onStartRuntime: () => void;
   onSteerRuntime: (input: string) => void;
   onStopRuntime: () => void;
+  onApproveApproval: (id: string, reason?: string) => void;
+  onRejectApproval: (id: string, reason: string) => void;
 }) {
   const agentIdx = agents.findIndex((a) => a.id === ticket.assigneeId);
   const agent = agentIdx >= 0 ? agents[agentIdx] : null;
   const color = agent ? agentColor(agentIdx) : '#8e8e93';
   const p = PRIORITY_STYLES[ticket.priority];
   const [followup, setFollowup] = useState('');
+  const [wizard, setWizard] = useState<ApprovalItem | null>(null);
+  const [reviewing, setReviewing] = useState<ApprovalItem | null>(null);
+  const reviewText = reviewing?.toolInput
+    ? JSON.stringify(reviewing.toolInput, null, 2)
+    : (reviewing?.prompt ?? '');
+  const riskPreview = reviewText.toLowerCase();
+  const isDangerous = ['rm -rf', 'sudo', 'del ', 'format ', 'powershell -command remove-item'].some((token) => riskPreview.includes(token));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/20" onClick={onClose}>
@@ -846,6 +877,11 @@ function DetailPanel({
                 <div className="mb-2 rounded-lg bg-[#f8fafc] px-3 py-2 text-[12px] text-[#475467]">
                   Session: {ticket.runtimeSessionId}
                 </div>
+                {ticket.runtimeSessionKey && (
+                  <div className="mb-2 rounded-lg bg-[#f8fafc] px-3 py-2 text-[12px] text-[#475467]">
+                    Session key: {ticket.runtimeSessionKey}
+                  </div>
+                )}
                 <div className="mb-3 rounded-xl border border-black/[0.06] bg-[#fafafa] px-3 py-3">
                   <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Transcript</p>
                   <div className="flex flex-col gap-2">
@@ -892,6 +928,47 @@ function DetailPanel({
                     Retry work
                   </button>
                 </div>
+
+                {approvals.length > 0 && (
+                  <div data-testid="ticket-runtime-approvals" className="mt-3 rounded-xl border border-[#f59e0b]/30 bg-[#fffbeb] px-3 py-3">
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Runtime approvals</p>
+                    <div className="flex flex-col gap-2">
+                      {approvals.map((approval) => (
+                        <div key={approval.id} className="rounded-lg bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[12px] font-medium text-[#111827]">
+                                {approval.command ?? approval.prompt ?? approval.id}
+                              </p>
+                              {approval.requestedAt || approval.createdAt ? (
+                                <p className="mt-1 text-[11px] text-[#8e8e93]">
+                                  {new Date(approval.requestedAt ?? approval.createdAt ?? '').toLocaleString('zh-CN')}
+                                </p>
+                              ) : null}
+                            </div>
+                            {approval.command === 'AskUserQuestion' ? (
+                              <button
+                                type="button"
+                                onClick={() => setWizard(approval)}
+                                className="rounded-lg bg-clawx-ac px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#005fd6]"
+                              >
+                                Respond
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setReviewing(approval)}
+                                className="rounded-lg bg-[#111827] px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#1f2937]"
+                              >
+                                Review
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <div className="flex items-center gap-2">
@@ -925,6 +1002,79 @@ function DetailPanel({
           </div>
         </div>
       </div>
+
+      {wizard && (
+        <AskUserQuestionWizard
+          approval={wizard}
+          onRespond={(answers) => {
+            onApproveApproval(wizard.id, JSON.stringify(answers));
+            setWizard(null);
+          }}
+          onDismiss={() => setWizard(null)}
+        />
+      )}
+
+      {reviewing && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-label="Approval review">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
+                <p className="mt-1 text-[12px] text-[#6b7280]">Agent: {reviewing.agentId ?? 'unknown'} · Command: {reviewing.command ?? 'unknown'}</p>
+              </div>
+              <button type="button" onClick={() => setReviewing(null)} className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
+            </div>
+
+            {isDangerous && (
+              <div className="mb-4 rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] text-[#b91c1c]">
+                危险操作：当前审批包含高风险命令，请确认后再放行。
+              </div>
+            )}
+
+            {reviewing.prompt ? (
+              <div className="mb-3">
+                <p className="mb-1 text-[12px] font-medium text-[#6b7280]">Prompt</p>
+                <div className="rounded-xl bg-[#f8fafc] px-4 py-3 text-[13px] text-[#374151]">{reviewing.prompt}</div>
+              </div>
+            ) : null}
+
+            <div className="mb-5">
+              <p className="mb-1 text-[12px] font-medium text-[#6b7280]">Tool input</p>
+              <pre className="overflow-x-auto rounded-xl bg-[#111827] px-4 py-3 text-[12px] text-[#e5e7eb]">{reviewText || '(empty)'}</pre>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReviewing(null)}
+                className="rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onApproveApproval(reviewing.id);
+                  setReviewing(null);
+                }}
+                className="rounded-lg bg-[#10b981] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#059669]"
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onRejectApproval(reviewing.id, 'Rejected from ticket detail');
+                  setReviewing(null);
+                }}
+                className="rounded-lg border border-[#ef4444]/30 px-3 py-2 text-[13px] text-[#ef4444] hover:bg-[#fef2f2]"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
