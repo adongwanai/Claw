@@ -137,4 +137,70 @@ describe('SessionRuntimeManager', () => {
       { sessionKey: record.sessionKey },
     );
   });
+
+  it('restores persisted runtime sessions across manager restart for list/wait/kill', async () => {
+    let runtimeSessionKey = '';
+    let runtimeState = 'running';
+    let persistedRecords: Array<Record<string, unknown>> = [];
+
+    const persistence = {
+      load: vi.fn(async () => persistedRecords),
+      save: vi.fn(async (records: Array<Record<string, unknown>>) => {
+        persistedRecords = records.map((record) => ({ ...record }));
+      }),
+    };
+
+    const gatewayRpcMock = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'chat.send') {
+        runtimeSessionKey = String(params?.sessionKey ?? runtimeSessionKey);
+        return { runId: 'run-persisted' };
+      }
+      if (method === 'sessions.list') {
+        return {
+          sessions: [{ sessionKey: runtimeSessionKey, status: runtimeState }],
+        };
+      }
+      if (method === 'chat.history') {
+        return {
+          messages: [{ role: 'assistant', content: `persisted-${runtimeState}` }],
+        };
+      }
+      if (method === 'chat.abort') {
+        return { ok: true };
+      }
+      throw new Error(`Unexpected gateway RPC: ${method}`);
+    });
+
+    const manager1 = new (SessionRuntimeManager as unknown as new (...args: unknown[]) => SessionRuntimeManager)(
+      { rpc: gatewayRpcMock },
+      {},
+      persistence,
+    );
+    const spawned = await manager1.spawn({
+      parentSessionKey: 'agent:main:main',
+      prompt: 'Persist this runtime',
+    });
+
+    expect(persistence.save).toHaveBeenCalled();
+    expect(spawned.sessionKey).toContain(':subagent:');
+
+    const manager2 = new (SessionRuntimeManager as unknown as new (...args: unknown[]) => SessionRuntimeManager)(
+      { rpc: gatewayRpcMock },
+      {},
+      persistence,
+    );
+
+    const listed = await manager2.list();
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.id).toBe(spawned.id);
+
+    runtimeState = 'waiting_approval';
+    const waited = await manager2.wait(spawned.id);
+    expect(waited?.status).toBe('waiting_approval');
+    expect(waited?.transcript).toEqual(['persisted-waiting_approval']);
+
+    const killed = await manager2.kill(spawned.id);
+    expect(killed?.status).toBe('killed');
+    expect(gatewayRpcMock).toHaveBeenCalledWith('chat.abort', { sessionKey: spawned.sessionKey });
+  });
 });

@@ -39,6 +39,9 @@ interface CronSummary {
   outputTokens: number;
   costUsd: number;
   sessions: number;
+  avgTokensPerRun: number;
+  avgCostUsdPerRun: number;
+  lastRunAt: string | null;
 }
 
 export async function handleCostsRoutes(
@@ -188,6 +191,9 @@ export async function handleCostsRoutes(
         outputTokens: 0,
         costUsd: 0,
         sessions: 0,
+        avgTokensPerRun: 0,
+        avgCostUsdPerRun: 0,
+        lastRunAt: null,
       };
       const sessionKey = `${key}:${entry.sessionId}`;
       if (!sessionSet.has(sessionKey)) {
@@ -198,12 +204,17 @@ export async function handleCostsRoutes(
       prev.inputTokens += entry.inputTokens;
       prev.outputTokens += entry.outputTokens;
       prev.costUsd += entry.costUsd ?? 0;
+      if (!prev.lastRunAt || new Date(entry.timestamp).getTime() > new Date(prev.lastRunAt).getTime()) {
+        prev.lastRunAt = entry.timestamp;
+      }
       cronMap.set(key, prev);
     }
 
     const rows = [...cronMap.values()]
       .map((row) => ({
         ...row,
+        avgTokensPerRun: row.sessions > 0 ? Math.round(row.totalTokens / row.sessions) : 0,
+        avgCostUsdPerRun: row.sessions > 0 ? Number((row.costUsd / row.sessions).toFixed(6)) : 0,
         costUsd: Number(row.costUsd.toFixed(6)),
       }))
       .sort((a, b) => b.totalTokens - a.totalTokens);

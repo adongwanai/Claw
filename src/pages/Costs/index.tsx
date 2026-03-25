@@ -2,7 +2,7 @@
  * Costs Page — 费用 / Token 用量统计 + 监控大盘
  * 合并原 SettingsMonitoringPanel 的全部功能
  */
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
 import { RefreshCw, TrendingUp, Zap, DollarSign, BarChart3, Plus, Trash2 } from 'lucide-react';
@@ -56,6 +56,9 @@ interface CronSummary {
   outputTokens: number;
   costUsd: number;
   sessions: number;
+  avgTokensPerRun?: number;
+  avgCostUsdPerRun?: number;
+  lastRunAt?: string | null;
 }
 
 interface AlertRule {
@@ -344,6 +347,7 @@ function DashboardTab({
   agentRows: AgentSummary[];
   cronRows: CronSummary[];
 }) {
+  const [expandedCronId, setExpandedCronId] = useState<string | null>(null);
   const timeline = summary?.timeline ?? [];
   const totals = summary?.totals;
 
@@ -461,7 +465,7 @@ function DashboardTab({
         <div className="rounded-xl border border-[#c6c6c8] bg-white p-5">
           <p className="mb-4 text-[14px] font-semibold text-[#334155]">Agent 用量排行</p>
           <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-left text-[13px]">
+            <table aria-label="Agent usage ranking table" className="min-w-full border-collapse text-left text-[13px]">
               <thead>
                 <tr className="border-b border-[#eef2f6] text-[#8e8e93]">
                   <th className="py-3 font-medium">Agent</th>
@@ -520,6 +524,67 @@ function DashboardTab({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {cronRows.length > 0 && (
+        <div className="rounded-xl border border-[#c6c6c8] bg-white p-5">
+          <p className="mb-4 text-[14px] font-semibold text-[#334155]">Cron Job Costs</p>
+          <div className="overflow-x-auto">
+            <table aria-label="Cron job costs table" className="min-w-full border-collapse text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-[#eef2f6] text-[#8e8e93]">
+                  <th className="py-3 font-medium">Job</th>
+                  <th className="py-3 font-medium">Runs</th>
+                  <th className="py-3 font-medium">Input</th>
+                  <th className="py-3 font-medium">Output</th>
+                  <th className="py-3 font-medium">Total Tokens</th>
+                  <th className="py-3 text-right font-medium">Cost ($)</th>
+                  <th className="py-3 text-right font-medium">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cronRows.map((row) => {
+                  const avgTokensPerRun = row.avgTokensPerRun ?? (row.sessions > 0 ? Math.round(row.totalTokens / row.sessions) : 0);
+                  const avgCostUsdPerRun = row.avgCostUsdPerRun ?? (row.sessions > 0 ? row.costUsd / row.sessions : 0);
+                  const expanded = expandedCronId === row.cronJobId;
+                  return (
+                    <Fragment key={row.cronJobId}>
+                      <tr className="border-b border-[#f7f8fa]">
+                        <td className="py-3 font-medium text-[#111827]">{row.cronName}</td>
+                        <td className="py-3 text-[#667085]">{row.sessions}</td>
+                        <td className="py-3 text-[#667085]">{formatTokens(row.inputTokens)}</td>
+                        <td className="py-3 text-[#667085]">{formatTokens(row.outputTokens)}</td>
+                        <td className="py-3 text-[#111827]">{formatTokens(row.totalTokens)}</td>
+                        <td className="py-3 text-right font-semibold text-[#111827]">{formatCost(row.costUsd)}</td>
+                        <td className="py-3 text-right">
+                          <button
+                            type="button"
+                            aria-label={`Show details for ${row.cronName}`}
+                            onClick={() => setExpandedCronId(expanded ? null : row.cronJobId)}
+                            className="text-[12px] font-medium text-clawx-ac hover:underline"
+                          >
+                            {expanded ? 'Hide' : 'Show'}
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr className="border-b border-[#f7f8fa] bg-[#f8fafc]">
+                          <td className="py-2 text-[12px] text-[#667085]" colSpan={7}>
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+                              <span>Job ID: {row.cronJobId}</span>
+                              <span>Last run: {row.lastRunAt ? formatDate(row.lastRunAt) : 'N/A'}</span>
+                              <span>Avg/run: {avgTokensPerRun} tokens 路 {formatCost(avgCostUsdPerRun)}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

@@ -152,4 +152,91 @@ describe('session runtime routes', () => {
     });
     expect(gatewayRpcMock).toHaveBeenCalledWith('chat.abort', { sessionKey: record.sessionKey });
   });
+
+  it('resolves wait/kill routes after manager restart when runtime sessions are persisted', async () => {
+    const { SessionRuntimeManager } = await import('@electron/services/session-runtime-manager');
+    const { handleSessionRoutes } = await import('@electron/api/routes/sessions');
+    let runtimeSessionKey = '';
+    let runtimeStatus = 'running';
+    let persistedRecords: Array<Record<string, unknown>> = [];
+
+    const persistence = {
+      load: vi.fn(async () => persistedRecords),
+      save: vi.fn(async (records: Array<Record<string, unknown>>) => {
+        persistedRecords = records.map((record) => ({ ...record }));
+      }),
+    };
+
+    const gatewayRpcMock = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'chat.send') {
+        runtimeSessionKey = String(params?.sessionKey ?? runtimeSessionKey);
+        return { runId: 'run-route-persist' };
+      }
+      if (method === 'chat.abort') {
+        return { ok: true };
+      }
+      if (method === 'sessions.list') {
+        return {
+          sessions: [{ sessionKey: runtimeSessionKey, status: runtimeStatus }],
+        };
+      }
+      if (method === 'chat.history') {
+        return {
+          messages: [{ role: 'assistant', content: `persisted-route-${runtimeStatus}` }],
+        };
+      }
+      throw new Error(`Unexpected gateway RPC: ${method}`);
+    });
+
+    const manager1 = new (SessionRuntimeManager as unknown as new (...args: unknown[]) => InstanceType<typeof SessionRuntimeManager>)(
+      { rpc: gatewayRpcMock },
+      {},
+      persistence,
+    );
+    const spawned = await manager1.spawn({
+      parentSessionKey: 'agent:main:main',
+      prompt: 'Keep this runtime',
+    });
+
+    const manager2 = new (SessionRuntimeManager as unknown as new (...args: unknown[]) => InstanceType<typeof SessionRuntimeManager>)(
+      { rpc: gatewayRpcMock },
+      {},
+      persistence,
+    );
+    const restartedCtx = { sessionRuntimeManager: manager2 } as never;
+
+    runtimeStatus = 'waiting_approval';
+    const waitHandled = await handleSessionRoutes(
+      createRequest('POST'),
+      {} as ServerResponse,
+      new URL(`http://127.0.0.1:3210/api/sessions/subagents/${spawned.id}/wait`),
+      restartedCtx,
+    );
+
+    expect(waitHandled).toBe(true);
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, {
+      success: true,
+      session: expect.objectContaining({
+        id: spawned.id,
+        status: 'waiting_approval',
+      }),
+    });
+
+    const killHandled = await handleSessionRoutes(
+      createRequest('POST'),
+      {} as ServerResponse,
+      new URL(`http://127.0.0.1:3210/api/sessions/subagents/${spawned.id}/kill`),
+      restartedCtx,
+    );
+
+    expect(killHandled).toBe(true);
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, {
+      success: true,
+      session: expect.objectContaining({
+        id: spawned.id,
+        status: 'killed',
+      }),
+    });
+    expect(gatewayRpcMock).toHaveBeenCalledWith('chat.abort', { sessionKey: spawned.sessionKey });
+  });
 });

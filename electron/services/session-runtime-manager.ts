@@ -64,15 +64,35 @@ interface RuntimeCapabilityProvider {
   listEnabledSkills?: () => Promise<string[]> | string[];
 }
 
+export interface RuntimeSessionPersistence {
+  load: () => Promise<RuntimeSessionRecord[]>;
+  save: (records: RuntimeSessionRecord[]) => Promise<void>;
+}
+
+interface SessionRuntimeManagerOptions {
+  persistence?: RuntimeSessionPersistence;
+  maxPersistedRecords?: number;
+}
+
 export class SessionRuntimeManager {
   private readonly sessions = new Map<string, RuntimeSessionRecord>();
+  private readonly persistence?: RuntimeSessionPersistence;
+  private readonly maxPersistedRecords: number;
+  private hasHydrated = false;
+  private hydrationPromise: Promise<void> | null = null;
 
   constructor(
     private readonly gatewayClient?: GatewayRpcClient,
     private readonly capabilityProvider: RuntimeCapabilityProvider = {},
-  ) { }
+    persistenceOrOptions?: RuntimeSessionPersistence | SessionRuntimeManagerOptions,
+  ) {
+    const options = this.resolveOptions(persistenceOrOptions);
+    this.persistence = options.persistence;
+    this.maxPersistedRecords = options.maxPersistedRecords;
+  }
 
   async spawn(input: SpawnRuntimeSessionInput): Promise<RuntimeSessionRecord> {
+    await this.ensureHydrated();
     const now = new Date().toISOString();
     const id = randomUUID();
     const sessionKey = this.buildRuntimeSessionKey(input.parentSessionKey, id);
@@ -95,6 +115,7 @@ export class SessionRuntimeManager {
       skillSnapshot: capabilitySnapshot.skillSnapshot,
     };
     this.sessions.set(record.id, record);
+    await this.persistSessions();
     const sendResult = await this.gatewayRpc<Record<string, unknown>>('chat.send', {
       sessionKey,
       message: input.prompt,
@@ -109,6 +130,7 @@ export class SessionRuntimeManager {
       runId: this.extractFirstString(sendResult, ['runId', 'run_id']) ?? record.runId,
       updatedAt: new Date().toISOString(),
     });
+    await this.persistSessions();
     return await this.refreshRecord(withRun.id, {
       fallbackStatus: 'running',
       fallbackTranscript: withRun.transcript,
@@ -117,6 +139,7 @@ export class SessionRuntimeManager {
   }
 
   async list(): Promise<RuntimeSessionRecord[]> {
+    await this.ensureHydrated();
     const snapshots = await this.loadSessionSnapshots();
     const records = [...this.sessions.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return await Promise.all(
@@ -131,6 +154,7 @@ export class SessionRuntimeManager {
   }
 
   async kill(id: string): Promise<RuntimeSessionRecord | null> {
+    await this.ensureHydrated();
     const existing = this.sessions.get(id);
     if (!existing) return null;
     await this.gatewayRpc('chat.abort', { sessionKey: existing.sessionKey });
@@ -144,6 +168,7 @@ export class SessionRuntimeManager {
   }
 
   async steer(id: string, input: string): Promise<RuntimeSessionRecord | null> {
+    await this.ensureHydrated();
     const existing = this.sessions.get(id);
     if (!existing) return null;
     const sendResult = await this.gatewayRpc<Record<string, unknown>>('chat.send', {
@@ -155,6 +180,7 @@ export class SessionRuntimeManager {
       runId: this.extractFirstString(sendResult, ['runId', 'run_id']) ?? existing.runId,
       updatedAt: new Date().toISOString(),
     });
+    await this.persistSessions();
     return await this.refreshRecord(id, {
       fallbackStatus: 'running',
       fallbackTranscript: [...existing.transcript, input],
@@ -164,6 +190,7 @@ export class SessionRuntimeManager {
   }
 
   async wait(id: string): Promise<RuntimeSessionRecord | null> {
+    await this.ensureHydrated();
     const existing = this.sessions.get(id);
     if (!existing) return null;
     return await this.refreshRecord(id, {
@@ -172,6 +199,195 @@ export class SessionRuntimeManager {
       fallbackRunId: existing.runId,
       fallbackLastError: existing.lastError,
     });
+  }
+
+  private resolveOptions(
+    persistenceOrOptions?: RuntimeSessionPersistence | SessionRuntimeManagerOptions,
+  ): { persistence?: RuntimeSessionPersistence; maxPersistedRecords: number } {
+    if (!persistenceOrOptions) {
+      return { maxPersistedRecords: 200 };
+    }
+
+    if (this.isPersistence(persistenceOrOptions)) {
+      return {
+        persistence: persistenceOrOptions,
+        maxPersistedRecords: 200,
+      };
+    }
+
+    return {
+      persistence: persistenceOrOptions.persistence,
+      maxPersistedRecords: this.normalizeMaxPersistedRecords(persistenceOrOptions.maxPersistedRecords),
+    };
+  }
+
+  private isPersistence(
+    value: RuntimeSessionPersistence | SessionRuntimeManagerOptions,
+  ): value is RuntimeSessionPersistence {
+    return typeof (value as RuntimeSessionPersistence).load === 'function'
+      && typeof (value as RuntimeSessionPersistence).save === 'function';
+  }
+
+  private normalizeMaxPersistedRecords(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      return 200;
+    }
+    return Math.max(1, Math.floor(value));
+  }
+
+  private async ensureHydrated(): Promise<void> {
+    if (this.hasHydrated) {
+      return;
+    }
+
+    if (!this.persistence) {
+      this.hasHydrated = true;
+      return;
+    }
+
+    if (this.hydrationPromise) {
+      await this.hydrationPromise;
+      return;
+    }
+
+    this.hydrationPromise = (async () => {
+      try {
+        const loaded = await this.persistence?.load();
+        const normalizedRecords = (loaded ?? [])
+          .map((item) => this.normalizePersistedRecord(item))
+          .filter((item): item is RuntimeSessionRecord => item != null);
+        for (const record of this.clampPersistedRecords(normalizedRecords)) {
+          this.sessions.set(record.id, record);
+        }
+      } catch {
+        // Best effort: runtime APIs still work in-memory when hydration fails.
+      } finally {
+        this.hasHydrated = true;
+        this.hydrationPromise = null;
+      }
+    })();
+
+    await this.hydrationPromise;
+  }
+
+  private normalizePersistedRecord(value: unknown): RuntimeSessionRecord | null {
+    if (typeof value !== 'object' || value == null) {
+      return null;
+    }
+    const row = value as Record<string, unknown>;
+    const id = this.extractFirstString(row, ['id']);
+    const parentSessionKey = this.extractFirstString(row, ['parentSessionKey']);
+    const sessionKey = this.extractFirstString(row, ['sessionKey']);
+    const prompt = this.extractFirstString(row, ['prompt']);
+
+    if (!id || !parentSessionKey || !sessionKey || !prompt) {
+      return null;
+    }
+
+    const modeRaw = this.extractFirstString(row, ['mode']);
+    const mode: RuntimeSessionMode = modeRaw === 'thread' ? 'thread' : 'session';
+
+    const status = this.mapRuntimeStatus(
+      this.extractFirstString(row, ['status']),
+      'running',
+    );
+
+    return {
+      id,
+      parentSessionKey,
+      sessionKey,
+      mode,
+      prompt,
+      agentName: this.extractFirstString(row, ['agentName']),
+      attachments: this.normalizeStringArray(row.attachments),
+      sandbox: this.extractFirstString(row, ['sandbox']),
+      timeoutMs: typeof row.timeoutMs === 'number' ? row.timeoutMs : undefined,
+      status,
+      runId: this.extractFirstString(row, ['runId', 'run_id']),
+      lastError: this.extractFirstString(row, ['lastError', 'error', 'errorMessage']),
+      createdAt: this.resolveUpdatedAt([this.coerceIsoDate(row.createdAt)]),
+      updatedAt: this.resolveUpdatedAt([this.coerceIsoDate(row.updatedAt), this.coerceIsoDate(row.createdAt)]),
+      transcript: this.normalizeStringArray(row.transcript),
+      toolSnapshot: this.normalizeToolSnapshot(row.toolSnapshot),
+      skillSnapshot: this.normalizeStringArray(row.skillSnapshot),
+    };
+  }
+
+  private normalizeStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  private normalizeToolSnapshot(value: unknown): Array<{ server: string; name: string }> {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    return value
+      .map((item) => {
+        if (typeof item !== 'object' || item == null) {
+          return null;
+        }
+        const row = item as Record<string, unknown>;
+        const server = this.extractFirstString(row, ['server']);
+        const name = this.extractFirstString(row, ['name']);
+        if (!server || !name) {
+          return null;
+        }
+        return { server, name };
+      })
+      .filter((item): item is { server: string; name: string } => item != null);
+  }
+
+  private async persistSessions(): Promise<void> {
+    if (!this.persistence) {
+      return;
+    }
+
+    const clamped = this.clampPersistedRecords([...this.sessions.values()]);
+    if (this.sessions.size > clamped.length) {
+      const keep = new Set(clamped.map((record) => record.id));
+      for (const sessionId of [...this.sessions.keys()]) {
+        if (!keep.has(sessionId)) {
+          this.sessions.delete(sessionId);
+        }
+      }
+    }
+
+    try {
+      await this.persistence.save(clamped.map((record) => this.cloneRecord(record)));
+    } catch {
+      // Best effort: operations should remain available even if persistence fails.
+    }
+  }
+
+  private clampPersistedRecords(records: RuntimeSessionRecord[]): RuntimeSessionRecord[] {
+    return [...records]
+      .sort((a, b) => this.recordSortValue(b) - this.recordSortValue(a))
+      .slice(0, this.maxPersistedRecords);
+  }
+
+  private recordSortValue(record: RuntimeSessionRecord): number {
+    const updated = Date.parse(record.updatedAt);
+    if (!Number.isNaN(updated)) {
+      return updated;
+    }
+    const created = Date.parse(record.createdAt);
+    return Number.isNaN(created) ? 0 : created;
+  }
+
+  private cloneRecord(record: RuntimeSessionRecord): RuntimeSessionRecord {
+    return {
+      ...record,
+      attachments: [...record.attachments],
+      transcript: [...record.transcript],
+      toolSnapshot: record.toolSnapshot.map((tool) => ({ ...tool })),
+      skillSnapshot: [...record.skillSnapshot],
+    };
   }
 
   private buildRuntimeSessionKey(parentSessionKey: string, localRuntimeId: string): string {
@@ -258,6 +474,7 @@ export class SessionRuntimeManager {
       ]),
     };
     this.sessions.set(id, next);
+    await this.persistSessions();
     return next;
   }
 

@@ -24,7 +24,7 @@ describe('costs routes', () => {
     vi.clearAllMocks();
   });
 
-  it('aggregates Top Crons with cron names from cron.list', async () => {
+  it('aggregates by-cron rows with readable cost metrics from cron.list metadata', async () => {
     mocks.getRecentTokenUsageHistory.mockResolvedValue([
       {
         timestamp: '2026-03-25T01:00:00.000Z',
@@ -61,6 +61,18 @@ describe('costs routes', () => {
         totalTokens: 300,
         costUsd: 0.02,
       },
+      {
+        timestamp: '2026-03-25T03:30:00.000Z',
+        sessionId: 'cron-run-3',
+        agentId: 'main',
+        cronJobId: 'job-morning-brief',
+        inputTokens: 100,
+        outputTokens: 50,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: 150,
+        costUsd: 0.01,
+      },
     ]);
 
     const { handleCostsRoutes } = await import('@electron/api/routes/costs');
@@ -71,6 +83,7 @@ describe('costs routes', () => {
             return {
               jobs: [
                 { id: 'job-nightly-digest', name: 'Nightly Digest' },
+                { id: 'job-morning-brief', name: 'Morning Brief' },
               ],
             };
           }
@@ -96,6 +109,18 @@ describe('costs routes', () => {
         outputTokens: 350,
         costUsd: 0.17,
         sessions: 2,
+        avgTokensPerRun: 575,
+        avgCostUsdPerRun: 0.085,
+        lastRunAt: '2026-03-25T02:00:00.000Z',
+      }),
+      expect.objectContaining({
+        cronJobId: 'job-morning-brief',
+        cronName: 'Morning Brief',
+        totalTokens: 150,
+        sessions: 1,
+        avgTokensPerRun: 150,
+        avgCostUsdPerRun: 0.01,
+        lastRunAt: '2026-03-25T03:30:00.000Z',
       }),
     ]);
   });

@@ -4,8 +4,9 @@
  */
 import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
 import { randomBytes } from 'node:crypto';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { Server } from 'node:http';
-import { join } from 'path';
+import { dirname, join } from 'path';
 import { GatewayManager } from '../gateway/manager';
 import { registerIpcHandlers } from './ipc-handlers';
 import { createTray } from './tray';
@@ -37,7 +38,7 @@ import { browserOAuthManager } from '../utils/browser-oauth';
 import { whatsAppLoginManager } from '../utils/whatsapp-login';
 import { syncAllProviderAuthToRuntime } from '../services/providers/provider-runtime-sync';
 import { McpRuntimeManager } from '../services/mcp/runtime-manager';
-import { SessionRuntimeManager } from '../services/session-runtime-manager';
+import { SessionRuntimeManager, type RuntimeSessionRecord } from '../services/session-runtime-manager';
 import { loadMcpConfig } from '../api/routes/mcp';
 
 const WINDOWS_APP_USER_MODEL_ID = 'app.clawx.desktop';
@@ -439,6 +440,7 @@ if (gotTheLock) {
   clawHubService = new ClawHubService();
   hostEventBus = new HostEventBus();
   mcpRuntimeManager = new McpRuntimeManager();
+  const getRuntimeSessionsFilePath = (): string => join(app.getPath('userData'), 'runtime-sessions.json');
   sessionRuntimeManager = new SessionRuntimeManager(gatewayManager, {
     listMcpTools: () => {
       const configs = loadMcpConfig().servers;
@@ -449,6 +451,35 @@ if (gotTheLock) {
           server: tool.server,
           name: tool.name,
         })));
+    },
+  }, {
+    load: async () => {
+      const filePath = getRuntimeSessionsFilePath();
+      try {
+        const raw = await readFile(filePath, 'utf8');
+        const parsed = JSON.parse(raw) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed as RuntimeSessionRecord[];
+        }
+        if (typeof parsed === 'object' && parsed != null && Array.isArray((parsed as { sessions?: unknown }).sessions)) {
+          return (parsed as { sessions: RuntimeSessionRecord[] }).sessions;
+        }
+        return [];
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          logger.warn('Failed to load persisted runtime sessions:', error);
+        }
+        return [];
+      }
+    },
+    save: async (records) => {
+      const filePath = getRuntimeSessionsFilePath();
+      try {
+        await mkdir(dirname(filePath), { recursive: true });
+        await writeFile(filePath, JSON.stringify({ version: 1, sessions: records }, null, 2), 'utf8');
+      } catch (error) {
+        logger.warn('Failed to persist runtime sessions:', error);
+      }
     },
   });
 

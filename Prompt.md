@@ -107,8 +107,9 @@ tail -30 continue/progress.txt
   - active runtime ticket 轮询 `/wait`
   - `running / blocked / waiting_approval / completed / error/killed/stopped` → ticket `workState` / column 状态联动
   - `completed` 自动进入 review-ready 状态并展示 `workResult`
+  - runtime session records 跨主进程重启持久化与恢复
 - 剩余：
-  - 更深的 agent work / retry / 状态联动（跨重启持久化、approval 更细粒度绑定、后续 agent work 深化）
+  - 更深的 agent work / retry / 状态联动（approval 更细粒度绑定、后续 agent work 深化）
 
 #### 6. Cron 深化
 
@@ -128,9 +129,9 @@ tail -30 continue/progress.txt
 
 #### 7. Costs 深化
 
-- 按 job / cron 提供 drill-down
+- 已完成：按 `job / cron` 提供第一批 read-only drill-down
 - 已完成：`TopCrons`
-- job cost table
+- 已完成：job cost table
 - 更完整图表与明细层
 - 优化分析：
   - optimization score
@@ -170,8 +171,9 @@ tail -30 continue/progress.txt
   - Gateway-backed runtime adapter：`chat.send` / `chat.abort` / `sessions.list` / `chat.history`
   - runtime record 持有真实 `sessionKey` / `runId` / `status` / `lastError` / transcript
   - spawn-time capability snapshot：connected MCP tools + enabled skills
+  - runtime records durable persistence / restart restore
 - 剩余：
-  - 更完整的 subagent tree orchestration / durable persistence
+  - 更完整的 subagent tree orchestration
   - runtime 工具执行路径与 registry 深化
   - skills 到 runtime 的更深层执行桥接
 

@@ -1785,3 +1785,41 @@ Focus: Close the remaining Wave 2 runtime/Kanban loop, ship chat file-change pre
 ### 下一步
 - 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`
 - 优先补 Wave 2 剩余 runtime/tool registry 深化，再推进 Wave 3 的 Channels + Cron pipeline
+[2026-03-25 11:15 +08:00] Session: Session-20 runtime-persistence + costs-job-drilldown
+Focus: Continue platform closure by making runtime sessions survive restart and deepening Costs cron/job drill-down
+
+### 完成内容
+1. Wave 2 runtime durable persistence
+   - `electron/services/session-runtime-manager.ts`
+   - 新增 `RuntimeSessionPersistence`
+   - runtime record 支持 hydrate / persist / bounded retention
+   - 重启后同一 `runtimeSessionId` 仍可 `list` / `wait` / `kill`
+   - `electron/main/index.ts`
+   - 主进程把 runtime session 持久化到 `userData/runtime-sessions.json`
+2. Wave 3 Costs drill-down 第二批
+   - `electron/api/routes/costs.ts`
+   - `/api/costs/by-cron` 增 `avgTokensPerRun` / `avgCostUsdPerRun` / `lastRunAt`
+   - `src/pages/Costs/index.tsx`
+   - Dashboard 新增 `Cron Job Costs` 表格
+   - 每行支持只读 detail 展开
+3. 启动崩溃修复
+   - 修复 `SessionRuntimeManager` 构造路径里缺失 `resolveOptions` 造成的主进程启动错误
+   - 重新构建 `dist-electron/main/index.js`
+
+### 验证结果
+- `pnpm test -- tests/unit/session-runtime-manager.test.ts tests/unit/session-routes-runtime.test.ts` → `6/6` 通过
+- `pnpm exec vitest run tests/unit/costs-routes.test.ts tests/unit/costs-page.test.tsx --project jsdom --project node` → `2/2` 通过
+- `pnpm test -- tests/unit/session-runtime-manager.test.ts tests/unit/session-routes-runtime.test.ts tests/unit/task-kanban.test.tsx tests/unit/costs-routes.test.ts tests/unit/costs-page.test.tsx` → `20/20` 通过
+- `pnpm run typecheck` → 通过
+- `pnpm run lint` → 通过
+- `pnpm run build:vite` → 通过
+
+### 剩余待办
+- P0 i18n 收口：继续清理其他页面历史硬编码文案
+- Wave 2：更完整的 subagent tree orchestration / tool execution path / deeper skill bridge / approval 细粒度绑定
+- Wave 3：Cron pipeline / failure alert / Channels capability runtime / Costs realtime stream
+- Wave 4~5：Memory / Agent detail / Settings / update / UX / a11y / 工程治理
+
+### 下一步
+- 继续 `PLAN-2026-03-24-PLATFORM-CLOSURE`
+- 优先推进 Wave 3 的 Channels capability abstraction 或 Cron pipeline 建模闭环

@@ -85,6 +85,21 @@ describe('Costs page usage display', () => {
       outputTokens: 400,
       costUsd: 0.42,
       sessions: 3,
+      avgTokensPerRun: 300,
+      avgCostUsdPerRun: 0.14,
+      lastRunAt: '2026-03-23T08:00:00.000Z',
+    },
+    {
+      cronJobId: 'job-hourly-cleanup',
+      cronName: 'Hourly Cleanup',
+      totalTokens: 200,
+      inputTokens: 120,
+      outputTokens: 80,
+      costUsd: 0.08,
+      sessions: 4,
+      avgTokensPerRun: 50,
+      avgCostUsdPerRun: 0.02,
+      lastRunAt: '2026-03-23T09:00:00.000Z',
     },
   ];
 
@@ -122,11 +137,19 @@ describe('Costs page usage display', () => {
     expect(await screen.findByText('12 次会话')).toBeInTheDocument();
     expect(screen.getByText('$1.2345')).toBeInTheDocument();
     expect(screen.getByText('Top Crons')).toBeInTheDocument();
-    expect(screen.getByText('Nightly Digest')).toBeInTheDocument();
-    const dashboardTable = screen.getByRole('table');
-    const dashboardCells = within(dashboardTable);
+    expect(screen.getAllByText('Nightly Digest').length).toBeGreaterThan(0);
+    const agentTable = screen.getByRole('table', { name: 'Agent usage ranking table' });
+    const dashboardCells = within(agentTable);
     expect(dashboardCells.getByText('planner-agent')).toBeInTheDocument();
     expect(dashboardCells.getByText('$0.9000')).toBeInTheDocument();
+    expect(screen.getByText('Cron Job Costs')).toBeInTheDocument();
+    const cronTable = screen.getByRole('table', { name: 'Cron job costs table' });
+    const cronCells = within(cronTable);
+    expect(cronCells.getByText('Nightly Digest')).toBeInTheDocument();
+    expect(cronCells.getByText('Hourly Cleanup')).toBeInTheDocument();
+    expect(cronCells.getByText('900')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show details for Nightly Digest' }));
+    expect(screen.getByText('Avg/run: 300 tokens 路 $0.1400')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '用量分析' }));
     expect(await screen.findByText('统计范围: 全部 Agent 累计')).toBeInTheDocument();
