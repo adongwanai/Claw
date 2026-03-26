@@ -24,6 +24,7 @@
     "dialog": {
         "createTitle": "创建任务",
         "editTitle": "编辑任务",
+        "cancel": "取消",
         "description": "安排自动化的 AI 任务",
         "pipelineWizardLabel": "Pipeline Wizard",
         "pipelineSummary": "Trigger → Agent → Delivery → Failure Alert",

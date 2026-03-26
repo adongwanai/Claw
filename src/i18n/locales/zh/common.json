@@ -343,6 +343,8 @@
             "history": "运行历史",
             "loadingDetail": "加载 runtime 详情中...",
             "noHistory": "暂无 runtime 历史。",
+            "executionPath": "执行路径",
+            "capabilities": "Runtime 能力",
             "followupLabel": "追问消息",
             "followupPlaceholder": "继续追问这个 ticket...",
             "sendFollowup": "发送追问",
@@ -354,6 +356,11 @@
             "review": "审查",
             "respond": "回复"
         },
+        "notifications": {
+            "taskScheduled": "任务已设置：{{title}}",
+            "taskCompleted": "任务完成：{{title}}",
+            "taskDispatched": "任务已派发：{{title}}"
+        },
         "approvals": {
             "pending": "待审批",
             "agent": "Agent：{{agent}}",
@@ -363,6 +370,7 @@
             "prompt": "Prompt",
             "toolInput": "工具输入",
             "closeReview": "关闭审批审查",
+            "emptyToolInput": "（空）",
             "approve": "批准",
             "reject": "拒绝",
             "rejectPlaceholder": "拒绝原因...",

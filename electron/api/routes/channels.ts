@@ -1214,9 +1214,47 @@ export async function handleChannelRoutes(
             sessionKey: binding.sessionKey,
             limit: 200,
           }).catch(() => null);
-          const runtimeMessages = runtimePayload
+          let runtimeMessages = runtimePayload
             ? mapRuntimeHistoryToWorkbenchMessages(runtimePayload)
             : [];
+
+          // Bug 2 fix: if the binding's session key (agent:main:main) yielded no messages,
+          // the feishu webhook may have written to the per-chat session key:
+          // agent:{agentId}:feishu:group:{chatId}  or  agent:{agentId}:feishu:direct:{chatId}
+          // Attempt those peer-session keys as a fallback.
+          if (runtimeMessages.length === 0) {
+            const { accountId: _aid, externalConversationId: chatId } = parseFeishuConversationId(conversationId) ?? {};
+            const agentId = binding.agentId || 'main';
+            if (chatId) {
+              const fallbackKeys = [
+                `agent:${agentId}:feishu:group:${chatId}`,
+                `agent:${agentId}:feishu:direct:${chatId}`,
+                `agent:${agentId}:feishu:channel:${chatId}`,
+              ];
+              for (const fallbackKey of fallbackKeys) {
+                const fallbackPayload = await ctx.gatewayManager.rpc<unknown>('chat.history', {
+                  sessionKey: fallbackKey,
+                  limit: 200,
+                }).catch(() => null);
+                if (fallbackPayload) {
+                  const fallbackMessages = mapRuntimeHistoryToWorkbenchMessages(fallbackPayload);
+                  if (fallbackMessages.length > 0) {
+                    runtimeMessages = fallbackMessages;
+                    // persist the correct session key for future send operations
+                    await channelConversationBindings.upsert({
+                      channelType: 'feishu',
+                      accountId: parseFeishuConversationId(conversationId)?.accountId ?? 'default',
+                      externalConversationId: chatId,
+                      agentId,
+                      sessionKey: fallbackKey,
+                    }).catch(() => undefined);
+                    break;
+                  }
+                }
+              }
+            }
+          }
+
           const fallbackMessages = liveSnapshot.messagesByConversationId.get(conversationId) ?? [];
 
           sendJson(res, 200, {
@@ -1515,11 +1553,11 @@ export async function handleChannelRoutes(
           return true;
         }
 
-        const result = await sendFeishuConversationMessage({
+        const sendResult = await sendFeishuConversationMessage({
           conversationId: body.conversationId,
           text: body.text.trim(),
         });
-        sendJson(res, 200, { success: true, message: '娑堟伅宸插彂閫?', ...result });
+        sendJson(res, 200, { success: true, message: '消息已发送', ...sendResult });
         return true;
       }
       const port = status.port ?? 3000;

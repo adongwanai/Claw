@@ -258,18 +258,24 @@ export function Channels() {
   const handleSend = async () => {
     if (!composerValue.trim() || !selectedChannel || !selectedConversationId) return;
     const text = composerValue.trim();
+    const convId = selectedConversationId;
+    setComposerValue('');
     try {
       await hostApiFetch(`/api/channels/${encodeURIComponent(selectedChannel.id)}/send`, {
         method: 'POST',
-        body: JSON.stringify({ text, conversationId: selectedConversationId }),
+        body: JSON.stringify({ text, conversationId: convId }),
       });
-      setComposerValue('');
       setTestResult({ ok: true, msg: t('feedback.sentWithText', { text, defaultValue: `已发送：${text}` }) });
-      await loadConversation(selectedConversationId);
+      // 立即刷新一次，再在 1s/2.5s/5s 后轮询，等待 agent 回复出现
+      await loadConversation(convId);
+      window.setTimeout(() => { void loadConversation(convId); }, 1000);
+      window.setTimeout(() => { void loadConversation(convId); }, 2500);
+      window.setTimeout(() => { void loadConversation(convId); }, 5000);
     } catch (error) {
+      setComposerValue(text);
       setTestResult({ ok: false, msg: String(error) });
     }
-    window.setTimeout(() => setTestResult(null), 4000);
+    window.setTimeout(() => setTestResult(null), 6000);
   };
 
   const handleTest = async () => {

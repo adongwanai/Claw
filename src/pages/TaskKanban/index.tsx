@@ -595,14 +595,14 @@ export function TaskKanban() {
             if (runtimeUpdates.workState === 'scheduled' && ticket.workState !== 'scheduled') {
               useNotificationsStore.getState().addNotification({
                 level: 'info',
-                title: `任务已设置：${ticket.title}`,
+                title: t('kanban.notifications.taskScheduled', { title: ticket.title }),
                 source: 'kanban',
               });
             }
             if (runtimeUpdates.workState === 'done' && ticket.workState !== 'done') {
               useNotificationsStore.getState().addNotification({
                 level: 'info',
-                title: `任务完成：${ticket.title}`,
+                title: t('kanban.notifications.taskCompleted', { title: ticket.title }),
                 source: 'kanban',
               });
             }
@@ -628,7 +628,7 @@ export function TaskKanban() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [tickets, updateTicket]);
+  }, [tickets, updateTicket, t]);
 
   useEffect(() => {
     const scheduledTickets = tickets.filter((ticket) => ticket.workState === 'scheduled' && ticket.cronJobId);
@@ -657,7 +657,7 @@ export function TaskKanban() {
             if (updates.workState === 'done' && ticket.workState !== 'done') {
               useNotificationsStore.getState().addNotification({
                 level: 'info',
-                title: `任务完成：${ticket.title}`,
+                title: t('kanban.notifications.taskCompleted', { title: ticket.title }),
                 source: 'kanban',
               });
             }
@@ -676,7 +676,7 @@ export function TaskKanban() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [tickets, updateTicket]);
+  }, [tickets, updateTicket, t]);
 
   useEffect(() => {
     const shouldPollApprovals = tickets.some((ticket) =>
@@ -755,7 +755,7 @@ export function TaskKanban() {
       });
       useNotificationsStore.getState().addNotification({
         level: 'info',
-        title: `任务已派发：${ticket.title}`,
+        title: t('kanban.notifications.taskDispatched', { title: ticket.title }),
         source: 'kanban',
       });
       */
@@ -1161,7 +1161,7 @@ function CreateModal({
           />
         </div>
         <div className="flex gap-2">
-          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">取消</button>
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]">{t('actions.cancel')}</button>
           <button
             type="button"
             onClick={handleSubmit}
@@ -1421,7 +1421,7 @@ function DetailPanel({
                     onClick={() => onUpdate({ workState: 'idle', workError: undefined, workResult: undefined })}
                     className="rounded-md border border-black/10 px-2 py-0.5 text-[11px] text-[#8e8e93] hover:bg-[#f2f2f7]"
                   >
-                    重置
+                    {t('actions.clear')}
                   </button>
                 )}
               </div>
@@ -1555,14 +1555,14 @@ function DetailPanel({
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[12px] text-[#8e8e93]">No runtime history yet.</p>
+                    <p className="text-[12px] text-[#8e8e93]">{t('kanban.runtime.noHistory')}</p>
                   )}
                 </div>
                 {(currentExecutionRecords.length > 0 || currentRuntimeTools.length > 0 || currentRuntimeSkills.length > 0) && (
                   <div className="mb-3 space-y-3 rounded-xl border border-black/[0.06] bg-[#fafafa] px-3 py-3">
                     {currentExecutionRecords.length > 0 && (
                       <div>
-                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Execution path</p>
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">{t('kanban.runtime.executionPath')}</p>
                         <div className="flex flex-col gap-2">
                           {currentExecutionRecords.map((record) => {
                             const durationLabel = formatExecutionDuration(record.durationMs);
@@ -1599,7 +1599,7 @@ function DetailPanel({
                     )}
                     {(currentRuntimeTools.length > 0 || currentRuntimeSkills.length > 0) && (
                       <div>
-                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Runtime capabilities</p>
+                        <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">{t('kanban.runtime.capabilities')}</p>
                         <div className="flex flex-wrap gap-2">
                           {currentRuntimeSkills.map((skill) => (
                             <span
@@ -1624,10 +1624,10 @@ function DetailPanel({
                 )}
                 <div className="mb-2 flex gap-2">
                   <input
-                    aria-label="Follow-up message"
+                    aria-label={t('kanban.runtime.followupLabel')}
                     value={followup}
                     onChange={(e) => setFollowup(e.target.value)}
-                    placeholder="继续追问这个 ticket..."
+                    placeholder={t('kanban.runtime.followupPlaceholder')}
                     className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-[13px] outline-none focus:border-clawx-ac"
                   />
                   <button
@@ -1639,7 +1639,7 @@ function DetailPanel({
                     disabled={!followup.trim()}
                     className="rounded-lg bg-clawx-ac px-3 py-2 text-[12px] font-medium text-white hover:bg-[#0056b3] disabled:opacity-50"
                   >
-                    Send follow-up
+                    {t('kanban.runtime.sendFollowup')}
                   </button>
                 </div>
                 <div className="flex gap-2">
@@ -1648,20 +1648,20 @@ function DetailPanel({
                     onClick={onStopRuntime}
                     className="rounded-lg border border-[#ef4444]/20 px-3 py-2 text-[12px] text-[#ef4444] hover:bg-[#fef2f2]"
                   >
-                    Stop runtime
+                    {t('kanban.runtime.stop')}
                   </button>
                   <button
                     type="button"
                     onClick={onStartRuntime}
                     className="rounded-lg border border-black/10 px-3 py-2 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
                   >
-                    Retry work
+                    {t('kanban.runtime.retry')}
                   </button>
                 </div>
 
                 {approvals.length > 0 && (
                   <div data-testid="ticket-runtime-approvals" className="mt-3 rounded-xl border border-[#f59e0b]/30 bg-[#fffbeb] px-3 py-3">
-                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Runtime approvals</p>
+                    <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">{t('kanban.runtime.approvals')}</p>
                     <div className="flex flex-col gap-2">
                       {approvals.map((approval) => (
                         <div key={approval.id} className="rounded-lg bg-white px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
@@ -1682,7 +1682,7 @@ function DetailPanel({
                                 onClick={() => setWizard(approval)}
                                 className="rounded-lg bg-clawx-ac px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#005fd6]"
                               >
-                                Respond
+                                {t('kanban.runtime.respond')}
                               </button>
                             ) : (
                               <button
@@ -1690,7 +1690,7 @@ function DetailPanel({
                                 onClick={() => setReviewing(approval)}
                                 className="rounded-lg bg-[#111827] px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#1f2937]"
                               >
-                                Review
+                                {t('kanban.runtime.review')}
                               </button>
                             )}
                           </div>
@@ -1707,16 +1707,16 @@ function DetailPanel({
                   onClick={onStartRuntime}
                   className="rounded-lg bg-clawx-ac px-3 py-2 text-[12px] font-medium text-white hover:bg-[#0056b3]"
                 >
-                  Start work
+                  {t('kanban.runtime.start')}
                 </button>
-                <span className="text-[12px] text-[#8e8e93]">启动一个 runtime session 让 agent 开始处理这个 ticket。</span>
+                <span className="text-[12px] text-[#8e8e93]">{t('kanban.runtime.intro')}</span>
               </div>
             )}
           </div>
 
           {/* Move to column */}
           <div>
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Move To</p>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">{t('kanban.detail.moveTo')}</p>
             <div className="flex flex-wrap gap-2">
               {columns.filter((c) => c.key !== ticket.status).map((col) => (
                 <button
@@ -1745,32 +1745,32 @@ function DetailPanel({
       )}
 
       {reviewing && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="detail-review-modal-title" aria-label="Approval review">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="detail-review-modal-title" aria-label={t('kanban.approvals.reviewTitle')}>
           <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 id="detail-review-modal-title" className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
-                <p className="mt-1 text-[12px] text-[#6b7280]">Agent: {reviewing.agentId ?? 'unknown'} · Command: {reviewing.command ?? 'unknown'}</p>
+                <h3 id="detail-review-modal-title" className="text-[16px] font-semibold text-[#111827]">{t('kanban.approvals.reviewTitle')}</h3>
+                <p className="mt-1 text-[12px] text-[#6b7280]">{t('kanban.approvals.reviewSubtitle', { agent: reviewing.agentId ?? t('kanban.approvals.unknownAgent'), command: reviewing.command ?? t('kanban.approvals.unknownCommand') })}</p>
               </div>
-              <button type="button" onClick={() => setReviewing(null)} aria-label="Close review modal" className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
+              <button type="button" onClick={() => setReviewing(null)} aria-label={t('kanban.approvals.closeReview')} className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
             </div>
 
             {isDangerous && (
               <div className="mb-4 rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] text-[#b91c1c]">
-                危险操作：当前审批包含高风险命令，请确认后再放行。
+                {t('kanban.approvals.danger')}
               </div>
             )}
 
             {reviewing.prompt ? (
               <div className="mb-3">
-                <p className="mb-1 text-[12px] font-medium text-[#6b7280]">Prompt</p>
+                <p className="mb-1 text-[12px] font-medium text-[#6b7280]">{t('kanban.approvals.prompt')}</p>
                 <div className="rounded-xl bg-[#f8fafc] px-4 py-3 text-[13px] text-[#374151]">{reviewing.prompt}</div>
               </div>
             ) : null}
 
             <div className="mb-5">
-              <p className="mb-1 text-[12px] font-medium text-[#6b7280]">Tool input</p>
-              <pre className="overflow-x-auto rounded-xl bg-[#111827] px-4 py-3 text-[12px] text-[#e5e7eb]">{reviewText || '(empty)'}</pre>
+              <p className="mb-1 text-[12px] font-medium text-[#6b7280]">{t('kanban.approvals.toolInput')}</p>
+              <pre className="overflow-x-auto rounded-xl bg-[#111827] px-4 py-3 text-[12px] text-[#e5e7eb]">{reviewText || t('kanban.approvals.emptyToolInput')}</pre>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -1779,7 +1779,7 @@ function DetailPanel({
                 onClick={() => setReviewing(null)}
                 className="rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]"
               >
-                Close
+                {t('actions.close')}
               </button>
               <button
                 type="button"
@@ -1789,17 +1789,17 @@ function DetailPanel({
                 }}
                 className="rounded-lg bg-[#10b981] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#059669]"
               >
-                Approve
+                {t('kanban.approvals.approve')}
               </button>
               <button
                 type="button"
                 onClick={() => {
-                  onRejectApproval(reviewing.id, 'Rejected from ticket detail');
+                  onRejectApproval(reviewing.id, t('kanban.approvals.rejectReason'));
                   setReviewing(null);
                 }}
                 className="rounded-lg border border-[#ef4444]/30 px-3 py-2 text-[13px] text-[#ef4444] hover:bg-[#fef2f2]"
               >
-                Reject
+                {t('kanban.approvals.reject')}
               </button>
             </div>
           </div>
@@ -1823,6 +1823,7 @@ function ApprovalsSection({
   onApprove: (id: string, reason?: string) => void;
   onReject: (id: string, reason: string) => void;
 }) {
+  const { t } = useTranslation('common');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [wizard, setWizard] = useState<ApprovalItem | null>(null);
@@ -1850,7 +1851,7 @@ function ApprovalsSection({
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f59e0b] text-[11px] font-bold text-white">
             {approvals.length}
           </span>
-          <span className="text-[13px] font-semibold text-[#000000]">Pending Approvals</span>
+          <span className="text-[13px] font-semibold text-[#000000]">{t('kanban.approvals.pending')}</span>
         </div>
         <div className="flex flex-col gap-2">
           {approvals.map((item) => (
@@ -1863,7 +1864,7 @@ function ApprovalsSection({
                   {item.command ?? item.prompt ?? item.id}
                 </p>
                 {item.agentId && (
-                  <p className="mt-0.5 text-[11px] text-[#8e8e93]">Agent: {item.agentId}</p>
+                  <p className="mt-0.5 text-[11px] text-[#8e8e93]">{t('kanban.approvals.agent', { agent: item.agentId })}</p>
                 )}
                 {(item.createdAt ?? item.requestedAt) && (
                   <p className="mt-0.5 text-[11px] text-[#8e8e93]">
@@ -1878,7 +1879,7 @@ function ApprovalsSection({
                     onClick={() => setWizard(item)}
                     className="rounded-lg bg-clawx-ac px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#005fd6]"
                   >
-                    Respond
+                    {t('kanban.runtime.respond')}
                   </button>
                 ) : (
                   <button
@@ -1886,7 +1887,7 @@ function ApprovalsSection({
                     onClick={() => setReviewing(item)}
                     className="rounded-lg bg-[#111827] px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#1f2937]"
                   >
-                    Review
+                    {t('kanban.runtime.review')}
                   </button>
                 )}
                 {item.command === 'AskUserQuestion' ? null : rejectingId === item.id ? (
@@ -1895,7 +1896,7 @@ function ApprovalsSection({
                       autoFocus
                       value={rejectReason}
                       onChange={(e) => setRejectReason(e.target.value)}
-                      placeholder="拒绝原因..."
+                      placeholder={t('kanban.approvals.rejectPlaceholder')}
                       className="w-[140px] rounded-lg border border-black/10 px-2 py-1 text-[12px] outline-none focus:border-clawx-ac"
                     />
                     <button
@@ -1909,14 +1910,14 @@ function ApprovalsSection({
                       }}
                       className="rounded-lg bg-[#ef4444] px-2.5 py-1 text-[12px] font-medium text-white hover:bg-[#dc2626]"
                     >
-                      确认
+                      {t('kanban.approvals.confirmReject')}
                     </button>
                     <button
                       type="button"
                       onClick={() => { setRejectingId(null); setRejectReason(''); }}
                       className="rounded-lg border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7]"
                     >
-                      Cancel
+                      {t('kanban.approvals.cancelReject')}
                     </button>
                   </>
                 ) : (
@@ -1926,7 +1927,7 @@ function ApprovalsSection({
                       onClick={() => setRejectingId(item.id)}
                       className="rounded-lg border border-[#ef4444]/30 px-2.5 py-1 text-[12px] text-[#ef4444] hover:bg-[#fef2f2]"
                     >
-                      Reject
+                      {t('kanban.approvals.reject')}
                     </button>
                   </>
                 )}
@@ -1948,32 +1949,32 @@ function ApprovalsSection({
       )}
 
       {reviewing && (
-        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="approvals-review-modal-title" aria-label="Approval review">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/35" role="dialog" aria-modal="true" aria-labelledby="approvals-review-modal-title" aria-label={t('kanban.approvals.reviewTitle')}>
           <div className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 id="approvals-review-modal-title" className="text-[16px] font-semibold text-[#111827]">Tool approval review</h3>
-                <p className="mt-1 text-[12px] text-[#6b7280]">Agent: {reviewing.agentId ?? 'unknown'} · Command: {reviewing.command ?? 'unknown'}</p>
+                <h3 id="approvals-review-modal-title" className="text-[16px] font-semibold text-[#111827]">{t('kanban.approvals.reviewTitle')}</h3>
+                <p className="mt-1 text-[12px] text-[#6b7280]">{t('kanban.approvals.reviewSubtitle', { agent: reviewing.agentId ?? t('kanban.approvals.unknownAgent'), command: reviewing.command ?? t('kanban.approvals.unknownCommand') })}</p>
               </div>
-              <button type="button" onClick={() => setReviewing(null)} aria-label="Close review modal" className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
+              <button type="button" onClick={() => setReviewing(null)} aria-label={t('kanban.approvals.closeReview')} className="text-[18px] text-[#8e8e93] hover:text-[#3c3c43]">×</button>
             </div>
 
             {isDangerous && (
               <div className="mb-4 rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-[13px] text-[#b91c1c]">
-                危险操作：当前审批包含高风险命令，请确认后再放行。
+                {t('kanban.approvals.danger')}
               </div>
             )}
 
             {reviewing.prompt ? (
               <div className="mb-3">
-                <p className="mb-1 text-[12px] font-medium text-[#6b7280]">Prompt</p>
+                <p className="mb-1 text-[12px] font-medium text-[#6b7280]">{t('kanban.approvals.prompt')}</p>
                 <div className="rounded-xl bg-[#f8fafc] px-4 py-3 text-[13px] text-[#374151]">{reviewing.prompt}</div>
               </div>
             ) : null}
 
             <div className="mb-5">
-              <p className="mb-1 text-[12px] font-medium text-[#6b7280]">Tool input</p>
-              <pre className="overflow-x-auto rounded-xl bg-[#111827] px-4 py-3 text-[12px] text-[#e5e7eb]">{reviewText || '(empty)'}</pre>
+              <p className="mb-1 text-[12px] font-medium text-[#6b7280]">{t('kanban.approvals.toolInput')}</p>
+              <pre className="overflow-x-auto rounded-xl bg-[#111827] px-4 py-3 text-[12px] text-[#e5e7eb]">{reviewText || t('kanban.approvals.emptyToolInput')}</pre>
             </div>
 
             <div className="flex justify-end gap-2">
@@ -1982,7 +1983,7 @@ function ApprovalsSection({
                 onClick={() => setReviewing(null)}
                 className="rounded-lg border border-black/10 px-3 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f2f2f7]"
               >
-                Close
+                {t('actions.close')}
               </button>
               <button
                 type="button"
@@ -1992,7 +1993,7 @@ function ApprovalsSection({
                 }}
                 className="rounded-lg bg-[#10b981] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#059669]"
               >
-                Approve
+                {t('kanban.approvals.approve')}
               </button>
             </div>
           </div>

@@ -44,16 +44,16 @@ import { usePinnedSessions } from '@/lib/pinned-sessions';
 import { toast } from '@/lib/toast';
 
 type SidebarMetaItem = {
-  name: string;
+  id: string;
   summary?: string;
   meta: string;
 };
 
-const DOMESTIC_CHANNEL_ENTRIES: Array<{ type: ChannelType; label: string }> = [
-  { type: 'feishu', label: '飞书接入' },
-  { type: 'dingtalk', label: '钉钉接入' },
-  { type: 'wecom', label: '企微接入' },
-  { type: 'qqbot', label: 'QQ接入' },
+const DOMESTIC_CHANNEL_ENTRIES: Array<{ type: ChannelType; labelKey: string }> = [
+  { type: 'feishu', labelKey: 'feishu' },
+  { type: 'dingtalk', labelKey: 'dingtalk' },
+  { type: 'wecom', labelKey: 'wecom' },
+  { type: 'qqbot', labelKey: 'qqbot' },
 ];
 
 const NOTIFICATION_REFRESH_INTERVAL_MS = 60_000;
@@ -127,12 +127,22 @@ export function Sidebar() {
   const navigate = useNavigate();
   const isOnChat = useLocation().pathname === '/';
   const { t } = useTranslation(['common', 'chat']);
-  const tSidebar = (key: string, options?: Record<string, unknown>) => t(`common:sidebar.${key}`, options);
+  const tSidebar = useCallback((key: string, options?: Record<string, unknown>) => t(`common:sidebar.${key}`, options), [t]);
   const [sessionToDelete, setSessionToDelete] = useState<{ key: string; label: string } | null>(null);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ key: string; label: string; x: number; y: number } | null>(null);
   const { pinnedSessionKeySet, toggleSessionPinned } = usePinnedSessions();
+  const [groupOpen, setGroupOpen] = useState({
+    clones: true,
+    channels: true,
+    tasks: true,
+    teams: true,
+  });
+
+  const toggleGroupOpen = useCallback((key: keyof typeof groupOpen) => {
+    setGroupOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const toggleSelect = useCallback((key: string) => {
     setSelectedKeys((prev) => {
@@ -171,7 +181,7 @@ export function Sidebar() {
           );
       const exportMessages = Array.isArray(history.messages) ? history.messages : [];
       if (exportMessages.length === 0) {
-        toast.info('当前会话还没有可导出的消息');
+        toast.info(tSidebar('exportNoMessages'));
         return;
       }
 
@@ -185,18 +195,18 @@ export function Sidebar() {
         }),
       });
       if (result?.success) {
-        toast.success(result.savedPath ? `已导出到 ${result.savedPath}` : '会话导出成功');
+        toast.success(result.savedPath ? tSidebar('exportSuccessPath', { path: result.savedPath }) : tSidebar('exportSuccess'));
         return;
       }
       if (result?.error) {
-        toast.info(`已取消导出：${result.error}`);
+        toast.info(tSidebar('exportCancelledError', { error: result.error }));
         return;
       }
-      toast.info('已取消导出');
+      toast.info(tSidebar('exportCancelled'));
     } catch (error) {
-      toast.error(`导出会话失败：${String(error)}`);
+      toast.error(tSidebar('exportFailed', { error: String(error) }));
     }
-  }, [currentSessionKey, messages]);
+  }, [currentSessionKey, messages, tSidebar]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -265,15 +275,15 @@ export function Sidebar() {
   );
 
   const staticTeams: SidebarMetaItem[] = [
-    { name: '团队总览', summary: '', meta: '' },
-    { name: '团队地图', summary: '', meta: '' },
+    { id: 'teamOverview', summary: '', meta: '' },
+    { id: 'teamMap', summary: '', meta: '' },
   ];
   const staticCronTasks: SidebarMetaItem[] = [
-    { name: '任务看板', summary: '', meta: '' },
-    { name: '任务日程', summary: '', meta: '' },
+    { id: 'taskBoard', summary: '', meta: '' },
+    { id: 'taskSchedule', summary: '', meta: '' },
     // { name: '运行日志', summary: '', meta: '' },
-    { name: '🧠记忆知识库', summary: '', meta: '' },
-    { name: '费用用量', summary: '', meta: '' },
+    { id: 'memoryKnowledge', summary: '', meta: '' },
+    { id: 'costUsage', summary: '', meta: '' },
   ];
 
   const isContextSessionPinned = contextMenu ? pinnedSessionKeySet.has(contextMenu.key) : false;
@@ -342,7 +352,7 @@ export function Sidebar() {
             className="flex w-full items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 text-left text-[13px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
           >
             <Search className="h-3.5 w-3.5 shrink-0" />
-            <span className="flex-1 truncate">Search</span>
+            <span className="flex-1 truncate">{tSidebar('searchPlaceholder')}</span>
             <kbd className="rounded border border-black/10 bg-[#f2f2f7] px-1.5 py-0.5 text-[10px]">Ctrl+K</kbd>
           </button>
         </div>
@@ -359,17 +369,19 @@ export function Sidebar() {
         </div>
       )}
 
-      <div className={cn('flex flex-1 flex-col', sidebarCollapsed ? 'gap-2 pt-3' : 'gap-4 pt-4')}>
+      <div className={cn('flex min-h-0 flex-1 flex-col overflow-y-auto', sidebarCollapsed ? 'gap-2 pt-3' : 'gap-4 pt-4')}>
         <AccordionGroup
           title={groupLabels.clones}
           icon={<Bot className="h-[18px] w-[18px]" strokeWidth={2} />}
           collapsed={sidebarCollapsed}
+          open={groupOpen.clones}
+          onToggle={() => toggleGroupOpen('clones')}
           headerAction={
             !sidebarCollapsed ? (
               <button
                 type="button"
-                aria-label="添加分身"
-                title="添加分身"
+                aria-label={tSidebar('addClone')}
+                title={tSidebar('addClone')}
                 onClick={() => setShowAddAgent(true)}
                 className="flex h-5 w-5 items-center justify-center rounded-md text-[14px] text-[#8e8e93] transition-colors hover:bg-[#e5e5ea] hover:text-[#000000]"
               >
@@ -415,7 +427,7 @@ export function Sidebar() {
               {/* Batch mode toolbar */}
               {batchMode && (
                 <div className="mb-1.5 flex items-center justify-between rounded-lg bg-clawx-ac/10 px-3 py-2">
-                  <span className="text-[12px] font-medium text-clawx-ac">{selectedKeys.size} 已选</span>
+                  <span className="text-[12px] font-medium text-clawx-ac">{tSidebar('selectedCount', { count: selectedKeys.size })}</span>
                   <div className="flex gap-1.5">
                     <button
                       type="button"
@@ -423,14 +435,14 @@ export function Sidebar() {
                       disabled={selectedKeys.size === 0}
                       className="rounded-md bg-[#ef4444] px-2.5 py-1 text-[11px] font-medium text-white disabled:opacity-40 hover:bg-[#dc2626]"
                     >
-                      删除
+                      {t('common:actions.delete')}
                     </button>
                     <button
                       type="button"
                       onClick={exitBatchMode}
                       className="rounded-md border border-black/10 bg-white px-2.5 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f2f2f7]"
                     >
-                      取消
+                      {t('common:actions.cancel')}
                     </button>
                   </div>
                 </div>
@@ -519,7 +531,7 @@ export function Sidebar() {
               </button>
               <div className="flex items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]">
                 <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">🔍</span>
-                <span className="min-w-0 flex-1 truncate">沉思小助手</span>
+                <span className="min-w-0 flex-1 truncate">{tSidebar('museAssistant')}</span>
               </div>
             </>
           )}
@@ -529,13 +541,15 @@ export function Sidebar() {
           title={groupLabels.channels}
           icon={<Network className="h-[18px] w-[18px]" strokeWidth={2} />}
           collapsed={sidebarCollapsed}
+          open={groupOpen.channels}
+          onToggle={() => toggleGroupOpen('channels')}
         >
           {DOMESTIC_CHANNEL_ENTRIES.map((entry) => {
             const matchedChannel = channels.find((channel) => channel.type === entry.type);
             const channel = matchedChannel ?? {
               id: entry.type,
               type: entry.type,
-              name: entry.label,
+              name: t(`common:channels.${entry.labelKey}`),
               status: 'disconnected' as const,
             };
             const isActiveChannelPage = location.pathname === '/channels'
@@ -555,7 +569,7 @@ export function Sidebar() {
                 <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">
                   {CHANNEL_ICONS[channel.type] ?? '📡'}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-left">{entry.label}</span>
+                <span className="min-w-0 flex-1 truncate text-left">{t(`common:channels.${entry.labelKey}`)}</span>
                 <span className={cn(
                   'h-1.5 w-1.5 shrink-0 rounded-full',
                   matchedChannel?.status === 'connected' ? 'bg-[#10b981]' :
@@ -573,7 +587,7 @@ export function Sidebar() {
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#8e8e93] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">＋</span>
-              <span className="min-w-0 flex-1 truncate text-left">添加频道</span>
+              <span className="min-w-0 flex-1 truncate text-left">{tSidebar('addChannel')}</span>
             </button>
           */}
         </AccordionGroup>
@@ -582,23 +596,25 @@ export function Sidebar() {
           title={groupLabels.tasks}
           icon={<Clock className="h-[18px] w-[18px]" strokeWidth={2} />}
           collapsed={sidebarCollapsed}
+          open={groupOpen.tasks}
+          onToggle={() => toggleGroupOpen('tasks')}
         >
           {staticCronTasks.map((task) => (
             <button
-              key={task.name}
+              key={task.id}
               type="button"
               onClick={() => {
-                if (task.name === '任务看板') navigate('/kanban');
-                else if (task.name === '费用用量') navigate('/costs');
-                else if (task.name === '🧠记忆知识库') navigate('/memory');
+                if (task.id === 'taskBoard') navigate('/kanban');
+                else if (task.id === 'costUsage') navigate('/costs');
+                else if (task.id === 'memoryKnowledge') navigate('/memory');
                 else navigate('/cron');
               }}
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
               <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">
-                {task.name === '任务看板' ? '📋' : task.name === '费用用量' ? '💰' : task.name === '🧠记忆知识库' ? '🧠' : '📅'}
+                {task.id === 'taskBoard' ? '📋' : task.id === 'costUsage' ? '💰' : task.id === 'memoryKnowledge' ? '🧠' : '📅'}
               </span>
-              <span className="min-w-0 flex-1 truncate text-left">{task.name.replace('🧠', '')}</span>
+              <span className="min-w-0 flex-1 truncate text-left">{t(`common:sidebar.${task.id}`)}</span>
             </button>
           ))}
         </AccordionGroup>
@@ -607,16 +623,18 @@ export function Sidebar() {
           title={groupLabels.teams}
           icon={<Users className="h-[18px] w-[18px]" strokeWidth={2} />}
           collapsed={sidebarCollapsed}
+          open={groupOpen.teams}
+          onToggle={() => toggleGroupOpen('teams')}
         >
           {staticTeams.map((team) => (
             <button
-              key={team.name}
+              key={team.id}
               type="button"
-              onClick={() => navigate(team.name === '团队总览' ? '/team-overview' : '/team-map')}
+              onClick={() => navigate(team.id === 'teamOverview' ? '/team-overview' : '/team-map')}
               className="flex w-full items-center gap-[10px] rounded-lg px-[10px] py-2 text-[14px] text-[#000000] transition-colors hover:bg-[#e5e5ea] dark:hover:bg-white/[0.04]"
             >
-              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">{team.name === '团队总览' ? '👥' : '🗺'}</span>
-              <span className="min-w-0 flex-1 truncate text-left">{team.name}</span>
+              <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-[15px] leading-none">{team.id === 'teamOverview' ? '👥' : '🗺'}</span>
+              <span className="min-w-0 flex-1 truncate text-left">{t(`common:sidebar.${team.id}`)}</span>
             </button>
           ))}
         </AccordionGroup>
@@ -628,7 +646,7 @@ export function Sidebar() {
           <>
             <button
               type="button"
-              aria-label="选择头像"
+              aria-label={tSidebar('selectAvatar')}
               onClick={() => setAvatarPopupOpen(true)}
               className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-clawx-ac/40"
             >{selectedAvatar}</button>
@@ -636,10 +654,10 @@ export function Sidebar() {
             <div className="relative">
               <button
                 type="button"
-                aria-label="通知"
+                aria-label={tSidebar('notifications')}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[16px] transition-colors hover:bg-[#e5e5ea]"
                 onClick={() => { setNotifOpen((v) => !v); if (!notifOpen && unreadCount > 0) markAllRead(); }}
-                title="通知"
+                title={tSidebar('notifications')}
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -651,10 +669,10 @@ export function Sidebar() {
             </div>
             <button
               type="button"
-              aria-label="Settings"
+              aria-label={tSidebar('settingsAria')}
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[16px] transition-colors hover:bg-[#e5e5ea]"
               onClick={() => navigate('/settings')}
-              title="设置"
+              title={tSidebar('settingsAria')}
             >
               ⚙
             </button>
@@ -663,7 +681,7 @@ export function Sidebar() {
         {sidebarCollapsed && (
           <button
             type="button"
-            aria-label="选择头像"
+            aria-label={tSidebar('selectAvatar')}
             onClick={() => setAvatarPopupOpen(true)}
             className="h-7 w-7 shrink-0 rounded-full bg-[#d9d9d9] flex items-center justify-center text-[18px] transition-colors hover:ring-2 hover:ring-clawx-ac/40"
           >{selectedAvatar}</button>
@@ -732,7 +750,7 @@ export function Sidebar() {
               setContextMenu(null);
             }}
           >
-            ☑ 批量选择
+            {`☑ ${tSidebar('batchSelect')}`}
           </button>
           <button
             type="button"
@@ -742,7 +760,7 @@ export function Sidebar() {
               setContextMenu(null);
             }}
           >
-            {isContextSessionPinned ? '取消置顶' : '置顶会话'}
+            {isContextSessionPinned ? tSidebar('unpinSession') : tSidebar('pinSession')}
           </button>
           <button
             type="button"
@@ -753,7 +771,7 @@ export function Sidebar() {
               void exportSession(sessionKey);
             }}
           >
-            ⤓ 导出 Markdown
+            {`⤓ ${tSidebar('exportMarkdown')}`}
           </button>
           <div className="mx-3 my-0.5 border-t border-[#f2f2f7]" />
           <button
@@ -764,7 +782,7 @@ export function Sidebar() {
               setContextMenu(null);
             }}
           >
-            🗑 删除
+            {`🗑 ${t('common:actions.delete')}`}
           </button>
         </div>,
         document.body,
@@ -787,11 +805,11 @@ export function Sidebar() {
               if (targetSessionKey) {
                 void exportSession(targetSessionKey);
               } else {
-                toast.error('未找到该分身的主会话');
+                toast.error(tSidebar('agentMainSessionMissing'));
               }
             }}
           >
-            ⤓ 导出 Markdown
+            {`⤓ ${tSidebar('exportMarkdown')}`}
           </button>
           <div className="mx-3 my-0.5 border-t border-[#f2f2f7]" />
           <button
@@ -802,7 +820,7 @@ export function Sidebar() {
               setAgentContextMenu(null);
             }}
           >
-            ⚙ 设置
+            {`⚙ ${tSidebar('settingsAria')}`}
           </button>
           {!agents.find((a) => a.id === agentContextMenu.agentId)?.isDefault && (
             <>
@@ -815,13 +833,13 @@ export function Sidebar() {
                   setAgentContextMenu(null);
                   try {
                     await deleteAgent(id);
-                    toast.success('分身已删除');
+                    toast.success(tSidebar('agentDeleted'));
                   } catch (error) {
                     toast.error(String(error));
                   }
                 }}
               >
-                🗑 删除
+                {`🗑 ${tSidebar('deleteAgent')}`}
               </button>
             </>
           )}
@@ -836,7 +854,7 @@ export function Sidebar() {
           onCreate={async (name, persona) => {
             await createAgent(name, persona);
             setShowAddAgent(false);
-            toast.success('分身已创建');
+            toast.success(tSidebar('agentCreated'));
           }}
         />
       )}
@@ -854,15 +872,15 @@ export function Sidebar() {
 }
 
 const AVATAR_OPTIONS = [
-  { emoji: '🐱', label: '猫咪' },
-  { emoji: '🐶', label: '小狗' },
-  { emoji: '🦊', label: '狐狸' },
-  { emoji: '🐻', label: '熊熊' },
-  { emoji: '🐼', label: '熊猫' },
-  { emoji: '🦁', label: '狮子' },
-  { emoji: '🐸', label: '青蛙' },
-  { emoji: '🐨', label: '考拉' },
-  { emoji: '🦄', label: '独角兽' },
+  { emoji: '🐱', label: 'avatarCat' },
+  { emoji: '🐶', label: 'avatarDog' },
+  { emoji: '🦊', label: 'avatarFox' },
+  { emoji: '🐻', label: 'avatarBear' },
+  { emoji: '🐼', label: 'avatarPanda' },
+  { emoji: '🦁', label: 'avatarLion' },
+  { emoji: '🐸', label: 'avatarFrog' },
+  { emoji: '🐨', label: 'avatarKoala' },
+  { emoji: '🦄', label: 'avatarUnicorn' },
 ];
 
 function NotificationPanel({
@@ -874,6 +892,8 @@ function NotificationPanel({
   onDismiss: (id: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('common');
+  const tSidebar = (key: string, options?: Record<string, unknown>) => t(`sidebar.${key}`, options);
   const [now, setNow] = useState(INITIAL_NOTIFICATION_TIME);
 
   useEffect(() => {
@@ -885,10 +905,10 @@ function NotificationPanel({
 
   function relativeTime(ts: number) {
     const diff = Math.floor((now - ts) / 1000);
-    if (diff < 60) return '刚刚';
-    if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`;
-    return `${Math.floor(diff / 86400)}天前`;
+    if (diff < 60) return t('time.justNow');
+    if (diff < 3600) return t('time.minutesAgo', { count: Math.floor(diff / 60) });
+    if (diff < 86400) return t('time.hoursAgo', { count: Math.floor(diff / 3600) });
+    return t('time.daysAgo', { count: Math.floor(diff / 86400) });
   }
 
   const levelColor: Record<string, string> = {
@@ -905,7 +925,7 @@ function NotificationPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3">
-          <span className="text-[14px] font-semibold text-[#000000]">通知</span>
+          <span className="text-[14px] font-semibold text-[#000000]">{tSidebar('notifications')}</span>
           <button
             type="button"
             onClick={onClose}
@@ -918,7 +938,7 @@ function NotificationPanel({
         <div className="max-h-[320px] overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="flex items-center justify-center py-8 text-[13px] text-[#8e8e93]">
-              暂无通知
+              {tSidebar('noNotifications')}
             </div>
           ) : (
             notifications.map((n) => (
@@ -963,6 +983,8 @@ function AvatarPopup({
   onAvatarChange: (v: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation('common');
+  const tSidebar = (key: string, options?: Record<string, unknown>) => t(`sidebar.${key}`, options);
   const [selectedAvatar, setSelectedAvatar] = useState(avatar);
   const [draft, setDraft] = useState(nickname);
 
@@ -974,7 +996,7 @@ function AvatarPopup({
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-black/[0.06] px-4 py-3">
-          <span className="text-[14px] font-semibold text-[#000000]">个人资料</span>
+          <span className="text-[14px] font-semibold text-[#000000]">{tSidebar('profile')}</span>
           <button
             type="button"
             onClick={onClose}
@@ -1007,7 +1029,7 @@ function AvatarPopup({
               )}
             >
               {opt.emoji}
-              <span className="text-[10px] text-[#8e8e93]">{opt.label}</span>
+              <span className="text-[10px] text-[#8e8e93]">{tSidebar(opt.label)}</span>
             </button>
           ))}
         </div>
@@ -1015,12 +1037,12 @@ function AvatarPopup({
         {/* Nickname input */}
         <div className="border-t border-black/[0.06] px-4 py-3">
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8e8e93]">
-            昵称
+            {tSidebar('nickname')}
           </label>
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="输入昵称..."
+            placeholder={tSidebar('nicknamePlaceholder')}
             className="w-full rounded-lg border border-black/10 bg-[#f2f2f7] px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac focus:bg-white"
           />
         </div>
@@ -1036,7 +1058,7 @@ function AvatarPopup({
             }}
             className="w-full rounded-full bg-clawx-ac py-2 text-[13px] font-semibold text-white hover:bg-[#0062cc]"
           >
-            保存
+            {t('common:actions.save')}
           </button>
         </div>
       </div>

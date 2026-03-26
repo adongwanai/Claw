@@ -3,7 +3,7 @@
   "objective": "Build and polish the ClawX Electron + React workbench UI with full backend integration.",
   "current_phase": "execution",
   "current_focus": "PLAN-2026-03-24-PLATFORM-CLOSURE",
-  "last_updated": "2026-03-27T00:46:00+08:00",
+  "last_updated": "2026-03-27T01:45:00+08:00",
   "tasks": [
     {
       "id": "SESSION-8-001",
@@ -548,6 +548,20 @@
       "id": "SESSION-34-002",
       "title": "Route Feishu workbench sends through runtime and refresh Channels from gateway notifications",
       "type": "bugfix",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-35-001",
+      "title": "Stabilize Feishu workbench against per-chat runtime session keys and post-send refresh timing",
+      "type": "bugfix",
+      "status": "done",
+      "priority": "P0"
+    },
+    {
+      "id": "SESSION-36-001",
+      "title": "Finish current i18n closure sweep for Sidebar, TaskKanban, and Cron",
+      "type": "feature",
       "status": "done",
       "priority": "P0"
     }

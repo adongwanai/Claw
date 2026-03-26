@@ -343,6 +343,8 @@
             "history": "Runtime history",
             "loadingDetail": "Loading runtime detail...",
             "noHistory": "No runtime history yet.",
+            "executionPath": "Execution path",
+            "capabilities": "Runtime capabilities",
             "followupLabel": "Follow-up message",
             "followupPlaceholder": "Continue following up on this ticket...",
             "sendFollowup": "Send follow-up",
@@ -354,6 +356,11 @@
             "review": "Review",
             "respond": "Respond"
         },
+        "notifications": {
+            "taskScheduled": "Task scheduled: {{title}}",
+            "taskCompleted": "Task completed: {{title}}",
+            "taskDispatched": "Task dispatched: {{title}}"
+        },
         "approvals": {
             "pending": "Pending approvals",
             "agent": "Agent: {{agent}}",
@@ -363,6 +370,7 @@
             "prompt": "Prompt",
             "toolInput": "Tool input",
             "closeReview": "Close review modal",
+            "emptyToolInput": "(empty)",
             "approve": "Approve",
             "reject": "Reject",
             "rejectPlaceholder": "Reason for rejection...",

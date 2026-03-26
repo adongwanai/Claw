@@ -24,6 +24,7 @@
     "dialog": {
         "createTitle": "Create Task",
         "editTitle": "Edit Task",
+        "cancel": "Cancel",
         "description": "Schedule an automated AI task",
         "pipelineWizardLabel": "Pipeline Wizard",
         "pipelineSummary": "Trigger → Agent → Delivery → Failure Alert",

@@ -36,7 +36,7 @@ function readStoredTicket(id: string): Record<string, unknown> | undefined {
 
 const respondButtonName = /^(Respond|回复)$/i;
 const reviewButtonName = /^(Review|审查)$/i;
-const approvalDialogName = /approval review/i;
+const approvalDialogName = /^(Approval review|工具审批审查)$/i;
 const approveButtonName = /^(Approve|批准)$/i;
 const startWorkButtonName = /^(Start work|开始处理)$/i;
 const followUpMessageName = /^(Follow-up message|追问消息)$/i;
@@ -924,11 +924,11 @@ describe('TaskKanban', () => {
     await waitFor(() => {
       expect(hostApiFetchMock).toHaveBeenCalledWith('/api/sessions/subagents/runtime-child-1');
     });
-    expect(screen.getByText('Execution path')).toBeInTheDocument();
+    expect(screen.getByText(/^(Execution path|执行路径)$/)).toBeInTheDocument();
     expect(screen.getByText('ShellExec')).toBeInTheDocument();
     expect(screen.getByText('Listed the workspace files.')).toBeInTheDocument();
     expect(screen.getByText(/1\.2s/)).toBeInTheDocument();
-    expect(screen.getByText('Runtime capabilities')).toBeInTheDocument();
+    expect(screen.getByText(/^(Runtime capabilities|Runtime 能力)$/)).toBeInTheDocument();
     expect(screen.getByText('planner-review')).toBeInTheDocument();
     expect(screen.getByText('filesystem.read_file')).toBeInTheDocument();
   });

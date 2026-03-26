@@ -2542,3 +2542,68 @@ Focus: PLAN-2026-03-24-PLATFORM-CLOSURE
 ### Notes
 - README / README.zh-CN reviewed; no mandatory wording changes were needed for this bugfix
 - Existing unrelated worktree changes in `src/components/layout/Sidebar.tsx`, `src/components/workbench/accordion-group.tsx`, and `tests/unit/workbench-sidebar.test.tsx` were left untouched
+
+---
+
+[2026-03-27 00:57 +08:00] Session 35: Feishu Channels Bug Fixes
+Focus: PLAN-2026-03-24-PLATFORM-CLOSURE
+
+### Completed
+1. `src/pages/Channels/index.tsx`
+   - Bug 1 fix: after sending a message in Channels workbench, now polls chat history
+     at +0ms / +1s / +2.5s / +5s to capture agent reply
+   - Input is cleared immediately on send (not blocked on server response)
+   - Test result toast extended to 6s to allow polling time
+
+2. `electron/api/routes/channels.ts`
+   - Bug 2 fix: workbench/messages now attempts feishu peer-session key formats
+     (agent:{agentId}:feishu:group:{chatId}, :direct:, :channel:) as fallback
+     when the stored binding sessionKey (agent:main:main) yields empty history
+   - On a successful peer-key hit, persists the correct sessionKey to binding store
+     so future send/read operations use the right key
+   - Fixed garbled UTF-8 in send route success message
+   - Restored sendFeishuConversationMessage fallback path (was accidentally deleted)
+
+### Verification
+- `pnpm run typecheck` -> pass
+- `pnpm run lint` -> pass
+
+### Root Cause Analysis
+- Bug 1: chat.send is async (agent starts processing after RPC returns), so the
+  first loadConversation call found no agent reply yet.  Multi-step delayed polling
+  gives the agent time to respond and updates the UI.
+- Bug 2: Feishu webhook routes inbound messages to per-chat session keys
+  (agent:main:feishu:group:{chatId}) while the binding store defaults were recording
+  agent:main:main.  The fallback key scan corrects this at read time and fixes the
+  binding for subsequent operations.
+
+---
+
+[2026-03-27 01:45 +08:00] Session 36: Current i18n Closure Sweep
+Focus: PLAN-2026-03-24-PLATFORM-CLOSURE
+
+### Completed
+1. `src/components/layout/Sidebar.tsx`
+   - migrated remaining visible sidebar labels, context-menu copy, avatar/profile copy, notification strings, and relative-time labels onto `common` locale keys
+   - converted task/team/channel menu routing to stable ids instead of depending on rendered Chinese strings
+
+2. `src/pages/TaskKanban/index.tsx`
+   - migrated remaining runtime/detail/approval modal strings and ticket notifications to `common.kanban.*`
+   - reused locale keys for follow-up actions, approval review copy, danger warnings, and execution-path labels
+
+3. `src/pages/Cron/index.tsx`
+   - removed the remaining hardcoded cancel/edit action labels and aligned them with locale-backed strings
+
+4. locale + tests
+   - updated `src/i18n/locales/zh/common.json`, `src/i18n/locales/en/common.json`, `src/i18n/locales/zh/cron.json`, `src/i18n/locales/en/cron.json`
+   - refreshed `tests/unit/task-kanban.test.tsx` for bilingual/i18n-safe assertions
+
+### Verification
+- `pnpm test -- --run tests/unit/channel-conversation-bindings.test.ts tests/unit/channel-sync-routes.test.ts tests/unit/channels-page.test.tsx tests/unit/workbench-sidebar.test.tsx tests/unit/task-kanban.test.tsx tests/unit/cron-page.test.tsx` -> pass
+- `pnpm run typecheck` -> pass
+- `pnpm run lint` -> pass
+- `pnpm run build:vite` -> pass
+
+### Notes
+- Current active i18n remainder called out in `Prompt.md` (Cron / TaskKanban / Sidebar) is now complete
+- `Docs / Help` remains intentionally disabled per persistent directive

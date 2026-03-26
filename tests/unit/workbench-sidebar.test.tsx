@@ -187,6 +187,35 @@ describe('workbench sidebar', () => {
     expect(aside).toHaveClass('w-16');
   });
 
+  it('keeps the main sidebar content region scrollable while the footer stays pinned', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    const scrollRegion = container.querySelector('aside > div.flex.min-h-0.flex-1.flex-col.overflow-y-auto');
+    expect(scrollRegion).toBeInTheDocument();
+    expect(scrollRegion).toHaveClass('overflow-y-auto');
+
+    const footer = container.querySelector('aside > div.mt-auto');
+    expect(footer).toBeInTheDocument();
+  });
+
+  it('allows first-level sidebar groups to collapse independently', () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('KaiTianClaw')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /collapse clones/i }));
+    expect(screen.queryByText('KaiTianClaw')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /expand clones/i }));
+    expect(screen.getByText('KaiTianClaw')).toBeInTheDocument();
+  });
+
   it('exports a session from the context menu through the host save flow', async () => {
     mockChatState.currentSessionKey = 'agent:main:main';
     vi.mocked(invokeIpc).mockResolvedValueOnce({
