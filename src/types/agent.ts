@@ -1,3 +1,6 @@
+export type AgentTeamRole = 'leader' | 'worker';
+export type AgentChatAccess = 'direct' | 'leader_only';
+
 export interface AgentSummary {
   id: string;
   name: string;
@@ -11,6 +14,9 @@ export interface AgentSummary {
   mainSessionKey: string;
   channelTypes: string[];
   avatar?: string | null;
+  teamRole: AgentTeamRole;
+  chatAccess: AgentChatAccess;
+  responsibility: string;
   reportsTo?: string | null;
   directReports?: string[];
 }

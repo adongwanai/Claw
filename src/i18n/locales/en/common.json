@@ -408,10 +408,27 @@
             "model": "Model",
             "inherited": "(Inherited)",
             "lastActive": "Last Active",
+            "activity": "Activity",
+            "role": "Role",
+            "access": "Access",
+            "responsibility": "Responsibility",
             "channels": "Channels",
             "notConfigured": "Not configured",
+            "notSet": "Not set",
             "confirmDelete": "Confirm delete?",
             "dismiss": "Dismiss"
+        },
+        "activity": {
+            "active": "Active",
+            "idle": "Idle"
+        },
+        "role": {
+            "leader": "leader",
+            "worker": "worker"
+        },
+        "access": {
+            "direct": "direct",
+            "leader_only": "leader_only"
         },
         "time": {
             "never": "Never",
@@ -442,6 +459,14 @@
             "teams": "Teams",
             "hierarchy": "Hierarchy"
         },
+        "role": {
+            "leader": "leader",
+            "worker": "worker"
+        },
+        "access": {
+            "direct": "direct",
+            "leader_only": "leader_only"
+        },
         "allGroup": "All",
         "drawer": {
             "title": "Agent Details",
@@ -449,6 +474,9 @@
             "model": "Model",
             "workspace": "Workspace",
             "sessionKey": "Session Key",
+            "role": "Role",
+            "access": "Access",
+            "responsibility": "Responsibility",
             "channels": "Channels"
         }
     }

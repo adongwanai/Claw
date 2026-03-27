@@ -93,10 +93,16 @@ describe('agent config lifecycle', () => {
         expect.objectContaining({
           id: 'main',
           mainSessionKey: 'agent:main:desk',
+          teamRole: 'leader',
+          chatAccess: 'direct',
+          responsibility: '',
         }),
         expect.objectContaining({
           id: 'research',
           mainSessionKey: 'agent:research:desk',
+          teamRole: 'worker',
+          chatAccess: 'direct',
+          responsibility: '',
         }),
       ]),
     );
@@ -245,6 +251,9 @@ describe('agent config lifecycle', () => {
     await createAgent('Research Helper', 'Review code with a skeptical senior-engineer mindset.');
     await updateAgentProfile('research-helper', {
       persona: 'Coordinate release readiness and keep reviews strict.',
+      teamRole: 'worker',
+      chatAccess: 'leader_only',
+      responsibility: 'Research and evidence synthesis',
     });
 
     const snapshot = await listAgentsSnapshot();
@@ -254,6 +263,9 @@ describe('agent config lifecycle', () => {
           id: 'research-helper',
           name: 'Research Helper',
           persona: 'Coordinate release readiness and keep reviews strict.',
+          teamRole: 'worker',
+          chatAccess: 'leader_only',
+          responsibility: 'Research and evidence synthesis',
         }),
       ]),
     );
@@ -264,6 +276,9 @@ describe('agent config lifecycle', () => {
         expect.objectContaining({
           id: 'research-helper',
           persona: 'Coordinate release readiness and keep reviews strict.',
+          teamRole: 'worker',
+          chatAccess: 'leader_only',
+          responsibility: 'Research and evidence synthesis',
         }),
       ]),
     );

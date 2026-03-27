@@ -33,6 +33,14 @@ function isRecentlyActive(ts: number | undefined): boolean {
   return !!ts && Date.now() - ts < RECENT_MS;
 }
 
+function getTeamRole(agent: AgentSummary): 'leader' | 'worker' {
+  return agent.teamRole ?? (agent.isDefault ? 'leader' : 'worker');
+}
+
+function getChatAccess(agent: AgentSummary): 'direct' | 'leader_only' {
+  return agent.chatAccess ?? 'direct';
+}
+
 /* ─── Node card ─── */
 
 function AgentNode({
@@ -51,6 +59,8 @@ function AgentNode({
   const { t } = useTranslation('common');
   const gradient = isRoot ? 'linear-gradient(135deg, #10b981, #059669)' : agentGradient(idx);
   const icon = isRoot ? '✦' : agentIcon(idx);
+  const role = getTeamRole(agent);
+  const access = getChatAccess(agent);
 
   return (
     <div
@@ -78,6 +88,10 @@ function AgentNode({
         {agent.name}
       </p>
       <p className="text-[12px] text-[#8e8e93]">{agent.id}</p>
+      <p className="mt-1 text-[11px] text-[#6b7280]">{t(`teamMap.role.${role}`)}</p>
+      {access === 'leader_only' && (
+        <p className="mt-1 text-[11px] text-[#2563eb]">{t('teamMap.access.leader_only')}</p>
+      )}
       <div className="mt-2 flex items-center justify-center gap-2 text-[12px]">
         <span className={cn('flex items-center gap-1', isActive ? 'text-clawx-ac' : 'text-[#8e8e93]')}>
           <span className={cn('h-[6px] w-[6px] rounded-full', isActive ? 'bg-clawx-ac' : 'bg-[#d1d5db]')} />
@@ -351,6 +365,8 @@ function TeamsView({
 
 function AgentDetailDrawer({ agent, onClose }: { agent: AgentSummary; onClose: () => void }) {
   const { t } = useTranslation('common');
+  const role = getTeamRole(agent);
+  const access = getChatAccess(agent);
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-end"
@@ -395,6 +411,18 @@ function AgentDetailDrawer({ agent, onClose }: { agent: AgentSummary; onClose: (
           <div className="flex justify-between text-[13px]">
             <span className="text-[#8e8e93]">{t('teamMap.drawer.sessionKey')}</span>
             <span className="max-w-[180px] truncate text-right text-[#000000]">{agent.mainSessionKey || '—'}</span>
+          </div>
+          <div className="flex justify-between text-[13px]">
+            <span className="text-[#8e8e93]">{t('teamMap.drawer.role')}</span>
+            <span className="max-w-[180px] truncate text-right text-[#000000]">{t(`teamMap.role.${role}`)}</span>
+          </div>
+          <div className="flex justify-between text-[13px]">
+            <span className="text-[#8e8e93]">{t('teamMap.drawer.access')}</span>
+            <span className="max-w-[180px] truncate text-right text-[#000000]">{t(`teamMap.access.${access}`)}</span>
+          </div>
+          <div className="flex justify-between text-[13px]">
+            <span className="text-[#8e8e93]">{t('teamMap.drawer.responsibility')}</span>
+            <span className="max-w-[180px] truncate text-right text-[#000000]">{agent.responsibility || '—'}</span>
           </div>
           {agent.channelTypes.length > 0 && (
             <div>

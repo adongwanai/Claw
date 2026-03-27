@@ -1223,7 +1223,7 @@ function DetailPanel({
   const [followup, setFollowup] = useState('');
   const [wizard, setWizard] = useState<ApprovalItem | null>(null);
   const [reviewing, setReviewing] = useState<ApprovalItem | null>(null);
-  const [runtimeChildren, setRuntimeChildren] = useState<RuntimeSessionResponse[]>([]);
+  const [, setRuntimeChildren] = useState<RuntimeSessionResponse[]>([]);
   const [runtimeChildrenLoading, setRuntimeChildrenLoading] = useState(false);
   const [runtimeChildrenError, setRuntimeChildrenError] = useState<string | null>(null);
   const [runtimeTreeDescendants, setRuntimeTreeDescendants] = useState<RuntimeSessionResponse[]>([]);
@@ -1256,7 +1256,8 @@ function DetailPanel({
   }, [ticket.runtimeSessionId, ticket.runtimeHistory, ticket.runtimeTranscript]);
 
   useEffect(() => {
-    if (!ticket.runtimeSessionId || !ticket.runtimeChildSessionIds || ticket.runtimeChildSessionIds.length === 0) {
+    const runtimeSessionId = ticket.runtimeSessionId;
+    if (!runtimeSessionId || !ticket.runtimeChildSessionIds || ticket.runtimeChildSessionIds.length === 0) {
       setRuntimeChildren([]);
       setRuntimeTreeDescendants([]);
       setRuntimeChildrenError(null);
@@ -1271,7 +1272,7 @@ function DetailPanel({
         const treeResponse = await hostApiFetch<{
           success?: boolean;
           tree?: { root?: RuntimeSessionResponse; descendants?: RuntimeSessionResponse[] };
-        }>(`/api/sessions/subagents/${encodeURIComponent(ticket.runtimeSessionId)}/tree`);
+        }>(`/api/sessions/subagents/${encodeURIComponent(runtimeSessionId)}/tree`);
         if (cancelled) return;
         const descendants = Array.isArray(treeResponse?.tree?.descendants) ? treeResponse.tree.descendants : [];
         setRuntimeTreeDescendants(descendants);
@@ -1280,7 +1281,7 @@ function DetailPanel({
           .filter((session) => childIds.has(session.id))
           .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
         setRuntimeChildren(matchingChildren);
-      } catch (error) {
+      } catch {
         try {
           const response = await hostApiFetch<{ success?: boolean; sessions?: RuntimeSessionResponse[] }>('/api/sessions/subagents');
           if (cancelled) return;
@@ -1796,7 +1797,7 @@ function DetailPanel({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={onStartRuntime}
+                  onClick={() => onStartRuntime()}
                   className="rounded-lg bg-clawx-ac px-3 py-2 text-[12px] font-medium text-white hover:bg-[#0056b3]"
                 >
                   {t('kanban.runtime.start')}

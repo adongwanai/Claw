@@ -115,6 +115,11 @@ Schedule AI tasks to run automatically. Define triggers, set intervals, and let 
 The Cron page also includes richer run-detail panels with delivery targets, recent error context, and recent run history.
 Agent detail pages now expose backend-owned cron relations and deep-link directly into the relevant Cron pipeline entry.
 
+### 👥 Team Control Plane (MVP)
+KTClaw now treats team pages as role-aware control surfaces instead of static member lists.
+In `Agent Detail`, each member can be configured with `teamRole` (`leader` or `worker`), `chatAccess` (`direct` or `leader_only`), and `responsibility`.
+`Team Overview` and `Team Map` now surface these semantics alongside runtime activity cues, so you can quickly identify who coordinates, who executes, and which members should be reached through leaders.
+
 ### 🧩 Extensible Skill System
 Extend your AI agents with pre-built skills. Browse, install, and manage skills through the integrated skill panel—no package managers required.
 KTClaw also pre-bundles full document-processing skills (`pdf`, `xlsx`, `docx`, `pptx`), deploys them automatically to the managed skills directory (default `~/.openclaw/skills`) on startup, and enables them by default on first install. Additional bundled skills (`find-skills`, `self-improving-agent`, `tavily-search`, `brave-web-search`, `bocha-skill`) are also enabled by default; if required API keys are missing, OpenClaw will surface configuration errors in runtime.  

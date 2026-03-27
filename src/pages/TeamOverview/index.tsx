@@ -49,6 +49,20 @@ const CHANNEL_ICONS: Record<string, string> = {
   qqbot: '🐧',
 };
 
+const RECENT_MS = 5 * 60 * 1000;
+
+function isRecentlyActive(ts: number | undefined): boolean {
+  return !!ts && Date.now() - ts < RECENT_MS;
+}
+
+function getTeamRole(agent: AgentSummary): 'leader' | 'worker' {
+  return agent.teamRole ?? (agent.isDefault ? 'leader' : 'worker');
+}
+
+function getChatAccess(agent: AgentSummary): 'direct' | 'leader_only' {
+  return agent.chatAccess ?? 'direct';
+}
+
 /* ─── Create Agent Modal ─── */
 
 function CreateAgentModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => Promise<void> }) {
@@ -193,6 +207,9 @@ function AgentCard({
 }) {
   const { t } = useTranslation('common');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const teamRole = getTeamRole(agent);
+  const chatAccess = getChatAccess(agent);
+  const activityKey = isRecentlyActive(lastActivity) ? 'active' : 'idle';
 
   return (
     <div className="flex flex-col rounded-2xl border border-black/[0.06] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
@@ -229,6 +246,18 @@ function AgentCard({
         </Row>
         <Row label={t('teamOverview.card.lastActive')}>
           <span className="text-[13px] text-[#3c3c43]">{formatLastActive(lastActivity, t)}</span>
+        </Row>
+        <Row label={t('teamOverview.card.activity')}>
+          <span className="text-[13px] text-[#3c3c43]">{t(`teamOverview.activity.${activityKey}`)}</span>
+        </Row>
+        <Row label={t('teamOverview.card.role')}>
+          <span className="text-[13px] text-[#3c3c43]">{t(`teamOverview.role.${teamRole}`)}</span>
+        </Row>
+        <Row label={t('teamOverview.card.access')}>
+          <span className="text-[13px] text-[#3c3c43]">{t(`teamOverview.access.${chatAccess}`)}</span>
+        </Row>
+        <Row label={t('teamOverview.card.responsibility')}>
+          <span className="text-[13px] text-[#3c3c43]">{agent.responsibility || t('teamOverview.card.notSet')}</span>
         </Row>
         <Row label={t('teamOverview.card.channels')}>
           {agent.channelTypes.length === 0 ? (

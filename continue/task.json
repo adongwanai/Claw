@@ -1,583 +1,65 @@
 {
   "project": "ClawX Control Plane",
-  "objective": "Build and polish the ClawX Electron + React workbench UI with full backend integration.",
-  "current_phase": "execution",
-  "current_focus": "PLAN-2026-03-24-PLATFORM-CLOSURE",
-  "last_updated": "2026-03-27T10:33:00+08:00",
+  "objective": "Ship Team Control Plane MVP on top of the existing agent/runtime/kanban architecture.",
+  "current_phase": "completed",
+  "current_focus": "PLAN-2026-03-27-TEAM-CONTROL-PLANE-MVP (completed)",
+  "last_updated": "2026-03-27T16:21:37+08:00",
   "tasks": [
     {
-      "id": "SESSION-8-001",
-      "title": "Add DeepSeek/Zhipu/Baichuan to provider registry",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-8-002",
-      "title": "Backend agent model selection",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-8-003",
-      "title": "Extract shared agent components",
-      "type": "refactor",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-8-004",
-      "title": "Wire sidebar agent list and create button",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "DESIGN-2026-03-24-REFERENCE-GAP-AUDIT",
-      "title": "Consolidate reference project gap audit into Prompt and continue",
-      "type": "research",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "PLAN-2026-03-24-GAP-PRIORITIZATION",
-      "title": "Prioritize cross-project gap findings into implementation tracks",
+      "id": "PLAN-2026-03-27-TEAM-CONTROL-PLANE-MVP",
+      "title": "Upgrade TeamOverview/TeamMap/AgentDetail into a role-aware team control plane MVP",
       "type": "planning",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-10-001",
-      "title": "Implement chat slash command surface",
+      "id": "SESSION-39-001",
+      "title": "Persist teamRole/chatAccess/responsibility across type/store/config/route pipeline",
       "type": "feature",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-10-002",
-      "title": "Implement sidebar global search with chat-history matching",
+      "id": "SESSION-39-002",
+      "title": "Add editable Team Settings section in AgentDetail for role/access/responsibility/reportsTo",
       "type": "feature",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-10-003",
-      "title": "Upgrade Activity page to structured log cards",
+      "id": "SESSION-39-003",
+      "title": "Upgrade TeamOverview and TeamMap to role-aware team visibility surfaces",
       "type": "feature",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-10-004",
-      "title": "Stabilize settings-center suite timing under full test load",
-      "type": "test",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "PLAN-2026-03-24-SESSION-MANAGEMENT",
-      "title": "Add session pin/export entry points and deepen session management surfaces",
-      "type": "planning",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-10-005",
-      "title": "Fix global search chat-history matching against real gateway RPC envelope",
-      "type": "bugfix",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-10-006",
-      "title": "Add sidebar session export entrypoint",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-10-007",
-      "title": "Add agent context-menu export entrypoint",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-11-001",
-      "title": "Add sidebar session pinning",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-11-002",
-      "title": "Add chat header export entrypoint",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-11-003",
-      "title": "Add Activity live auto-refresh entry",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-12-001",
-      "title": "Add standalone docs/help route",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-12-002",
-      "title": "Add mhchem chemistry formula rendering support",
-      "type": "feature",
-      "status": "done",
-      "priority": "P2"
-    },
-    {
-      "id": "SESSION-12-003",
-      "title": "Upgrade quick action surface in empty workbench state",
-      "type": "feature",
-      "status": "done",
-      "priority": "P2"
-    },
-    {
-      "id": "SESSION-12-004",
-      "title": "Disable docs/help surfaces and remove chat header export per user feedback",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-13-001",
-      "title": "Add current-session drawer with export, pin, and management actions",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "PLAN-2026-03-24-PLATFORM-CLOSURE",
-      "title": "Choose next platform-level gap after session management (MCP runtime, Cron detail, or E2E gates)",
-      "type": "planning",
-      "status": "in_progress",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-14-001",
-      "title": "Enrich Cron run-detail visibility with delivery and error context",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-14-002",
-      "title": "Localize Activity page shell to Chinese",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-15-001",
-      "title": "Add Playwright smoke coverage and CI e2e guardrails",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-16-001",
-      "title": "Close MCP runtime lifecycle and align MCP management surface with KTClaw-callable services",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-16-002",
-      "title": "Add locale parity checks and localize MCP/settings batch strings",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-16-003",
-      "title": "Deepen release/install smoke scripts and multi-route Playwright gates",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-17-001",
-      "title": "Remove Japanese support and enforce zh/en-only i18n baseline",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-17-002",
-      "title": "Deepen chat reasoning status and quick-action composer refill workflow",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-17-003",
-      "title": "Deepen AskUserQuestion structured approvals and Kanban review modal",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-17-004",
-      "title": "Add session runtime backend skeleton for spawn/list/kill/steer/wait",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-18-001",
-      "title": "Wire Kanban tickets to runtime sessions for start/steer/kill transcript linkage",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-18-002",
-      "title": "Add Cron overview status filters, update metadata, and error summary banner",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-19-001",
-      "title": "Replace runtime stub with Gateway-backed session orchestration and capability snapshots",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-19-002",
-      "title": "Deepen Kanban runtime polling and state mapping for blocked/review/completed flows",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-19-003",
-      "title": "Add chat file-change preview grouped by tool turn for edit/write/multiedit",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-19-004",
-      "title": "Add costs Top Crons aggregate and dashboard card",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-20-001",
-      "title": "Persist runtime session records across app restart and restore wait/kill flows",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-20-002",
-      "title": "Deepen costs cron/job drill-down with job costs table and detail rows",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-21-001",
-      "title": "Bind Kanban runtime approvals to ticket detail panels",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-21-002",
-      "title": "Add channels capability and schema summary abstraction",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-22-001",
-      "title": "Add cron pipeline wizard and pipeline graph editing loop",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-22-002",
-      "title": "Wire cron failure alert and deliveryBestEffort policy fields through routes",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-23-001",
-      "title": "Deepen runtime tree orchestration and Kanban retry lineage",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-23-002",
-      "title": "Add costs analysis cards and realtime auto-refresh loop",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-23-003",
-      "title": "Deepen multi-agent memory browser with search and safe writes",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-23-004",
-      "title": "Add channel send/test rate limiting guardrails",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-24-001",
-      "title": "Add settings maintenance actions and standalone agent detail page",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-24-002",
-      "title": "Add memory copy/download helpers and reindex-after-save flow",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-24-003",
-      "title": "Add global brand logo/icon upload and chrome rendering",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-25-001",
-      "title": "i18n cleanup: Memory page (~45 strings) and Costs page (~50 strings) migrated to t() calls",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-25-002",
-      "title": "Add reportsTo/directReports persistence to agent config model and API",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-25-003",
-      "title": "Fix pre-existing TS error in Settings (missing EditableChipListProps type opening)",
-      "type": "bugfix",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-25-004",
-      "title": "Initialize i18n in test setup with changeLanguage('zh') to preserve test assertions",
+      "id": "SESSION-39-004",
+      "title": "Sync i18n keys and pass targeted team regression tests",
       "type": "test",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-26-001",
-      "title": "Deepen Settings shell/memory/migration i18n and localize TeamOverview/TeamMap shells",
-      "type": "feature",
+      "id": "SESSION-39-005",
+      "title": "Sync README and README.zh-CN for Team Control Plane MVP semantics",
+      "type": "docs",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-26-002",
-      "title": "Fix avatar persistence chain across agent snapshot, types, store, Settings, and AgentDetail",
-      "type": "bugfix",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-26-003",
-      "title": "Deepen Kanban runtime approval lineage binding and child-run detail visibility",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-26-004",
-      "title": "Add regression coverage for agent detail, settings shell, memory routes, Kanban lineage, TeamOverview, and TeamMap",
-      "type": "test",
+      "id": "SESSION-39-006",
+      "title": "Run final focused verification and close continuity files",
+      "type": "verification",
       "status": "done",
       "priority": "P0"
     },
     {
-      "id": "SESSION-27-001",
-      "title": "Add Feishu integration foundation: host routes, plugin status/install service, and Channels wizard entry",
-      "type": "feature",
+      "id": "TECHDEBT-2026-03-27-TASKKANBAN-TSC",
+      "title": "Resolve or explicitly track pre-existing TaskKanban typecheck errors",
+      "type": "techdebt",
       "status": "done",
       "priority": "P1"
-    },
-    {
-      "id": "SESSION-27-002",
-      "title": "Complete Feishu onboarding closed loop for create/link robot and in-app auth without terminal",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-28-001",
-      "title": "Integrate Feishu onboarding wizard flow in-app and migrate Channels UI strings to locale",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-28-002",
-      "title": "Add backend-owned agent cron relations with Cron deep-link drill-down",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-28-003",
-      "title": "Localize AskUserQuestion wizard shell to common locale keys",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-29-001",
-      "title": "Preserve structured runtime history and add Kanban child-run drill-down",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-29-002",
-      "title": "Stabilize Sidebar/Cron locale integration and targeted regression coverage",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-30-001",
-      "title": "Deepen Wave 5 update policy flow, add update channel control, and stabilize targeted Wave 5 verification",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-30-002",
-      "title": "Expand a11y/governance gates to Cron and document the new guardrails in README docs",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-30-003",
-      "title": "Add event-driven realtime usage streaming on the Costs page",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-30-004",
-      "title": "Render runtime execution path and capability snapshots in TaskKanban detail drill-down",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-31-001",
-      "title": "Enforce scoped channel-id disambiguation for multi-account send/test flows",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-31-002",
-      "title": "Link runtime execution records to child runtime drill-down targets in TaskKanban",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-32-001",
-      "title": "Guard scoped channel config/login routes against unknown account ids",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-32-002",
-      "title": "Expose QMD collection sources in Memory browser",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-33-001",
-      "title": "Deepen Costs model drill-down and finish platform-closure verification baseline",
-      "type": "feature",
-      "status": "done",
-      "priority": "P1"
-    },
-    {
-      "id": "SESSION-34-001",
-      "title": "Unify Feishu workbench conversation bindings and runtime-backed transcript loading",
-      "type": "bugfix",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-34-002",
-      "title": "Route Feishu workbench sends through runtime and refresh Channels from gateway notifications",
-      "type": "bugfix",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-35-001",
-      "title": "Stabilize Feishu workbench against per-chat runtime session keys and post-send refresh timing",
-      "type": "bugfix",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-36-001",
-      "title": "Finish current i18n closure sweep for Sidebar, TaskKanban, and Cron",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-37-001",
-      "title": "Deepen Kanban latest/selected runtime retry flow and add rooted runtime tree route",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
-    },
-    {
-      "id": "SESSION-38-001",
-      "title": "Complete Kanban subtree summary plus UX finishing for empty states and mobile chat",
-      "type": "feature",
-      "status": "done",
-      "priority": "P0"
     }
   ]
 }

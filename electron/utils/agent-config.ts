@@ -24,6 +24,9 @@ const AGENT_RUNTIME_FILES = [
   'models.json',
 ];
 
+type AgentTeamRole = 'leader' | 'worker';
+type AgentChatAccess = 'direct' | 'leader_only';
+
 interface AgentModelConfig {
   primary?: string;
   [key: string]: unknown;
@@ -44,6 +47,9 @@ interface AgentListEntry extends Record<string, unknown> {
   agentDir?: string;
   model?: string | AgentModelConfig;
   avatar?: string | null;
+  teamRole?: AgentTeamRole;
+  chatAccess?: AgentChatAccess;
+  responsibility?: string;
   reportsTo?: string | null;
 }
 
@@ -91,6 +97,9 @@ export interface AgentSummary {
   mainSessionKey: string;
   channelTypes: string[];
   avatar?: string | null;
+  teamRole: AgentTeamRole;
+  chatAccess: AgentChatAccess;
+  responsibility: string;
   reportsTo: string | null;
   directReports: string[];
 }
@@ -126,6 +135,20 @@ function normalizeAgentName(name: string): string {
 
 function normalizeAgentPersona(persona?: string): string {
   return typeof persona === 'string' ? persona.trim() : '';
+}
+
+function normalizeAgentResponsibility(responsibility?: string): string {
+  return typeof responsibility === 'string' ? responsibility.trim() : '';
+}
+
+function normalizeAgentTeamRole(role: unknown, isDefault: boolean): AgentTeamRole {
+  return role === 'leader' || role === 'worker'
+    ? role
+    : (isDefault ? 'leader' : 'worker');
+}
+
+function normalizeAgentChatAccess(access: unknown): AgentChatAccess {
+  return access === 'leader_only' ? 'leader_only' : 'direct';
 }
 
 function slugifyAgentId(name: string): string {
@@ -497,6 +520,9 @@ async function buildSnapshotFromConfig(config: AgentConfigDocument): Promise<Age
       mainSessionKey: buildAgentMainSessionKey(config, entry.id),
       channelTypes: configuredChannels.filter((ct) => ownedChannels.has(ct)),
       avatar: typeof entry.avatar === 'string' ? entry.avatar : null,
+      teamRole: normalizeAgentTeamRole(entry.teamRole, entry.id === defaultAgentId),
+      chatAccess: normalizeAgentChatAccess(entry.chatAccess),
+      responsibility: normalizeAgentResponsibility(entry.responsibility),
       reportsTo: entry.reportsTo ?? (entry.id !== defaultAgentId ? defaultAgentId : null),
       directReports: [],
     };
@@ -573,7 +599,16 @@ export async function createAgent(name: string, persona?: string): Promise<Agent
 
 export async function updateAgentProfile(
   agentId: string,
-  updates: { name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null },
+  updates: {
+    name?: string;
+    persona?: string;
+    model?: string;
+    avatar?: string | null;
+    reportsTo?: string | null;
+    teamRole?: AgentTeamRole;
+    chatAccess?: AgentChatAccess;
+    responsibility?: string;
+  },
 ): Promise<AgentsSnapshot> {
   return withConfigLock(async () => {
     const config = await readOpenClawConfig() as AgentConfigDocument;
@@ -619,6 +654,23 @@ export async function updateAgentProfile(
         updatedEntry.reportsTo = updates.reportsTo;
       } else {
         delete updatedEntry.reportsTo;
+      }
+    }
+
+    if (updates.teamRole !== undefined) {
+      updatedEntry.teamRole = normalizeAgentTeamRole(updates.teamRole, currentEntry.default === true);
+    }
+
+    if (updates.chatAccess !== undefined) {
+      updatedEntry.chatAccess = normalizeAgentChatAccess(updates.chatAccess);
+    }
+
+    if (updates.responsibility !== undefined) {
+      const normalizedResponsibility = normalizeAgentResponsibility(updates.responsibility);
+      if (normalizedResponsibility) {
+        updatedEntry.responsibility = normalizedResponsibility;
+      } else {
+        delete updatedEntry.responsibility;
       }
     }
 

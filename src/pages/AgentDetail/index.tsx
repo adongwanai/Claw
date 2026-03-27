@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAgentsStore } from '@/stores/agents';
 import { hostApiFetch } from '@/lib/host-api';
 import type { AgentCronRelation, CronJob } from '@/types/cron';
+import type { AgentChatAccess, AgentTeamRole } from '@/types/agent';
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -40,6 +41,66 @@ function formatTime(iso?: string): string {
   } catch {
     return iso;
   }
+}
+
+function TeamSelect({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1.5 text-[13px]">
+      <span className="font-medium text-[#111827]">{label}</span>
+      <select
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="rounded-xl border border-black/10 bg-white px-3 py-2 text-[13px] text-[#111827] outline-none focus:border-[#007aff]"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TeamTextarea({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label htmlFor={id} className="flex flex-col gap-1.5 text-[13px]">
+      <span className="font-medium text-[#111827]">{label}</span>
+      <textarea
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        className="rounded-xl border border-black/10 bg-white px-3 py-2 text-[13px] text-[#111827] outline-none focus:border-[#007aff]"
+      />
+    </label>
+  );
 }
 
 /* ─── Avatar Section ─── */
@@ -294,8 +355,13 @@ function CronSection({ agentId }: CronSectionProps) {
 export function AgentDetail() {
   const { t } = useTranslation('agents');
   const { agentId = '' } = useParams();
-  const { agents, fetchAgents, loading } = useAgentsStore();
+  const { agents, fetchAgents, loading, updateAgent } = useAgentsStore();
   const [localAvatar, setLocalAvatar] = useState<{ agentId: string; avatar: string | null } | null>(null);
+  const [teamRole, setTeamRole] = useState<AgentTeamRole>('worker');
+  const [chatAccess, setChatAccess] = useState<AgentChatAccess>('direct');
+  const [responsibility, setResponsibility] = useState('');
+  const [reportsToDraft, setReportsToDraft] = useState('');
+  const [savingTeamSettings, setSavingTeamSettings] = useState(false);
 
   useEffect(() => {
     void fetchAgents();
@@ -315,6 +381,14 @@ export function AgentDetail() {
   const hierarchySummary = agent?.isDefault
     ? t('detail.rootSummary', { defaultValue: 'This is the root KTClaw agent.' })
     : t('detail.reportsToSummary', { name: agent?.name ?? '', parent: reportsTo?.name ?? 'main', defaultValue: `${agent?.name ?? ''} reports to ${reportsTo?.name ?? 'main'}` });
+
+  useEffect(() => {
+    if (!agent) return;
+    setTeamRole((agent as AgentSummaryWithTeamSettings).teamRole ?? (agent.isDefault ? 'leader' : 'worker'));
+    setChatAccess((agent as AgentSummaryWithTeamSettings).chatAccess ?? 'direct');
+    setResponsibility((agent as AgentSummaryWithTeamSettings).responsibility ?? '');
+    setReportsToDraft(reportsToId ?? '');
+  }, [agent, reportsToId]);
 
   if (!loading && !agent) {
     return (
@@ -347,6 +421,24 @@ export function AgentDetail() {
   const avatarValue = localAvatar?.agentId === agent?.id
     ? localAvatar.avatar
     : (agent as AgentSummaryWithAvatar | null)?.avatar ?? null;
+  const teamConfigDirty = teamRole !== ((agent as AgentSummaryWithTeamSettings).teamRole ?? (agent.isDefault ? 'leader' : 'worker'))
+    || chatAccess !== ((agent as AgentSummaryWithTeamSettings).chatAccess ?? 'direct')
+    || responsibility !== ((agent as AgentSummaryWithTeamSettings).responsibility ?? '')
+    || reportsToDraft !== (reportsToId ?? '');
+
+  const saveTeamSettings = async () => {
+    setSavingTeamSettings(true);
+    try {
+      await updateAgent(agent.id, {
+        teamRole,
+        chatAccess,
+        responsibility,
+        reportsTo: reportsToDraft || null,
+      });
+    } finally {
+      setSavingTeamSettings(false);
+    }
+  };
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-6 px-8 py-10">
@@ -393,6 +485,78 @@ export function AgentDetail() {
             avatar={avatarValue}
             onAvatarChange={(avatar) => setLocalAvatar({ agentId: agent.id, avatar })}
           />
+
+          <div className="rounded-3xl border border-black/[0.06] bg-white p-6">
+            <h2 className="text-[18px] font-semibold text-[#111827]">
+              {t('detail.teamSettings', { defaultValue: 'Team settings' })}
+            </h2>
+            <p className="mt-3 text-[14px] text-[#4b5563]">
+              {t('detail.teamSettingsDescription', { defaultValue: 'Define whether this agent leads the team, can be directly contacted, and what work it is responsible for.' })}
+            </p>
+            <div className="mt-4 grid gap-4">
+              <TeamSelect
+                id="team-role"
+                label={t('detail.teamRole', { defaultValue: 'Team role' })}
+                value={teamRole}
+                onChange={(value) => setTeamRole(value as AgentTeamRole)}
+                options={[
+                  { value: 'leader', label: t('detail.teamRoleLeader', { defaultValue: 'leader' }) },
+                  { value: 'worker', label: t('detail.teamRoleWorker', { defaultValue: 'worker' }) },
+                ]}
+              />
+              <p className="text-[12px] text-[#6b7280]">
+                {teamRole === 'leader'
+                  ? t('detail.teamRoleLeaderHint', { defaultValue: 'Leaders act as the main user-facing coordinator for a team.' })
+                  : t('detail.teamRoleWorkerHint', { defaultValue: 'Workers focus on execution and can be routed through a leader.' })}
+              </p>
+              <TeamSelect
+                id="chat-access"
+                label={t('detail.chatAccess', { defaultValue: 'Chat access' })}
+                value={chatAccess}
+                onChange={(value) => setChatAccess(value as AgentChatAccess)}
+                options={[
+                  { value: 'direct', label: t('detail.chatAccessDirect', { defaultValue: 'direct' }) },
+                  { value: 'leader_only', label: t('detail.chatAccessLeaderOnly', { defaultValue: 'leader_only' }) },
+                ]}
+              />
+              <p className="text-[12px] text-[#6b7280]">
+                {chatAccess === 'direct'
+                  ? t('detail.chatAccessDirectHint', { defaultValue: 'Users can open a conversation with this agent directly.' })
+                  : t('detail.chatAccessLeaderOnlyHint', { defaultValue: 'This agent should mainly be contacted through a leader rather than directly.' })}
+              </p>
+              <TeamTextarea
+                id="responsibility"
+                label={t('detail.responsibility', { defaultValue: 'Responsibility' })}
+                value={responsibility}
+                onChange={setResponsibility}
+                placeholder={t('detail.responsibilityPlaceholder', { defaultValue: 'Describe this member’s primary responsibility' })}
+              />
+              <TeamSelect
+                id="reports-to"
+                label={t('detail.reportsTo', { defaultValue: 'Reports to' })}
+                value={reportsToDraft}
+                onChange={setReportsToDraft}
+                options={[
+                  { value: '', label: t('detail.none', { defaultValue: 'none' }) },
+                  ...agents
+                    .filter((entry) => entry.id !== agent.id)
+                    .map((entry) => ({ value: entry.id, label: entry.id })),
+                ]}
+              />
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void saveTeamSettings()}
+                disabled={!teamConfigDirty || savingTeamSettings}
+                className="rounded-xl bg-[#007aff] px-4 py-2 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingTeamSettings
+                  ? t('detail.savingTeamSettings', { defaultValue: 'Saving...' })
+                  : t('detail.saveTeamSettings', { defaultValue: 'Save team settings' })}
+              </button>
+            </div>
+          </div>
 
           <div className="rounded-3xl border border-black/[0.06] bg-white p-6">
             <h2 className="text-[18px] font-semibold text-[#111827]">
@@ -451,6 +615,12 @@ interface AgentSummaryWithAvatar {
 interface AgentSummaryWithHierarchy {
   reportsTo?: string | null;
   directReports?: string[];
+}
+
+interface AgentSummaryWithTeamSettings {
+  teamRole?: AgentTeamRole;
+  chatAccess?: AgentChatAccess;
+  responsibility?: string;
 }
 
 export default AgentDetail;

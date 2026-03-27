@@ -212,7 +212,16 @@ export async function handleAgentRoutes(
 
     if (parts.length === 1) {
       try {
-        const body = await parseJsonBody<{ name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null }>(req);
+        const body = await parseJsonBody<{
+          name?: string;
+          persona?: string;
+          model?: string;
+          avatar?: string | null;
+          reportsTo?: string | null;
+          teamRole?: 'leader' | 'worker';
+          chatAccess?: 'direct' | 'leader_only';
+          responsibility?: string;
+        }>(req);
         const agentId = decodeURIComponent(parts[0]);
         const snapshot = await updateAgentProfile(agentId, {
           ...(body.name !== undefined ? { name: body.name } : {}),
@@ -220,6 +229,9 @@ export async function handleAgentRoutes(
           ...(body.model !== undefined ? { model: body.model } : {}),
           ...(body.avatar !== undefined ? { avatar: body.avatar } : {}),
           ...(body.reportsTo !== undefined ? { reportsTo: body.reportsTo } : {}),
+          ...(body.teamRole !== undefined ? { teamRole: body.teamRole } : {}),
+          ...(body.chatAccess !== undefined ? { chatAccess: body.chatAccess } : {}),
+          ...(body.responsibility !== undefined ? { responsibility: body.responsibility } : {}),
         });
         scheduleGatewayReload(ctx, 'update-agent');
         sendJson(res, 200, { success: true, ...snapshot });

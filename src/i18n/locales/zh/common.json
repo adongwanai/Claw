@@ -408,10 +408,27 @@
             "model": "模型",
             "inherited": "(继承)",
             "lastActive": "最近活跃",
+            "activity": "活跃状态",
+            "role": "角色",
+            "access": "访问方式",
+            "responsibility": "职责",
             "channels": "频道",
             "notConfigured": "未配置",
+            "notSet": "未设置",
             "confirmDelete": "确认删除？",
             "dismiss": "解雇"
+        },
+        "activity": {
+            "active": "活跃",
+            "idle": "待命"
+        },
+        "role": {
+            "leader": "leader",
+            "worker": "worker"
+        },
+        "access": {
+            "direct": "direct",
+            "leader_only": "leader_only"
         },
         "time": {
             "never": "从未",
@@ -442,6 +459,14 @@
             "teams": "团队视图",
             "hierarchy": "层级图"
         },
+        "role": {
+            "leader": "leader",
+            "worker": "worker"
+        },
+        "access": {
+            "direct": "direct",
+            "leader_only": "leader_only"
+        },
         "allGroup": "全部",
         "drawer": {
             "title": "Agent 详情",
@@ -449,6 +474,9 @@
             "model": "模型",
             "workspace": "工作区",
             "sessionKey": "会话 Key",
+            "role": "角色",
+            "access": "访问方式",
+            "responsibility": "职责",
             "channels": "频道"
         }
     }

@@ -76,6 +76,9 @@ describe('TeamOverview page', () => {
       agentDir: '~/agents/main',
       mainSessionKey: 'agent:main:main',
       channelTypes: ['feishu'],
+      teamRole: 'leader',
+      chatAccess: 'leader_only',
+      responsibility: 'Coordinate team execution',
     };
 
     agentsStoreState.agents = [agent];
@@ -96,6 +99,14 @@ describe('TeamOverview page', () => {
     expect(screen.getByText('teamOverview.card.channels')).toBeInTheDocument();
     expect(screen.getByTitle('feishu')).toBeInTheDocument();
     expect(screen.getByText('teamOverview.card.inherited')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.card.role')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.role.leader')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.card.access')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.access.leader_only')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.card.responsibility')).toBeInTheDocument();
+    expect(screen.getByText('Coordinate team execution')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.card.activity')).toBeInTheDocument();
+    expect(screen.getByText('teamOverview.activity.active')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'teamOverview.hireButton' }));
     expect(screen.getByText('teamOverview.createModal.title')).toBeInTheDocument();

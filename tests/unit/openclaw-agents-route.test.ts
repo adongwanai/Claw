@@ -10,6 +10,7 @@ const {
   mockWriteOpenClawConfig,
   mockExec,
   mockListAgentsSnapshot,
+  mockUpdateAgentProfile,
 } = vi.hoisted(() => ({
   mockDeleteAgentConfig: vi.fn(),
   mockFinalizeAgentDeletion: vi.fn(),
@@ -19,7 +20,16 @@ const {
   mockWriteOpenClawConfig: vi.fn(),
   mockExec: vi.fn(),
   mockListAgentsSnapshot: vi.fn(),
+  mockUpdateAgentProfile: vi.fn(),
 }));
+
+vi.mock('@electron/api/route-utils', async () => {
+  const actual = await vi.importActual<typeof import('@electron/api/route-utils')>('@electron/api/route-utils');
+  return {
+    ...actual,
+    parseJsonBody: vi.fn(async (req: IncomingMessage & { __body?: unknown }) => req.__body ?? {}),
+  };
+});
 
 vi.mock('@electron/utils/agent-config', () => ({
   assignChannelToAgent: vi.fn(),
@@ -30,6 +40,7 @@ vi.mock('@electron/utils/agent-config', () => ({
   listAgentsSnapshot: mockListAgentsSnapshot,
   removeAgentWorkspaceDirectory: mockRemoveAgentWorkspaceDirectory,
   resolveAccountIdForAgent: vi.fn(() => 'default'),
+  updateAgentProfile: mockUpdateAgentProfile,
   updateAgentName: vi.fn(),
 }));
 
@@ -73,6 +84,13 @@ function parseBody(res: MockResponse): Record<string, unknown> {
   return JSON.parse(res.__body || '{}') as Record<string, unknown>;
 }
 
+function createRequest(method: string, body?: unknown): IncomingMessage & { __body?: unknown } {
+  return {
+    method,
+    __body: body,
+  } as IncomingMessage & { __body?: unknown };
+}
+
 describe('agents route deletion restart safety', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -103,6 +121,20 @@ describe('agents route deletion restart safety', () => {
         { id: 'main', name: 'Main', channelTypes: ['feishu'] },
         { id: 'researcher', name: 'Researcher', channelTypes: ['telegram', 'discord'] },
       ],
+      channelOwners: {},
+    });
+    mockUpdateAgentProfile.mockResolvedValue({
+      agents: [
+        {
+          id: 'researcher',
+          name: 'Researcher',
+          teamRole: 'worker',
+          chatAccess: 'leader_only',
+          responsibility: 'Research and evidence synthesis',
+        },
+      ],
+      defaultAgentId: 'main',
+      configuredChannelTypes: [],
       channelOwners: {},
     });
     mockReadOpenClawConfig.mockResolvedValue({
@@ -240,6 +272,43 @@ describe('agents route deletion restart safety', () => {
           name: 'Status Report',
           sessionTarget: 'researcher',
         }),
+      }),
+    ]);
+  });
+
+  it('forwards team metadata through the update route', async () => {
+    const { handleAgentRoutes } = await import('@electron/api/routes/agents');
+
+    const req = createRequest('PUT', {
+      teamRole: 'worker',
+      chatAccess: 'leader_only',
+      responsibility: 'Research and evidence synthesis',
+    });
+    const res = createMockResponse();
+    const url = new URL('http://localhost/api/agents/researcher');
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', pid: 24561, port: 18789 }),
+        debouncedReload: vi.fn(),
+      },
+    } as unknown;
+
+    await handleAgentRoutes(req, res, url, ctx as never);
+
+    expect(mockUpdateAgentProfile).toHaveBeenCalledWith('researcher', {
+      teamRole: 'worker',
+      chatAccess: 'leader_only',
+      responsibility: 'Research and evidence synthesis',
+    });
+
+    const body = parseBody(res);
+    expect(res.statusCode).toBe(200);
+    expect(body.agents).toEqual([
+      expect.objectContaining({
+        id: 'researcher',
+        teamRole: 'worker',
+        chatAccess: 'leader_only',
+        responsibility: 'Research and evidence synthesis',
       }),
     ]);
   });

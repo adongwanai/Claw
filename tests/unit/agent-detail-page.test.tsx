@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AgentDetail } from '@/pages/AgentDetail';
 
@@ -34,12 +34,16 @@ const { agentsStoreState, hostApiFetchMock } = vi.hoisted(() => ({
       agentDir: string;
       mainSessionKey: string;
       channelTypes: string[];
+      teamRole?: 'leader' | 'worker';
+      chatAccess?: 'direct' | 'leader_only';
+      responsibility?: string;
       reportsTo?: string | null;
       directReports?: string[];
     }>,
     loading: false,
     error: null as string | null,
     fetchAgents: vi.fn(async () => undefined),
+    updateAgent: vi.fn(async () => undefined),
   },
   hostApiFetchMock: vi.fn(),
 }));
@@ -97,6 +101,9 @@ describe('AgentDetail page', () => {
         agentDir: '~/.openclaw/agents/main',
         mainSessionKey: 'agent:main:main',
         channelTypes: ['feishu'],
+        teamRole: 'leader',
+        chatAccess: 'direct',
+        responsibility: 'Coordinate the team',
         reportsTo: null,
         directReports: ['researcher'],
       },
@@ -112,6 +119,9 @@ describe('AgentDetail page', () => {
         agentDir: '~/.openclaw/agents/researcher',
         mainSessionKey: 'agent:researcher:main',
         channelTypes: ['telegram', 'discord'],
+        teamRole: 'worker',
+        chatAccess: 'leader_only',
+        responsibility: 'Research and evidence synthesis',
         reportsTo: 'main',
         directReports: [],
       },
@@ -135,10 +145,13 @@ describe('AgentDetail page', () => {
     expect(screen.getByText('Finds supporting evidence')).toBeInTheDocument();
     expect(screen.getByText('researcher')).toBeInTheDocument();
     expect(screen.getByText('Claude Sonnet 4')).toBeInTheDocument();
-    expect(screen.getByText('main')).toBeInTheDocument();
+    expect(screen.getAllByText('main').length).toBeGreaterThan(0);
     expect(screen.getByText('Researcher reports to Main')).toBeInTheDocument();
     expect(screen.getByText('telegram')).toBeInTheDocument();
     expect(screen.getByText('discord')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('worker')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('leader_only')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Research and evidence synthesis')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(hostApiFetchMock).toHaveBeenCalledWith('/api/agents/researcher/cron-relations');
@@ -163,5 +176,34 @@ describe('AgentDetail page', () => {
 
     expect(screen.getByRole('heading', { name: 'Agent not found' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to agents' })).toHaveAttribute('href', '/agents');
+  });
+
+  it('saves editable team configuration through the agents store', async () => {
+    render(
+      <MemoryRouter initialEntries={['/agents/researcher']}>
+        <Routes>
+          <Route path="/agents/:agentId" element={<AgentDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
+    });
+
+    fireEvent.change(screen.getByLabelText('Team role'), { target: { value: 'leader' } });
+    fireEvent.change(screen.getByLabelText('Chat access'), { target: { value: 'direct' } });
+    fireEvent.change(screen.getByLabelText('Responsibility'), { target: { value: 'Lead investigations' } });
+    fireEvent.change(screen.getByLabelText('Reports to'), { target: { value: 'main' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save team settings' }));
+
+    await waitFor(() => {
+      expect(agentsStoreState.updateAgent).toHaveBeenCalledWith('researcher', {
+        teamRole: 'leader',
+        chatAccess: 'direct',
+        responsibility: 'Lead investigations',
+        reportsTo: 'main',
+      });
+    });
   });
 });

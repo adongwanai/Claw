@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { hostApiFetch } from '@/lib/host-api';
 import type { ChannelType } from '@/types/channel';
-import type { AgentSummary, AgentsSnapshot } from '@/types/agent';
+import type { AgentChatAccess, AgentSummary, AgentsSnapshot, AgentTeamRole } from '@/types/agent';
 
 interface AgentsState {
   agents: AgentSummary[];
@@ -14,7 +14,16 @@ interface AgentsState {
   createAgent: (name: string, persona?: string) => Promise<void>;
   updateAgent: (
     agentId: string,
-    updates: { name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null },
+    updates: {
+      name?: string;
+      persona?: string;
+      model?: string;
+      avatar?: string | null;
+      reportsTo?: string | null;
+      teamRole?: AgentTeamRole;
+      chatAccess?: AgentChatAccess;
+      responsibility?: string;
+    },
   ) => Promise<void>;
   deleteAgent: (agentId: string) => Promise<void>;
   assignChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
@@ -68,7 +77,16 @@ export const useAgentsStore = create<AgentsState>((set) => ({
 
   updateAgent: async (
     agentId: string,
-    updates: { name?: string; persona?: string; model?: string; avatar?: string | null; reportsTo?: string | null },
+    updates: {
+      name?: string;
+      persona?: string;
+      model?: string;
+      avatar?: string | null;
+      reportsTo?: string | null;
+      teamRole?: AgentTeamRole;
+      chatAccess?: AgentChatAccess;
+      responsibility?: string;
+    },
   ) => {
     set({ error: null });
     try {

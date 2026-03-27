@@ -47,6 +47,9 @@ describe('TeamMap page', () => {
         agentDir: '~/agents/main',
         mainSessionKey: 'agent:main:main',
         channelTypes: ['feishu'],
+        teamRole: 'leader',
+        chatAccess: 'direct',
+        responsibility: 'Coordinate team operations',
       },
       {
         id: 'researcher',
@@ -60,6 +63,9 @@ describe('TeamMap page', () => {
         agentDir: '~/agents/researcher',
         mainSessionKey: 'agent:researcher:main',
         channelTypes: ['telegram'],
+        teamRole: 'worker',
+        chatAccess: 'leader_only',
+        responsibility: 'Finds information',
       },
     ];
     chatStoreState.sessionLastActivity = {
@@ -82,6 +88,12 @@ describe('TeamMap page', () => {
     fireEvent.click(screen.getByText('Researcher'));
     expect(screen.getByText('teamMap.drawer.title')).toBeInTheDocument();
     expect(screen.getByText('teamMap.drawer.model')).toBeInTheDocument();
+    expect(screen.getByText('teamMap.drawer.role')).toBeInTheDocument();
+    expect(screen.getAllByText('teamMap.role.worker').length).toBeGreaterThan(0);
+    expect(screen.getByText('teamMap.drawer.access')).toBeInTheDocument();
+    expect(screen.getAllByText('teamMap.access.leader_only').length).toBeGreaterThan(0);
+    expect(screen.getByText('teamMap.drawer.responsibility')).toBeInTheDocument();
+    expect(screen.getByText('Finds information')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'teamMap.tabs.teams' }));
     expect(screen.getByText('teamMap.allGroup')).toBeInTheDocument();
