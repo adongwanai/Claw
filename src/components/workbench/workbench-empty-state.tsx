@@ -59,10 +59,18 @@ export function WorkbenchEmptyState(_props: WorkbenchEmptyStateProps) {
   return (
     <div className="flex min-h-full flex-col items-center justify-center px-8 pb-8 pt-12 text-center">
       <div
-        className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-[26px] text-white"
-        style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
+        data-testid="workbench-empty-illustration"
+        className="relative mb-6 flex h-[92px] w-[160px] items-center justify-center"
       >
-        ✦
+        <div className="absolute left-3 top-6 h-10 w-10 rounded-2xl bg-[#dbeafe]" />
+        <div className="absolute right-4 top-3 h-12 w-12 rounded-[18px] bg-[#dcfce7]" />
+        <div className="absolute bottom-3 left-10 h-8 w-8 rounded-full bg-[#fde68a]" />
+        <div
+          className="relative flex h-14 w-14 items-center justify-center rounded-2xl text-[26px] text-white"
+          style={{ background: 'linear-gradient(135deg, #10b981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)' }}
+        >
+          ✦
+        </div>
       </div>
 
       <h2 className="mb-4 text-[26px] font-medium text-foreground">有什么我可以帮你的？</h2>
@@ -123,7 +131,7 @@ export function WorkbenchEmptyState(_props: WorkbenchEmptyStateProps) {
       </div>
 
       {/* Suggestion Cards */}
-      <div className="grid w-full max-w-[640px] grid-cols-2 gap-4 text-left">
+      <div className="grid w-full max-w-[640px] grid-cols-1 gap-4 text-left sm:grid-cols-2">
         {suggestions.map((suggestion) => (
           <button
             key={suggestion.title}

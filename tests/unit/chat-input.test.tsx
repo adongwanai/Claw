@@ -161,6 +161,14 @@ describe('ChatInput agent targeting', () => {
     expect(screen.getByTestId('chat-composer-model-pill')).toHaveTextContent('MiniMax');
   });
 
+  it('adds responsive layout classes for narrow-width chat composition', () => {
+    render(<ChatInput onSend={vi.fn()} />);
+
+    expect(screen.getByTestId('chat-input-frame')).toHaveClass('px-3', 'sm:px-8');
+    expect(screen.getByTestId('chat-composer-toolbar')).toHaveClass('flex-wrap', 'sm:flex-nowrap');
+    expect(screen.getByTestId('chat-composer-footer')).toHaveClass('px-2', 'sm:px-0');
+  });
+
   it('applies distinct framing classes for empty vs active chat layouts', () => {
     const { rerender } = render(<ChatInput onSend={vi.fn()} isEmpty />);
     const frame = screen.getByTestId('chat-input-frame');

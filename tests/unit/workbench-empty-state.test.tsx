@@ -20,6 +20,7 @@ describe('WorkbenchEmptyState', () => {
     const { container } = render(<WorkbenchEmptyState />);
 
     expect(screen.getByRole('heading')).toBeInTheDocument();
+    expect(screen.getByTestId('workbench-empty-illustration')).toBeInTheDocument();
 
     const quickActionBar = screen.getByRole('toolbar', { name: /quick action bar/i });
     expect(quickActionBar).toBeInTheDocument();

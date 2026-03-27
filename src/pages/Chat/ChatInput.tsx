@@ -637,7 +637,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
   return (
     <div
       data-testid="chat-input-frame"
-      className={cn('chat-input-frame flex w-full justify-center px-8 pb-8', isEmpty ? 'chat-input-layout-empty' : 'chat-input-layout-active')}
+      className={cn('chat-input-frame flex w-full justify-center px-3 pb-4 sm:px-8 sm:pb-8', isEmpty ? 'chat-input-layout-empty' : 'chat-input-layout-active')}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -728,7 +728,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
             </div>
           )}
 
-          <div data-testid="chat-composer-toolbar" className="chat-composer-toolbar relative flex items-end gap-2.5 py-2.5 pl-[18px] pr-[14px]">
+          <div data-testid="chat-composer-toolbar" className="chat-composer-toolbar relative flex flex-wrap items-end gap-2.5 py-2.5 pl-[14px] pr-[12px] sm:flex-nowrap sm:pl-[18px] sm:pr-[14px]">
             {/* Attach Button */}
             <Button
               variant="ghost"
@@ -881,7 +881,7 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
 
         <div
           data-testid="chat-composer-footer"
-          className="chat-composer-footer mt-2 text-center text-[11px] text-[#8e8e93]"
+          className="chat-composer-footer mt-2 px-2 text-center text-[11px] text-[#8e8e93] sm:px-0"
         >
           <span>Agent 在本地安全运行 · 由 AI 模型生成内容</span>
         </div>

@@ -723,6 +723,93 @@ describe('TaskKanban', () => {
     expect(screen.getByText(/child run 1 complete/)).toBeInTheDocument();
   });
 
+  it('switches the child list to the selected runtime subtree using the rooted tree snapshot', async () => {
+    localStorage.setItem('clawport-kanban', JSON.stringify([
+      {
+        id: 'ticket-runtime-subtree',
+        title: 'Review runtime subtree',
+        description: 'Inspect nested child runs',
+        status: 'review',
+        priority: 'medium',
+        assigneeId: 'planner-1',
+        workState: 'done',
+        runtimeSessionId: 'runtime-parent',
+        runtimeSessionKey: 'agent:planner-1:main:subagent:runtime-parent',
+        runtimeChildSessionIds: ['runtime-child-1'],
+        runtimeTranscript: ['parent transcript'],
+        createdAt: '2026-03-25T00:00:00.000Z',
+        updatedAt: '2026-03-25T00:00:00.000Z',
+      },
+    ]));
+
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/sessions/subagents/runtime-parent/tree') {
+        return {
+          success: true,
+          tree: {
+            root: {
+              id: 'runtime-parent',
+              sessionKey: 'agent:planner-1:main:subagent:runtime-parent',
+              status: 'completed',
+              transcript: ['parent transcript'],
+              childRuntimeIds: ['runtime-child-1'],
+            },
+            descendants: [
+              {
+                id: 'runtime-child-1',
+                parentRuntimeId: 'runtime-parent',
+                sessionKey: 'agent:planner-1:main:subagent:runtime-parent:subagent:runtime-child-1',
+                status: 'completed',
+                transcript: ['child transcript'],
+                childRuntimeIds: ['runtime-grandchild-1'],
+              },
+              {
+                id: 'runtime-grandchild-1',
+                parentRuntimeId: 'runtime-child-1',
+                sessionKey: 'agent:planner-1:main:subagent:runtime-parent:subagent:runtime-child-1:subagent:runtime-grandchild-1',
+                status: 'waiting_approval',
+                transcript: ['grandchild transcript'],
+              },
+            ],
+          },
+        };
+      }
+      if (path === '/api/sessions/subagents/runtime-child-1') {
+        return {
+          success: true,
+          session: {
+            id: 'runtime-child-1',
+            parentRuntimeId: 'runtime-parent',
+            sessionKey: 'agent:planner-1:main:subagent:runtime-parent:subagent:runtime-child-1',
+            status: 'completed',
+            transcript: ['child transcript'],
+            childRuntimeIds: ['runtime-grandchild-1'],
+          },
+        };
+      }
+      throw new Error(`Unexpected path: ${path}`);
+    });
+
+    render(<TaskKanban />);
+    fireEvent.click(screen.getByText('Review runtime subtree'));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/sessions/subagents/runtime-parent/tree');
+    });
+    expect(await screen.findByRole('button', { name: /runtime-child-1/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /runtime-child-1/i }));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/sessions/subagents/runtime-child-1');
+    });
+    expect(screen.getByText(/(Latest run|最新运行)/)).toBeInTheDocument();
+    expect(screen.getByText(/(Active subtree|活跃子树)/)).toBeInTheDocument();
+    expect(screen.getByText(/waiting_approval/i)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /runtime-grandchild-1/i })).toBeInTheDocument();
+    expect(screen.getByText(/grandchild transcript/)).toBeInTheDocument();
+  });
+
   it('renders structured runtime history with thinking and tool cards', async () => {
     localStorage.setItem('clawport-kanban', JSON.stringify([
       {

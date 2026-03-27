@@ -2633,3 +2633,42 @@ Focus: PLAN-2026-03-24-PLATFORM-CLOSURE
 ### Remaining
 - Kanban still needs stronger latest/current/parent subtree summary UI, not just the retry fix
 - Runtime/tool registry still needs richer tree/registry visibility on the frontend, beyond the new tree route
+
+---
+
+[2026-03-27 10:33 +08:00] Session 38: Kanban / Runtime / UX Final Closure
+Focus: PLAN-2026-03-24-PLATFORM-CLOSURE
+
+### Completed
+1. `src/pages/TaskKanban/index.tsx`
+   - detail panel now derives child navigation from rooted runtime tree data when available
+   - selected child run can expose its own subtree instead of keeping the child list pinned to the ticket root
+   - runtime summary now shows latest/current/selected run context together with active subtree state
+
+2. `electron/services/session-runtime-manager.ts` + `electron/api/routes/sessions.ts`
+   - rooted runtime tree capability is now fully wired through manager + route and consumed by the Kanban detail panel
+
+3. `src/components/workbench/workbench-empty-state.tsx`
+   - added an illustration layer so the empty workbench feels intentional rather than placeholder-only
+   - suggestion card grid now adapts from 1 column to 2 columns responsively
+
+4. `src/pages/Chat/ChatInput.tsx`
+   - composer shell now uses narrow-width responsive spacing and wrapping
+   - footer spacing and toolbar wrapping behave correctly on smaller widths
+
+5. regression coverage
+   - `tests/unit/task-kanban.test.tsx`
+   - `tests/unit/session-runtime-manager.test.ts`
+   - `tests/unit/session-routes-runtime.test.ts`
+   - `tests/unit/workbench-empty-state.test.tsx`
+   - `tests/unit/chat-input.test.tsx`
+
+### Verification
+- `pnpm test -- --run tests/unit/task-kanban.test.tsx tests/unit/session-runtime-manager.test.ts tests/unit/session-routes-runtime.test.ts tests/unit/workbench-empty-state.test.tsx tests/unit/chat-input.test.tsx` -> pass
+- `pnpm run typecheck` -> pass
+- `pnpm run lint` -> pass
+- `pnpm run build:vite` -> pass
+
+### Notes
+- `Prompt.md` remaining items for `5. Kanban 深化`, `9. Multi-agent runtime / tool registry`, and `15. 通用 UX 收尾` are now closed
+- `Docs / Help` remains intentionally disabled per explicit standing requirement

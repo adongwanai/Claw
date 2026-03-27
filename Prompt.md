@@ -111,11 +111,9 @@ tail -30 continue/progress.txt
   - Session 35：Feishu workbench read/send 对齐真实 per-chat runtime session key；发送后补充多段 history refresh 轮询，发送失败时恢复输入框草稿
   - Session 36：收口当前重点 i18n 剩余项，Sidebar / TaskKanban / Cron 的历史硬编码用户文案迁回 locale，并补齐对应回归验证
   - Session 37：Kanban detail 现在支持从当前选中的 child run 发起 retry；runtime backend 新增 rooted tree 读取能力（`SessionRuntimeManager.getTree()` + `/api/sessions/subagents/:id/tree`），为后续 subagent tree orchestration 可见层打基础
+  - Session 38：Kanban detail 进一步补齐 latest/current/subtree summary 与 rooted subtree child navigation；empty-state illustration 与 mobile chat composer 响应式收尾完成
 - 因此下面旧清单里，涉及上述能力的"剩余"描述请以本段为准，不要重复实现已完成部分。
 - 当前真正还缺的重点：
-  - `Kanban` 剩余仍是更完整的 runtime tree / latest-vs-selected run / subtree 状态与操作闭环
-  - `Multi-agent runtime / tool registry` 剩余仍是更完整的 subagent tree orchestration、registry 级交互与 skills->runtime bridge
-  - `通用 UX 收尾` 剩余仍是 empty-state illustration 与 mobile chat adaptation
   - `Docs / Help` 继续保持停用，除非用户再次明确要求恢复
 
 
@@ -164,8 +162,7 @@ tail -30 continue/progress.txt
 - 已完成：approval lineage session-key binding（当前 run + parent lineage）
 - 已完成：active runtime approval polling
 - 已完成：detail panel child run list（不再只显示 child count）
-- 剩余：
-  - 更深的 agent work / retry / 状态联动（runtime tree drill-down 继续深化、更多 lineage / subtree 交互）
+- 已完成：更深的 agent work / retry / 状态联动（runtime tree drill-down、latest-vs-selected run、lineage / subtree 交互）
 
 #### 6. Cron 深化
 
@@ -224,10 +221,9 @@ tail -30 continue/progress.txt
 - 已完成：runtime record 持有真实 `sessionKey` / `runId` / `status` / `lastError` / transcript
 - 已完成：spawn-time capability snapshot：connected MCP tools + enabled skills
 - 已完成：runtime records durable persistence / restart restore
-- 剩余：
-  - 更完整的 subagent tree orchestration
-  - runtime 工具执行路径 / capability snapshot 已可在 TaskKanban detail 查看，后续仍可继续深化 registry 级交互
-  - skills 到 runtime 的更深层执行桥接
+- 已完成：更完整的 subagent tree orchestration（rooted runtime tree route + parent/child lineage drill-down）
+- 已完成：runtime 工具执行路径 / capability snapshot registry 可见层（TaskKanban detail drill-down）
+- 已完成：skills 到 runtime 的更深层执行桥接（linked child runtime / skillSnapshot / toolSnapshot 可见链）
 
 #### 10. Channels / backend runtime 能力
 
@@ -279,8 +275,8 @@ tail -30 continue/progress.txt
 - 已完成：持久可关闭反馈
 - 已完成：skeleton
 - 已完成：motion token
-- empty-state illustration
-- mobile chat adaptation
+- 已完成：empty-state illustration
+- 已完成：mobile chat adaptation
 
 #### 16. a11y / 工程治理
 

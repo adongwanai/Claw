@@ -2,7 +2,7 @@
  * Task Kanban Page / Frame 05
  * 任务看板 / 自动化工作流：拖拽式任务管理
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
 import { useAgentsStore } from '@/stores/agents';
@@ -482,6 +482,17 @@ function buildRuntimeHistoryFromTranscript(transcript?: string[]): RawMessage[] 
       role: 'assistant',
       content: entry,
     }));
+}
+
+function normalizeRuntimeStatusToWorkState(status: string | undefined): WorkState {
+  const normalized = (status ?? '').trim().toLowerCase();
+  if (normalized === 'waiting_approval') return 'waiting_approval';
+  if (normalized === 'blocked') return 'blocked';
+  if (normalized === 'running' || normalized === 'working' || normalized === 'starting') return 'working';
+  if (normalized === 'scheduled') return 'scheduled';
+  if (normalized === 'completed' || normalized === 'done') return 'done';
+  if (normalized === 'error' || normalized === 'failed' || normalized === 'killed' || normalized === 'stopped') return 'failed';
+  return 'idle';
 }
 
 function getTicketRuntimeSessionKeys(ticket: KanbanTicket): Set<string> {
@@ -1215,6 +1226,7 @@ function DetailPanel({
   const [runtimeChildren, setRuntimeChildren] = useState<RuntimeSessionResponse[]>([]);
   const [runtimeChildrenLoading, setRuntimeChildrenLoading] = useState(false);
   const [runtimeChildrenError, setRuntimeChildrenError] = useState<string | null>(null);
+  const [runtimeTreeDescendants, setRuntimeTreeDescendants] = useState<RuntimeSessionResponse[]>([]);
   const [selectedRuntimeSessionId, setSelectedRuntimeSessionId] = useState<string | null>(ticket.runtimeSessionId ?? null);
   const [selectedRuntimeSession, setSelectedRuntimeSession] = useState<RuntimeSessionResponse | null>(null);
   const [selectedRuntimeLoading, setSelectedRuntimeLoading] = useState(false);
@@ -1246,6 +1258,7 @@ function DetailPanel({
   useEffect(() => {
     if (!ticket.runtimeSessionId || !ticket.runtimeChildSessionIds || ticket.runtimeChildSessionIds.length === 0) {
       setRuntimeChildren([]);
+      setRuntimeTreeDescendants([]);
       setRuntimeChildrenError(null);
       return;
     }
@@ -1255,18 +1268,35 @@ function DetailPanel({
       setRuntimeChildrenLoading(true);
       setRuntimeChildrenError(null);
       try {
-        const response = await hostApiFetch<{ success?: boolean; sessions?: RuntimeSessionResponse[] }>('/api/sessions/subagents');
+        const treeResponse = await hostApiFetch<{
+          success?: boolean;
+          tree?: { root?: RuntimeSessionResponse; descendants?: RuntimeSessionResponse[] };
+        }>(`/api/sessions/subagents/${encodeURIComponent(ticket.runtimeSessionId)}/tree`);
         if (cancelled) return;
+        const descendants = Array.isArray(treeResponse?.tree?.descendants) ? treeResponse.tree.descendants : [];
+        setRuntimeTreeDescendants(descendants);
         const childIds = new Set(ticket.runtimeChildSessionIds);
-        const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
-        const matchingChildren = sessions
+        const matchingChildren = descendants
           .filter((session) => childIds.has(session.id))
           .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
         setRuntimeChildren(matchingChildren);
       } catch (error) {
-        if (!cancelled) {
-          setRuntimeChildren([]);
-          setRuntimeChildrenError(String(error));
+        try {
+          const response = await hostApiFetch<{ success?: boolean; sessions?: RuntimeSessionResponse[] }>('/api/sessions/subagents');
+          if (cancelled) return;
+          const childIds = new Set(ticket.runtimeChildSessionIds);
+          const sessions = Array.isArray(response?.sessions) ? response.sessions : [];
+          const matchingChildren = sessions
+            .filter((session) => childIds.has(session.id))
+            .sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+          setRuntimeTreeDescendants(sessions);
+          setRuntimeChildren(matchingChildren);
+        } catch (fallbackError) {
+          if (!cancelled) {
+            setRuntimeTreeDescendants([]);
+            setRuntimeChildren([]);
+            setRuntimeChildrenError(String(fallbackError));
+          }
         }
       } finally {
         if (!cancelled) setRuntimeChildrenLoading(false);
@@ -1307,11 +1337,32 @@ function DetailPanel({
   const currentExecutionRecords = currentRuntimeView?.executionRecords ?? [];
   const currentRuntimeTools = currentRuntimeView?.toolSnapshot ?? [];
   const currentRuntimeSkills = currentRuntimeView?.skillSnapshot ?? [];
+  const runtimeDescendantMap = useMemo(
+    () => new Map(runtimeTreeDescendants.map((session) => [session.id, session])),
+    [runtimeTreeDescendants],
+  );
+  const visibleChildIds = currentRuntimeView?.childRuntimeIds ?? ticket.runtimeChildSessionIds ?? [];
+  const visibleRuntimeChildren = visibleChildIds
+    .map((childId) => runtimeDescendantMap.get(childId))
+    .filter((child): child is RuntimeSessionResponse => Boolean(child));
   const currentLineageIds = [
     currentRuntimeView?.rootRuntimeId,
     currentRuntimeView?.parentRuntimeId,
     currentRuntimeView?.id,
   ].filter((value, index, array): value is string => typeof value === 'string' && value.length > 0 && array.indexOf(value) === index);
+  const latestRuntimeId = ticket.runtimeSessionId ?? null;
+  const runtimeTreeStates = [
+    ticket.workState,
+    ...runtimeTreeDescendants.map((session) => normalizeRuntimeStatusToWorkState(session.status)),
+  ];
+  const subtreeState: WorkState =
+    runtimeTreeStates.includes('waiting_approval') ? 'waiting_approval'
+      : runtimeTreeStates.includes('blocked') ? 'blocked'
+        : runtimeTreeStates.includes('working') ? 'working'
+          : runtimeTreeStates.includes('scheduled') ? 'scheduled'
+            : runtimeTreeStates.includes('failed') ? 'failed'
+              : runtimeTreeStates.includes('done') ? 'done'
+                : 'idle';
 
   const selectRuntimeSession = async (runtimeSessionId: string) => {
     if (runtimeSessionId === ticket.runtimeSessionId) {
@@ -1445,6 +1496,37 @@ function DetailPanel({
             <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">{t('kanban.runtime.title')}</p>
             {ticket.runtimeSessionId ? (
               <>
+                <div className="mb-3 rounded-xl border border-black/[0.06] bg-[#fafafa] px-3 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {latestRuntimeId && (
+                      <button
+                        type="button"
+                        onClick={() => void selectRuntimeSession(latestRuntimeId)}
+                        className={cn(
+                          'rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[11px] text-[#475467]',
+                          selectedRuntimeSessionId === latestRuntimeId && 'border-[#007aff] text-[#007aff]',
+                        )}
+                      >
+                        {`${t('kanban.runtime.latestRun')} · ${latestRuntimeId}`}
+                      </button>
+                    )}
+                    {ticket.runtimeSessionId && (
+                      <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[11px] text-[#475467]">
+                        {`${t('kanban.runtime.currentRun')} · ${ticket.runtimeSessionId}`}
+                      </span>
+                    )}
+                    {currentRuntimeView?.id && currentRuntimeView.id !== ticket.runtimeSessionId && (
+                      <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[11px] text-[#475467]">
+                        {`${t('kanban.runtime.selectedRun')} · ${currentRuntimeView.id}`}
+                      </span>
+                    )}
+                    {subtreeState !== 'idle' && (
+                      <span className="rounded-full border border-black/[0.08] bg-white px-3 py-1.5 text-[11px] text-[#475467]">
+                        {`${t('kanban.runtime.activeSubtree')} · ${(workStateStyles[subtreeState] ?? workStateStyles.failed).label}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <div className="mb-2 rounded-lg bg-[#f8fafc] px-3 py-2 text-[12px] text-[#475467]">
                   {t('kanban.runtime.session', { id: ticket.runtimeSessionId })}
                 </div>
@@ -1459,19 +1541,19 @@ function DetailPanel({
                     {typeof ticket.runtimeDepth === 'number' ? t('kanban.runtime.depthSuffix', { depth: ticket.runtimeDepth }) : ''}
                   </div>
                 )}
-                {ticket.runtimeChildSessionIds && ticket.runtimeChildSessionIds.length > 0 && (
+                {visibleChildIds.length > 0 && (
                   <div className="mb-3 rounded-xl border border-black/[0.06] bg-[#fafafa] px-3 py-3" data-testid="ticket-runtime-children">
                     <div className="mb-2 flex items-center justify-between">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-[#8e8e93]">Child runs</p>
-                      <span className="text-[11px] text-[#8e8e93]">{ticket.runtimeChildSessionIds.length}</span>
+                      <span className="text-[11px] text-[#8e8e93]">{visibleChildIds.length}</span>
                     </div>
                     {runtimeChildrenLoading ? (
                       <p className="text-[12px] text-[#8e8e93]">Loading child runs...</p>
                     ) : runtimeChildrenError ? (
                       <p className="text-[12px] text-[#ef4444]">{runtimeChildrenError}</p>
-                    ) : runtimeChildren.length > 0 ? (
+                    ) : visibleRuntimeChildren.length > 0 ? (
                       <div className="flex flex-col gap-2">
-                        {runtimeChildren.map((child) => (
+                        {visibleRuntimeChildren.map((child) => (
                           <button
                             key={child.id}
                             type="button"
@@ -1493,7 +1575,7 @@ function DetailPanel({
                       </div>
                     ) : (
                       <div className="flex flex-col gap-2">
-                        {ticket.runtimeChildSessionIds.map((childId) => (
+                        {visibleChildIds.map((childId) => (
                           <button
                             key={childId}
                             type="button"
