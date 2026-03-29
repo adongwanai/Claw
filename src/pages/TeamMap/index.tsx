@@ -5,7 +5,9 @@ import { useAgentsStore } from '@/stores/agents';
 import { useChatStore } from '@/stores/chat';
 import type { AgentSummary } from '@/types/agent';
 import { deriveTeamWorkVisibility, type TeamMemberWorkVisibility } from '@/lib/team-work-visibility';
-import { Bot, UserCog, Code, Database, Zap, Cpu, Network, ScrollText, Terminal, Settings2, Save } from 'lucide-react';
+import { useTeamRuntime, type RuntimeSessionSummary } from '@/hooks/use-team-runtime';
+import { hostApiFetch } from '@/lib/host-api';
+import { Bot, UserCog, Code, Database, Zap, Cpu, Network, ScrollText, Terminal, Settings2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const AVATAR_COLORS = [
@@ -330,9 +332,10 @@ export function TeamMap() {
 
   const { agents, loading, fetchAgents, defaultAgentId, configuredChannelTypes, channelOwners } = useAgentsStore();
   const sessionLastActivity = useChatStore((s) => s.sessionLastActivity);
+  const { byAgent: runtimeByAgent } = useTeamRuntime();
   const workVisibility = useMemo(
-    () => deriveTeamWorkVisibility(agents, sessionLastActivity),
-    [agents, sessionLastActivity],
+    () => deriveTeamWorkVisibility(agents, sessionLastActivity, runtimeByAgent),
+    [agents, sessionLastActivity, runtimeByAgent],
   );
 
   useEffect(() => {
@@ -447,6 +450,7 @@ export function TeamMap() {
           agent={focusedAgent}
           workVisibility={focusedAgent ? workVisibility[focusedAgent.id] : undefined}
           ownedEntryPoints={focusedAgent ? getOwnedEntryPoints(focusedAgent, channelOwners, configuredChannelTypes) : []}
+          runtimeSessions={focusedAgent ? (runtimeByAgent[focusedAgent.id] ?? []) : []}
         />
       </div>
     </div>
@@ -519,13 +523,40 @@ function OperationsRail({
   agent,
   workVisibility,
   ownedEntryPoints,
+  runtimeSessions,
 }: {
   agent: AgentSummary | null;
   workVisibility?: TeamMemberWorkVisibility;
   ownedEntryPoints: string[];
+  runtimeSessions?: RuntimeSessionSummary[];
 }) {
   const { t } = useTranslation('common');
   const [railTab, setRailTab] = useState<'overview' | 'workspace' | 'terminal'>('overview');
+
+  const [workspaceFiles, setWorkspaceFiles] = useState<{ agentsMd: string; soulMd: string }>({
+    agentsMd: '',
+    soulMd: '',
+  });
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+
+  useEffect(() => {
+    if (!agent) return;
+    setWorkspaceLoading(true);
+    Promise.all([
+      hostApiFetch<{ success: boolean; content: string; exists: boolean }>(
+        `/api/agents/${encodeURIComponent(agent.id)}/workspace/AGENTS.md`,
+      ).catch(() => ({ success: false, content: '', exists: false })),
+      hostApiFetch<{ success: boolean; content: string; exists: boolean }>(
+        `/api/agents/${encodeURIComponent(agent.id)}/workspace/SOUL.md`,
+      ).catch(() => ({ success: false, content: '', exists: false })),
+    ]).then(([agentsResult, soulResult]) => {
+      setWorkspaceFiles({
+        agentsMd: agentsResult.content || `# ${agent.name} — AGENTS.md\n\n(File not found in workspace)`,
+        soulMd: soulResult.content || `# ${agent.name} — SOUL.md\n\n(File not found in workspace)`,
+      });
+      setWorkspaceLoading(false);
+    });
+  }, [agent?.id]); // re-fetch when selected agent changes
 
   if (!agent) {
     return (
@@ -611,6 +642,10 @@ function OperationsRail({
               </div>
             </RailSection>
 
+            {runtimeSessions && runtimeSessions.length > 0 && runtimeSessions[0].status === 'running' && (
+              <KillSessionButton sessionId={runtimeSessions[0].id} agentName={agent.name} />
+            )}
+
             <RailSection title={t('teamMap.rail.profilePolicy')}>
               <div className="grid gap-2">
                 <RailRow label={t('teamMap.drawer.role')} value={t(`teamMap.role.${role}`)} />
@@ -643,8 +678,9 @@ function OperationsRail({
                 <span className="text-xs font-bold text-slate-700">AGENTS.md (SOP)</span>
               </div>
               <textarea
-                className="w-full h-40 p-4 text-xs font-mono text-slate-600 bg-transparent resize-y rounded-b-[20px] border-none outline-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400/30 transition-shadow"
-                defaultValue={`# ${agent.name} Workspace\n\n## 每次会话启动\n1. 读取 \`SOUL.md\`\n2. 检查上下级任务队列\n3. 开始执行工作流分析`}
+                className="w-full h-40 p-4 text-xs font-mono text-slate-600 bg-transparent resize-none rounded-b-[20px] border-none outline-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400/30 transition-shadow"
+                value={workspaceLoading ? 'Loading...' : workspaceFiles.agentsMd}
+                readOnly
                 spellCheck={false}
               />
             </div>
@@ -655,10 +691,10 @@ function OperationsRail({
                 <span className="text-xs font-bold text-slate-700">SOUL.md (Persona)</span>
               </div>
               <textarea
-                className="w-full h-28 p-4 text-xs font-mono text-slate-600 bg-transparent resize-y rounded-b-[20px] border-none outline-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400/30 transition-shadow"
-                defaultValue={`# 你是 ${agent.name}\n\n你具备专业的数据分析和推演能力。`}
+                className="w-full h-28 p-4 text-xs font-mono text-slate-600 bg-transparent resize-none rounded-b-[20px] border-none outline-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400/30 transition-shadow"
+                value={workspaceLoading ? 'Loading...' : workspaceFiles.soulMd}
+                readOnly
                 spellCheck={false}
-                disabled={role === 'worker'}
               />
             </div>
 
@@ -668,34 +704,107 @@ function OperationsRail({
                  <span className="text-xs font-mono text-slate-500">{agent.modelDisplay || 'deepseek-chat'}</span>
               </div>
             </div>
-
-            <button className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-md transition-colors hover:bg-slate-800">
-              <Save className="h-4 w-4" />
-              Save Configuration
-            </button>
           </div>
         )}
 
         {railTab === 'terminal' && (
           <div className="flex flex-col flex-1 h-[460px] animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <div className="flex-1 rounded-2xl bg-slate-950 p-5 overflow-y-auto font-mono text-[11px] leading-relaxed shadow-inner text-green-400 space-y-2 border border-slate-800">
-              <p className="text-slate-500">[{new Date().toLocaleTimeString()}] Sub-agent sessions_spawn hooked.</p>
-              <p className="text-slate-500">[{new Date().toLocaleTimeString()}] Loading workspace from /workspace-{agent.id}</p>
-              <p className="text-blue-400">[Pi Runtime] Loaded 3 skills successfully.</p>
-              {isWorking ? (
-                <>
-                  <p className="text-amber-400 mt-2">[Tool Call] processing_task(depth=2)</p>
-                  <p className="animate-pulse opacity-70">_</p>
-                </>
-              ) : (
-                <p className="text-slate-400 mt-2">[Idle] Waiting for triggers.</p>
-              )}
+            <div className="flex-1 rounded-2xl bg-slate-950 p-5 overflow-y-auto font-mono text-[11px] leading-relaxed shadow-inner border border-slate-800 space-y-1">
+              {(() => {
+                const session = runtimeSessions?.[0];
+                if (!session) {
+                  return <p className="text-slate-500">[Idle] No active session for {agent?.name}.</p>;
+                }
+                const history = session.history ?? [];
+                if (history.length === 0) {
+                  return <p className="text-slate-500">[{new Date(session.createdAt).toLocaleTimeString()}] Session started. Waiting for activity...</p>;
+                }
+                return history.slice(-40).map((msg, i) => {
+                  const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+                  const prefix = ts ? `[${ts}] ` : '';
+                  if (msg.isError) {
+                    return <p key={i} className="text-red-400">{prefix}[Error] {String(msg.toolName ?? msg.role)}</p>;
+                  }
+                  if (msg.role === 'tool' || msg.toolName) {
+                    return <p key={i} className="text-blue-400">{prefix}[Tool] {String(msg.toolName ?? '')}</p>;
+                  }
+                  if (msg.role === 'assistant') {
+                    const text = typeof msg.content === 'string'
+                      ? msg.content.slice(0, 120)
+                      : JSON.stringify(msg.content).slice(0, 120);
+                    return <p key={i} className="text-green-400">{prefix}{text}{(typeof msg.content === 'string' && msg.content.length > 120) ? '…' : ''}</p>;
+                  }
+                  if (msg.role === 'user') {
+                    const text = typeof msg.content === 'string'
+                      ? msg.content.slice(0, 120)
+                      : JSON.stringify(msg.content).slice(0, 120);
+                    return <p key={i} className="text-slate-300">{prefix}&gt; {text}</p>;
+                  }
+                  return <p key={i} className="text-slate-500">{prefix}[{msg.role}]</p>;
+                });
+              })()}
             </div>
           </div>
         )}
 
       </div>
     </aside>
+  );
+}
+
+function KillSessionButton({ sessionId, agentName }: { sessionId: string; agentName: string }) {
+  const { t } = useTranslation('common');
+  const [killing, setKilling] = useState(false);
+  const [confirmPending, setConfirmPending] = useState(false);
+
+  const handleKill = async () => {
+    if (!confirmPending) {
+      setConfirmPending(true);
+      return;
+    }
+    setKilling(true);
+    try {
+      await hostApiFetch(`/api/sessions/subagents/${encodeURIComponent(sessionId)}/kill`, {
+        method: 'POST',
+      });
+    } finally {
+      setKilling(false);
+      setConfirmPending(false);
+    }
+  };
+
+  return (
+    <div className="rounded-[20px] border border-red-100 bg-red-50 p-4">
+      <p className="text-xs font-semibold uppercase tracking-wider text-red-600 mb-3">
+        {t('teamMap.rail.activeSession', { defaultValue: 'Active Session' })}
+      </p>
+      <button
+        type="button"
+        onClick={() => void handleKill()}
+        disabled={killing}
+        className={cn(
+          'w-full rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors',
+          confirmPending
+            ? 'bg-red-600 text-white hover:bg-red-700'
+            : 'bg-white border border-red-200 text-red-600 hover:bg-red-50',
+        )}
+      >
+        {killing
+          ? t('teamMap.rail.killing', { defaultValue: 'Terminating...' })
+          : confirmPending
+            ? t('teamMap.rail.confirmKill', { defaultValue: `Confirm: terminate ${agentName}?` })
+            : t('teamMap.rail.killSession', { defaultValue: 'Terminate sub-task' })}
+      </button>
+      {confirmPending && !killing && (
+        <button
+          type="button"
+          onClick={() => setConfirmPending(false)}
+          className="mt-2 w-full text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          {t('actions.cancel')}
+        </button>
+      )}
+    </div>
   );
 }
 
