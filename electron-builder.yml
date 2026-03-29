@@ -165,6 +165,11 @@ linux:
       Categories: Utility;Network;
       Keywords: ai;assistant;automation;chat;
       StartupWMClass: clawx
+      # --no-sandbox is required on Kylin V11 / UOS and other government/enterprise
+      # Linux distros where kernel.unprivileged_userns_clone=0 blocks Chromium's
+      # user-namespace sandbox. Without this flag the renderer process is killed
+      # immediately and the window shows a permanent white screen.
+      Exec: /opt/KTClaw/clawx --no-sandbox %U
 
 appImage:
   license: LICENSE

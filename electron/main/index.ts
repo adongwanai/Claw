@@ -59,6 +59,31 @@ const WINDOWS_APP_USER_MODEL_ID = 'app.clawx.desktop';
 // set `"disable-hardware-acceleration": false` in the app config (future).
 app.disableHardwareAcceleration();
 
+// Linux sandbox compatibility for restricted environments (e.g. Kylin V11, UOS,
+// and other domestic Linux distros that disable unprivileged user namespaces).
+//
+// On these systems the Chromium renderer process cannot create the required
+// user namespace isolation, causing the GPU/renderer process to be killed
+// immediately — which manifests as a persistent white/blank screen.
+//
+// Applying --no-sandbox + --disable-setuid-sandbox at the app level ensures
+// the renderer starts reliably on kernels where:
+//   kernel.unprivileged_userns_clone = 0  (Debian/Kylin hardening)
+//   AppArmor restrict_unprivileged_userns (Ubuntu 24.04+)
+//   SELinux policy blocks unshare calls (some RPM-based distros)
+//
+// This is equivalent to what VS Code, Chrome, and most Electron apps
+// recommend for enterprise/government Linux environments.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('no-sandbox');
+  app.commandLine.appendSwitch('disable-setuid-sandbox');
+  // Keep the GPU process disabled for consistency with disableHardwareAcceleration
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-gpu-compositing');
+  // Force software rasterizer so rendering works without a functional GPU stack
+  app.commandLine.appendSwitch('disable-software-rasterizer', '');
+}
+
 // On Linux, set CHROME_DESKTOP so Chromium can find the correct .desktop file.
 // On Wayland this maps the running window to clawx.desktop (→ icon + app grouping);
 // on X11 it supplements the StartupWMClass matching.
