@@ -74,8 +74,9 @@ jobs:
       - name: Disable npmmirror for CI environments
         shell: bash
         run: |
-          sed -i '/electron_mirror/d' .npmrc || true
-          sed -i '/electron_builder_binaries_mirror/d' .npmrc || true
+          sed -i.bak '/electron_mirror/d' .npmrc || true
+          sed -i.bak '/electron_builder_binaries_mirror/d' .npmrc || true
+          rm -f .npmrc.bak || true
 
       - name: Install dependencies
         run: pnpm install
@@ -120,6 +121,7 @@ jobs:
         if: matrix.platform == 'win'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_OPTIONS: --max_old_space_size=6144
         run: |
           pnpm run package:prepare
           npx electron-builder --win --x64 --publish never
