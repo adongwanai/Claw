@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-03-28T16:00:55.667Z"
-last_activity: 2026-03-28
+stopped_at: Completed 07-02-PLAN.md
+last_updated: "2026-03-29T01:18:51.399Z"
+last_activity: 2026-03-29
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 13
-  completed_plans: 10
+  completed_phases: 2
+  total_plans: 12
+  completed_plans: 8
   percent: 100
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-27)
 Phase: 05 (refine-leader-control-plane-ui-to-match-product-intent) - COMPLETE
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-03-28
+Last activity: 2026-03-29
 
 Progress: [#####] 100%
 
@@ -58,6 +58,7 @@ Progress: [#####] 100%
 | Phase 06 P01 | 8 | 4 tasks | 1 files |
 | Phase 06 P02 | 8 | 5 tasks | 1 files |
 | Phase 06 P03 | 416 | 8 tasks | 1 files |
+| Phase 07 P02 | 15 | 4 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 06]: StatusDot helper component placed before CreateAgentModal for clean file organization
 - [Phase 06]: TeamMap worker nodes use border-l-4 status-colored left border instead of ring-2 for clearer visual scanning
 - [Phase 06]: AgentDetail: All iOS hex color tokens replaced with standard Tailwind slate/blue tokens to match TeamOverview/TeamMap visual standard
+- [Phase 07]: Runtime session status takes priority over Kanban ticket workState when active sessions exist for an agent
+- [Phase 07]: runtimeByAgent optional param ensures all existing callers remain backward-compatible without changes
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-28T16:00:55.663Z
-Stopped at: Completed 06-03-PLAN.md
+Last session: 2026-03-29T01:18:34.889Z
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None

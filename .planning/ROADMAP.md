@@ -84,7 +84,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -93,9 +93,31 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Expose Team Work Visibility | 3/3 | Complete | 2026-03-27 |
 | 4. Productize Leader Progress Briefing | 4/4 | Complete | 2026-03-27 |
 | 5. Refine leader control plane UI to match product intent | 3/3 | Complete | 2026-03-28 |
-| 6. Polish team pages to SaaS command-center visual standard | 3/3 | Complete   | 2026-03-28 |
+| 6. Polish team pages to SaaS command-center visual standard | 3/3 | Complete | 2026-03-28 |
+| 7. Wire team runtime signals to frontend | 2/3 | In Progress|  |
 
-### Phase 4: Productize Leader Progress Briefing
+### Phase 7: Wire team runtime signals to frontend
+
+**Goal:** Connect the existing `sessionRuntimeManager` and session runtime APIs to the team-facing UI so TeamOverview, TeamMap, and OperationsRail show real live Sub-Agent execution data instead of hardcoded mocks. Add workspace file read endpoint so the Workspace tab loads actual AGENTS.md/SOUL.md content.
+**Depends on:** Phase 6
+**Requirements**: [TEAM-RUNTIME-01, TEAM-RUNTIME-02, TEAM-RUNTIME-03]
+**UI hint**: yes
+**Canonical refs**:
+- `team-项目文档.md` - Section 6.2 (progress reporting), Section 6.3 (workspace micro-operations), Section 7.1 (sessions_spawn workflow)
+- `.planning/phases/07-wire-team-runtime-signals-to-frontend/07-CONTEXT.md` - locked implementation decisions
+- `electron/services/session-runtime-manager.ts` - existing runtime data source
+- `electron/api/routes/sessions.ts` - existing session routes
+**Success Criteria** (what must be TRUE):
+  1. TeamOverview and TeamMap member status dots reflect real Sub-Agent `RuntimeSessionStatus` (running/blocked/waiting_approval) updated within 3 seconds of state change
+  2. TeamMap Workspace tab loads real AGENTS.md and SOUL.md file content from the agent's workspace directory (read-only)
+  3. TeamMap Live Log tab shows the actual message history from the agent's most recent runtime session
+  4. When an agent has an active running session, the OperationsRail shows a Kill button that terminates it via the existing `/api/sessions/subagents/:id/kill` route
+**Plans:** 2/3 plans executed
+
+Plans:
+- [x] 07-01: Add workspace file read endpoint and verify session runtime response shape
+- [x] 07-02: Add useTeamRuntime polling hook and update team-work-visibility and team-progress-brief
+- [ ] 07-03: Wire TeamMap Workspace tab, Live Log tab, and OperationsRail kill button to real data
 
 **Goal**: Turn the leader into a first-class progress-reporting surface across private chat and team views.
 **Depends on**: Phase 3
