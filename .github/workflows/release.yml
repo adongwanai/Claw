@@ -85,14 +85,20 @@ jobs:
         if: matrix.platform == 'mac'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           ulimit -n 65536
           echo "File descriptor limit: $(ulimit -n)"
+          
+          if [ -n "${{ secrets.MAC_CERTS }}" ]; then
+            export CSC_LINK="${{ secrets.MAC_CERTS }}"
+            export CSC_KEY_PASSWORD="${{ secrets.MAC_CERTS_PASSWORD }}"
+            export APPLE_ID="${{ secrets.APPLE_ID }}"
+            export APPLE_APP_SPECIFIC_PASSWORD="${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}"
+            export APPLE_TEAM_ID="${{ secrets.APPLE_TEAM_ID }}"
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          
           pnpm run package:mac:ci
 
       # Windows specific steps
