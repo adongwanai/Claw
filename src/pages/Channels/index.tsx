@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
@@ -13,7 +13,7 @@ import {
   type ChannelRuntimeCapability,
   type ChannelType,
 } from '@/types/channel';
-import type { ChannelSyncConversation, ChannelSyncMessage, ChannelSyncSession } from '@/types/channel-sync';
+import type { ChannelSyncConversation, ChannelSyncFileInfo, ChannelSyncMessage, ChannelSyncSession } from '@/types/channel-sync';
 
 const DOMESTIC_CHANNEL_TYPES: ChannelType[] = ['feishu', 'dingtalk', 'wecom', 'qqbot'];
 
@@ -63,6 +63,93 @@ function getDrawerFieldLabel(fieldKey: string, fallback: string): string {
   return fallback;
 }
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function FileCard({ info }: { info: ChannelSyncFileInfo }) {
+  function formatBytes(bytes?: number): string | null {
+    if (bytes == null) return null;
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) {
+      const kb = bytes / 1024;
+      return `${Number.isInteger(kb) ? kb : kb.toFixed(1)} KB`;
+    }
+    const mb = bytes / (1024 * 1024);
+    return `${Number.isInteger(mb) ? mb : mb.toFixed(1)} MB`;
+  }
+  const sizeLabel = formatBytes(info.size);
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-black/[0.08] bg-[#f8fafc] px-3 py-2.5">
+      <span className="text-[24px]">📄</span>
+      <div className="min-w-0 flex-1">
+        {info.name && <p className="truncate text-[13px] font-medium text-[#111827]">{info.name}</p>}
+        {sizeLabel && <p className="text-[11px] text-[#94a3b8]">{sizeLabel}</p>}
+      </div>
+      {info.downloadUrl && (
+        <button
+          type="button"
+          className="shrink-0 rounded-md bg-[#4F46E5] px-2.5 py-1 text-[12px] text-white hover:bg-[#4338CA]"
+          onClick={() => window.open(info.downloadUrl, '_blank')}
+        >下载</button>
+      )}
+    </div>
+  );
+}
+
+function MessageBubble({
+  message,
+  bubbleClass,
+  onImageClick,
+}: {
+  message: ChannelSyncMessage;
+  bubbleClass: string;
+  onImageClick: (url: string) => void;
+}) {
+  const msgType = message.messageType ?? 'text';
+
+  if (msgType === 'image' && message.imageUrl) {
+    return (
+      <button
+        type="button"
+        data-testid={`bubble-${message.id}`}
+        className="block cursor-zoom-in overflow-hidden rounded-2xl border border-black/[0.06]"
+        onClick={() => onImageClick(message.imageUrl!)}
+        aria-label="查看图片"
+      >
+        <img
+          src={message.imageUrl}
+          alt=""
+          className="max-h-[200px] max-w-[360px] object-contain"
+          loading="lazy"
+        />
+      </button>
+    );
+  }
+
+  if ((msgType === 'file' || msgType === 'audio' || msgType === 'video') && message.fileInfo) {
+    return (
+      <div data-testid={`bubble-${message.id}`}>
+        <FileCard info={message.fileInfo} />
+      </div>
+    );
+  }
+
+  if (!message.content && msgType !== 'text') {
+    return (
+      <p data-testid={`bubble-${message.id}`} className="italic text-[13px] text-[#94a3b8]">
+        [不支持的消息类型: {msgType}]
+      </p>
+    );
+  }
+
+  return (
+    <div data-testid={`bubble-${message.id}`} className={cn('rounded-2xl px-4 py-3 text-[14px] leading-7', bubbleClass)}>
+      {message.content}
+    </div>
+  );
+}
+
 export function Channels() {
   const { t } = useTranslation(['channels', 'common']);
   const requestedChannel = (() => {
@@ -88,7 +175,22 @@ export function Channels() {
   const [messages, setMessages] = useState<ChannelSyncMessage[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const isComposingRef = useRef(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [oldestMessageTs, setOldestMessageTs] = useState<string | null>(null);
+  const messageScrollRef = useRef<HTMLDivElement>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const defaultModel = useSettingsStore((s) => s.defaultModel);
+  // identity toggle: 'bot' | 'self'
+  const [identityMode, setIdentityMode] = useState<'bot' | 'self'>('bot');
+  // feishu user auth status for showing identity toggle
+  const [userAuthStatus, setUserAuthStatus] = useState<'authorized' | 'unauthorized' | 'unknown'>('unknown');
+  // mention popover
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [workbenchMembers, setWorkbenchMembers] = useState<Array<{ openId: string; name: string }>>([]);
+  const composerRef = useRef<HTMLInputElement>(null);
 
   const {
     channels,
@@ -104,6 +206,37 @@ export function Channels() {
   useEffect(() => {
     void fetchChannels();
   }, [fetchChannels]);
+
+  // Fetch feishu user auth status to decide whether to show identity toggle
+  useEffect(() => {
+    if (activeChannel !== 'feishu') return;
+    hostApiFetch<{ status?: string; channel?: { configured?: boolean; pluginEnabled?: boolean } }>('/api/feishu/status')
+      .then((resp) => {
+        // 'authorized' = explicit status field; fallback: channel configured + plugin enabled
+        if (resp.status === 'authorized') {
+          setUserAuthStatus('authorized');
+        } else if (resp.channel?.configured && resp.channel?.pluginEnabled) {
+          setUserAuthStatus('authorized');
+        } else {
+          setUserAuthStatus('unauthorized');
+        }
+      })
+      .catch(() => setUserAuthStatus('unknown'));
+  }, [activeChannel]);
+
+  // Fetch group members when mention popover opens
+  const fetchMembers = useCallback(() => {
+    if (!selectedConversationId) return;
+    hostApiFetch<{ members?: Array<{ openId: string; name: string }> }>(
+      `/api/channels/workbench/members?sessionId=${encodeURIComponent(selectedConversationId)}`,
+    )
+      .then((resp) => setWorkbenchMembers(resp.members ?? []))
+      .catch(() => setWorkbenchMembers([]));
+  }, [selectedConversationId]);
+
+  useEffect(() => {
+    if (mentionOpen) fetchMembers();
+  }, [mentionOpen, fetchMembers]);
 
   useEffect(() => {
     if (requestedChannel !== activeChannel) {
@@ -138,11 +271,50 @@ export function Channels() {
     : null;
 
   const loadConversation = async (conversationId: string) => {
-    const response = await hostApiFetch<{ conversation?: ChannelSyncConversation | null; messages?: ChannelSyncMessage[] }>(
-      `/api/channels/workbench/messages?conversationId=${encodeURIComponent(conversationId)}`,
+    const response = await hostApiFetch<{
+      conversation?: ChannelSyncConversation | null;
+      messages?: ChannelSyncMessage[];
+      hasMore?: boolean;
+    }>(
+      `/api/channels/workbench/conversations/${encodeURIComponent(conversationId)}/messages?limit=50`,
     );
+    const msgs = (response.messages ?? []).filter(isVisibleConversationMessage);
     setConversation(response.conversation ?? null);
-    setMessages((response.messages ?? []).filter(isVisibleConversationMessage));
+    setMessages(msgs);
+    setHasMoreMessages(response.hasMore ?? false);
+    setOldestMessageTs(msgs[0]?.createdAt ?? null);
+  };
+
+  const loadMoreMessages = async () => {
+    if (!selectedConversationId || loadingMore || !hasMoreMessages || !oldestMessageTs) return;
+    setLoadingMore(true);
+    const scrollEl = messageScrollRef.current;
+    const prevScrollHeight = scrollEl?.scrollHeight ?? 0;
+    try {
+      const response = await hostApiFetch<{
+        conversation?: ChannelSyncConversation | null;
+        messages?: ChannelSyncMessage[];
+        hasMore?: boolean;
+      }>(
+        `/api/channels/workbench/conversations/${encodeURIComponent(selectedConversationId)}/messages?limit=50&cursor=${encodeURIComponent(oldestMessageTs)}`,
+      );
+      const older = (response.messages ?? []).filter(isVisibleConversationMessage);
+      if (older.length > 0) {
+        setMessages((prev) => [...older, ...prev]);
+        setOldestMessageTs(older[0]?.createdAt ?? oldestMessageTs);
+        // Restore scroll position so the user doesn't jump
+        requestAnimationFrame(() => {
+          if (scrollEl) {
+            scrollEl.scrollTop = scrollEl.scrollHeight - prevScrollHeight;
+          }
+        });
+      }
+      setHasMoreMessages(response.hasMore ?? false);
+    } catch {
+      // swallow load-more errors silently
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   useEffect(() => {
@@ -255,27 +427,49 @@ export function Channels() {
     }
   };
 
-  const handleSend = async () => {
-    if (!composerValue.trim() || !selectedChannel || !selectedConversationId) return;
-    const text = composerValue.trim();
+  const handleSend = async (retryText?: string) => {
+    const text = (retryText ?? composerValue).trim();
+    if (!text || !selectedChannel || !selectedConversationId) return;
     const convId = selectedConversationId;
-    setComposerValue('');
+    if (!retryText) setComposerValue('');
+    // Append optimistic message immediately
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMsg: ChannelSyncMessage = {
+      id: optimisticId,
+      role: 'human',
+      content: text,
+      isSelf: true,
+      optimistic: true,
+      sendText: text,
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => {
+      // Remove any existing optimistic with same id (retry)
+      const filtered = prev.filter((m) => m.id !== optimisticId);
+      return [...filtered, optimisticMsg];
+    });
     try {
       await hostApiFetch(`/api/channels/${encodeURIComponent(selectedChannel.id)}/send`, {
         method: 'POST',
-        body: JSON.stringify({ text, conversationId: convId }),
+        body: JSON.stringify({ text, conversationId: convId, identity: identityMode }),
       });
-      setTestResult({ ok: true, msg: t('feedback.sentWithText', { text, defaultValue: `已发送：${text}` }) });
-      // 立即刷新一次，再在 1s/2.5s/5s 后轮询，等待 agent 回复出现
+      // Replace optimistic with polled messages
       await loadConversation(convId);
       window.setTimeout(() => { void loadConversation(convId); }, 1000);
       window.setTimeout(() => { void loadConversation(convId); }, 2500);
       window.setTimeout(() => { void loadConversation(convId); }, 5000);
     } catch (error) {
-      setComposerValue(text);
+      // Mark optimistic message as failed
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === optimisticId
+            ? { ...m, optimistic: false, sendError: true }
+            : m,
+        ),
+      );
       setTestResult({ ok: false, msg: String(error) });
+      window.setTimeout(() => setTestResult(null), 6000);
     }
-    window.setTimeout(() => setTestResult(null), 6000);
   };
 
   const handleTest = async () => {
@@ -407,7 +601,21 @@ export function Channels() {
               </div>
             ) : null}
 
-            <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div
+              ref={messageScrollRef}
+              className="flex-1 overflow-y-auto px-6 py-6"
+              onScroll={(event) => {
+                const el = event.currentTarget;
+                if (el.scrollTop === 0 && hasMoreMessages && !loadingMore) {
+                  void loadMoreMessages();
+                }
+              }}
+            >
+              {loadingMore && (
+                <div className="mb-4 flex justify-center">
+                  <span className="text-[12px] text-[#94a3b8]">{t('syncWorkbench.loadingMore', { defaultValue: '加载更多…' })}</span>
+                </div>
+              )}
               <div className="mb-6 flex justify-center">
                 <span className="rounded-full bg-[#f1f5f9] px-4 py-2 text-[12px] text-[#64748b]">
                   {t('syncWorkbench.filteredHint', { defaultValue: '已隐藏同步噪音，仅显示群聊消息、Agent 回复和精简工具卡' })}
@@ -436,23 +644,75 @@ export function Channels() {
                     );
                   }
 
-                  const isHuman = message.role === 'human';
-                  const avatar = isHuman ? (message.authorName?.charAt(0) ?? '人') : (message.authorName?.charAt(0) ?? 'A');
-                  const avatarClass = isHuman ? 'bg-[#e5e7eb] text-[#475569]' : 'bg-[#10b981] text-white';
-
-                  return (
-                    <div key={message.id} className="flex gap-4">
-                      <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold', avatarClass)}>
-                        {avatar}
+                  if (message.isSelf) {
+                    // Right-aligned blue bubble — messages sent by the active agent/self
+                    return (
+                      <div key={message.id} data-testid={message.optimistic ? 'optimistic-bubble' : `msg-row-${message.id}`} className="flex flex-col items-end gap-1">
+                        {message.authorName && (
+                          <span className="mr-1 text-[11px] text-[#94a3b8]">{message.authorName}</span>
+                        )}
+                        <MessageBubble
+                          message={message}
+                          bubbleClass={message.sendError ? 'bg-[#fee2e2] text-[#991b1b]' : message.optimistic ? 'bg-[#93c5fd] text-white opacity-70' : 'bg-[#3b82f6] text-white'}
+                          onImageClick={setLightboxUrl}
+                        />
+                        {message.sendError && (
+                          <button
+                            type="button"
+                            data-testid={`retry-btn-${message.id}`}
+                            className="mr-1 text-[11px] text-[#dc2626] underline"
+                            onClick={() => {
+                              const retryText = message.sendText ?? message.content ?? '';
+                              if (retryText) {
+                                setMessages((prev) => prev.filter((m) => m.id !== message.id));
+                                setComposerValue(retryText);
+                              }
+                            }}
+                          >
+                            重试
+                          </button>
+                        )}
+                        {message.optimistic && !message.sendError && (
+                          <span className="mr-1 text-[10px] text-[#94a3b8]">发送中…</span>
+                        )}
                       </div>
-                      <div className="max-w-[860px]">
-                        <div className="mb-1.5 flex items-center gap-2 text-[12px] text-[#94a3b8]">
-                          <strong className="text-[14px] text-[#1f2937]">{message.authorName}</strong>
-                          {message.createdAt ? <span>{formatRelativeTimestamp(message.createdAt)}</span> : null}
+                    );
+                  }
+
+                  if (message.role === 'agent') {
+                    // Left-aligned brand-color bubble
+                    return (
+                      <div key={message.id} data-testid={`msg-row-${message.id}`} className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#4F46E5] text-[13px] font-semibold text-white">
+                          {message.authorName?.charAt(0) ?? 'A'}
                         </div>
-                        <div className="rounded-2xl border border-black/[0.06] bg-white px-4 py-3 text-[14px] leading-7 text-[#334155]">
-                          {message.content}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[12px] font-medium text-[#4F46E5]">{message.authorName ?? '机器人'}</span>
+                          <MessageBubble
+                            message={message}
+                            bubbleClass="bg-[#f0f4ff] text-[#1e1b4b]"
+                            onImageClick={setLightboxUrl}
+                          />
                         </div>
+                      </div>
+                    );
+                  }
+
+                  // role=human isSelf=false — left-aligned grey bubble
+                  return (
+                    <div key={message.id} data-testid={`msg-row-${message.id}`} className="flex items-start gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e5e7eb] text-[13px] font-semibold text-[#475569]">
+                        {message.authorName?.charAt(0) ?? '人'}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        {message.authorName && (
+                          <span className="text-[12px] font-medium text-[#6b7280]">{message.authorName}</span>
+                        )}
+                        <MessageBubble
+                          message={message}
+                          bubbleClass="bg-[#f3f4f6] text-[#111827]"
+                          onImageClick={setLightboxUrl}
+                        />
                       </div>
                     </div>
                   );
@@ -461,6 +721,41 @@ export function Channels() {
             </div>
 
             <div className="shrink-0 border-t border-black/[0.06] px-5 py-4">
+              {mentionOpen && (
+                <div
+                  data-testid="mention-popover"
+                  className="mb-2 rounded-xl border border-black/[0.08] bg-white shadow-lg"
+                >
+                  {workbenchMembers.length === 0 ? (
+                    <div className="px-4 py-2 text-[13px] text-[#94a3b8]">无成员</div>
+                  ) : (
+                    workbenchMembers
+                      .filter((m) => !mentionQuery || m.name.toLowerCase().includes(mentionQuery.toLowerCase()))
+                      .map((member, idx) => (
+                        <button
+                          key={member.openId}
+                          type="button"
+                          data-testid={`mention-item-${member.openId}`}
+                          className={cn(
+                            'flex w-full items-center gap-2 px-4 py-2 text-[13px] text-left hover:bg-[#f1f5f9]',
+                            idx === mentionIndex && 'bg-[#f1f5f9] font-medium',
+                          )}
+                          onClick={() => {
+                            setComposerValue((prev) => {
+                              const atIdx = prev.lastIndexOf('@');
+                              return atIdx >= 0 ? `${prev.slice(0, atIdx)}@${member.name} ` : `${prev}@${member.name} `;
+                            });
+                            setMentionOpen(false);
+                            setMentionQuery('');
+                            composerRef.current?.focus();
+                          }}
+                        >
+                          {member.name}
+                        </button>
+                      ))
+                  )}
+                </div>
+              )}
               <div className="flex items-center gap-3 rounded-[24px] border border-black/[0.08] bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
                 <button type="button" className="text-[18px] text-[#94a3b8]">📎</button>
                 <span className="inline-flex items-center gap-2 rounded-full bg-[#f1f5f9] px-3 py-1 text-[12px] font-medium text-[#475569]">
@@ -470,9 +765,56 @@ export function Channels() {
                 <span className="inline-flex items-center gap-2 rounded-full bg-[#ecfeff] px-3 py-1 text-[12px] font-medium text-[#0f766e]">
                   当前发言身份：{conversation.visibleAgentId || 'KTClaw'}
                 </span>
+                {userAuthStatus === 'authorized' && (
+                  <div
+                    data-testid="identity-toggle"
+                    aria-label="切换发言身份"
+                    className="inline-flex items-center rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-1 py-0.5 text-[12px] font-medium"
+                  >
+                    <button
+                      type="button"
+                      aria-label="机器人"
+                      onClick={() => setIdentityMode('bot')}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 transition-colors',
+                        identityMode === 'bot' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
+                      )}
+                    >
+                      机器人
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="我"
+                      onClick={() => setIdentityMode('self')}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 transition-colors',
+                        identityMode === 'self' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
+                      )}
+                    >
+                      我
+                    </button>
+                  </div>
+                )}
                 <input
+                  ref={composerRef}
                   value={composerValue}
-                  onChange={(event) => setComposerValue(event.target.value)}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setComposerValue(val);
+                    // Open mention popover when '@' is typed
+                    const atIdx = val.lastIndexOf('@');
+                    if (atIdx >= 0 && !mentionOpen && val.endsWith('@')) {
+                      setMentionOpen(true);
+                      setMentionQuery('');
+                      setMentionIndex(0);
+                    } else if (atIdx >= 0 && mentionOpen) {
+                      setMentionQuery(val.slice(atIdx + 1));
+                      setMentionIndex(0);
+                    } else if (atIdx < 0 && mentionOpen) {
+                      setMentionOpen(false);
+                      setMentionQuery('');
+                    }
+                  }}
                   onCompositionStart={() => {
                     isComposingRef.current = true;
                   }}
@@ -480,6 +822,42 @@ export function Channels() {
                     isComposingRef.current = false;
                   }}
                   onKeyDown={(event) => {
+                    if (mentionOpen) {
+                      const filtered = workbenchMembers.filter(
+                        (m) => !mentionQuery || m.name.toLowerCase().includes(mentionQuery.toLowerCase()),
+                      );
+                      if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        setMentionIndex((prev) => Math.min(prev + 1, filtered.length - 1));
+                        return;
+                      }
+                      if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        setMentionIndex((prev) => Math.max(prev - 1, 0));
+                        return;
+                      }
+                      if (event.key === 'Enter' && filtered[mentionIndex]) {
+                        event.preventDefault();
+                        const member = filtered[mentionIndex];
+                        setComposerValue((prev) => {
+                          const atIdx = prev.lastIndexOf('@');
+                          return atIdx >= 0 ? `${prev.slice(0, atIdx)}@${member.name} ` : `${prev}@${member.name} `;
+                        });
+                        setMentionOpen(false);
+                        setMentionQuery('');
+                        return;
+                      }
+                      if (event.key === 'Escape') {
+                        setMentionOpen(false);
+                        setMentionQuery('');
+                        return;
+                      }
+                    }
+                    if (event.key === '@') {
+                      setMentionOpen(true);
+                      setMentionQuery('');
+                      setMentionIndex(0);
+                    }
                     if (event.key === 'Enter' && !event.shiftKey) {
                       const nativeEvent = event.nativeEvent as KeyboardEvent;
                       if (isComposingRef.current || nativeEvent.isComposing || nativeEvent.keyCode === 229) {
@@ -505,6 +883,31 @@ export function Channels() {
           </>
         )}
       </main>
+
+      {lightboxUrl && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+          role="dialog"
+          aria-modal="true"
+          aria-label="图片预览"
+          onClick={() => setLightboxUrl(null)}
+        >
+          <img
+            src={lightboxUrl}
+            alt=""
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            type="button"
+            className="absolute right-6 top-6 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            onClick={() => setLightboxUrl(null)}
+            aria-label="关闭"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {settingsOpen && selectedChannel && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/20" onClick={() => setSettingsOpen(false)}>
