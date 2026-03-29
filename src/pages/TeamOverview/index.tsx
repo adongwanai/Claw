@@ -8,6 +8,7 @@ import { useGatewayStore } from '@/stores/gateway';
 import type { AgentSummary } from '@/types/agent';
 import { deriveTeamWorkVisibility, type TeamMemberWorkVisibility } from '@/lib/team-work-visibility';
 import { buildLeaderProgressBrief } from '@/lib/team-progress-brief';
+import { useTeamRuntime } from '@/hooks/use-team-runtime';
 
 import { Bot, UserCog, Code, Database, Zap, Cpu, MessageSquare, Mail, MessageCircle, Plus, Columns, Network } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -166,12 +167,13 @@ export function TeamOverview() {
   
   const sessionLastActivity = useChatStore((s) => s.sessionLastActivity);
   const gatewayStatus = useGatewayStore((s) => s.status);
-  
+  const { byAgent: runtimeByAgent } = useTeamRuntime();
+
   const workVisibility = useMemo(
-    () => deriveTeamWorkVisibility(agents, sessionLastActivity),
-    [agents, sessionLastActivity],
+    () => deriveTeamWorkVisibility(agents, sessionLastActivity, runtimeByAgent),
+    [agents, sessionLastActivity, runtimeByAgent],
   );
-  
+
   const teamBrief = useMemo(
     () => buildLeaderProgressBrief({
       leaderId: agents.find((agent) => agent.teamRole === 'leader')?.id ?? agents.find((agent) => agent.isDefault)?.id ?? 'main',
@@ -179,8 +181,9 @@ export function TeamOverview() {
       sessionLastActivity,
       configuredChannelTypes,
       channelOwners,
+      runtimeByAgent,
     }),
-    [agents, sessionLastActivity, configuredChannelTypes, channelOwners],
+    [agents, sessionLastActivity, configuredChannelTypes, channelOwners, runtimeByAgent],
   );
 
   useEffect(() => {

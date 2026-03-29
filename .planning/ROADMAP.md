@@ -93,7 +93,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6
 | 3. Expose Team Work Visibility | 3/3 | Complete | 2026-03-27 |
 | 4. Productize Leader Progress Briefing | 4/4 | Complete | 2026-03-27 |
 | 5. Refine leader control plane UI to match product intent | 3/3 | Complete | 2026-03-28 |
-| 6. Polish team pages to SaaS command-center visual standard | 2/3 | In Progress|  |
+| 6. Polish team pages to SaaS command-center visual standard | 3/3 | Complete   | 2026-03-28 |
 
 ### Phase 4: Productize Leader Progress Briefing
 
@@ -157,9 +157,9 @@ Plans:
   1. TeamOverview metric cards display status-colored indicators alongside numbers, and the member list uses tighter, denser cards with clear status badges
   2. TeamMap AgentNode cards distinguish root/leader nodes visually, and OperationsRail panel matches the same visual language as TeamOverview
   3. AgentDetail replaces legacy iOS color tokens with project-standard Tailwind tokens and aligns section card styling with TeamOverview/TeamMap
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 06-01: Upgrade TeamOverview metric cards, hero section, and member card visual system
 - [x] 06-02: Polish TeamMap AgentNode, root node treatment, and OperationsRail visual language
-- [ ] 06-03: Modernize AgentDetail styling and enforce cross-page visual token consistency
+- [x] 06-03: Modernize AgentDetail styling and enforce cross-page visual token consistency
