@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { hostApiFetch } from '@/lib/host-api';
+import type { KanbanTask } from '@/types/task';
 
 export interface ApprovalItem {
   id: string;
@@ -21,15 +22,18 @@ export interface ApprovalItem {
 
 interface ApprovalsState {
   approvals: ApprovalItem[];
+  tasks: KanbanTask[];
   loading: boolean;
   error: string | null;
   fetchApprovals: () => Promise<void>;
+  fetchTasks: () => Promise<void>;
   approveItem: (id: string, reason?: string) => Promise<void>;
   rejectItem: (id: string, reason: string) => Promise<void>;
 }
 
 export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
   approvals: [],
+  tasks: [],
   loading: false,
   error: null,
 
@@ -44,6 +48,17 @@ export const useApprovalsStore = create<ApprovalsState>((set, get) => ({
         id: item.id ?? item.key ?? String(Math.random()),
       }));
       set({ approvals, loading: false });
+    } catch (err) {
+      set({ loading: false, error: String(err) });
+    }
+  },
+
+  fetchTasks: async () => {
+    set({ loading: true, error: null });
+    try {
+      const data = await hostApiFetch<{ tasks?: KanbanTask[] }>('/api/tasks');
+      const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+      set({ tasks, loading: false });
     } catch (err) {
       set({ loading: false, error: String(err) });
     }
