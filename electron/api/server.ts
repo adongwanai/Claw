@@ -22,6 +22,7 @@ import { handleMcpRoutes } from './routes/mcp';
 import { handleCostsRoutes } from './routes/costs';
 import { handleAlertsRoutes } from './routes/alerts';
 import { handleFeishuRoutes } from './routes/feishu';
+import { handleTeamRoutes } from './routes/teams';
 import { isAuthorizedHostApiRequest, applyCorsOrigin, sendJson, sendNoContent, sendUnauthorized } from './route-utils';
 
 type RouteHandler = (
@@ -37,6 +38,7 @@ const routeHandlers: RouteHandler[] = [
   handleSettingsRoutes,
   handleProviderRoutes,
   handleAgentRoutes,
+  handleTeamRoutes,
   handleChannelRoutes,
   handleSkillRoutes,
   handleFileRoutes,
