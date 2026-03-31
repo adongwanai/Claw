@@ -62,7 +62,16 @@
         "avatarFrog": "青蛙",
         "avatarKoala": "考拉",
         "avatarUnicorn": "独角兽",
-        "pinnedSession": "已置顶会话"
+        "pinnedSession": "已置顶会话",
+        "employeeSquare": "员工广场",
+        "sessions": "会话",
+        "searchSessions": "搜索会话...",
+        "uploadFile": "上传文件",
+        "noChannels": "暂无频道",
+        "noSessions": "暂无会话",
+        "pin": "置顶",
+        "unpin": "取消置顶",
+        "delete": "删除"
     },
     "actions": {
         "save": "保存",
@@ -282,6 +291,10 @@
         "newTask": "创建任务",
         "allTasks": "全部任务",
         "emptyColumn": "拖拽到此处",
+        "views": {
+            "board": "看板",
+            "calendar": "日程"
+        },
         "columns": {
             "backlog": "积压",
             "todo": "待办",
@@ -296,14 +309,16 @@
             "low": "低优"
         },
         "workState": {
+            "idle": "空闲中",
             "starting": "准备中",
-            "working": "处理中",
-            "blocked": "已阻塞",
+            "working": "工作中",
+            "blocked": "阻塞",
             "waitingApproval": "等待审批",
-            "scheduled": "已设置",
-            "done": "已完成",
+            "scheduled": "已排期",
+            "done": "完成",
             "failed": "失败"
         },
+        "emptyAgent": "空闲中",
         "createModal": {
             "title": "创建任务",
             "taskTitle": "任务标题",

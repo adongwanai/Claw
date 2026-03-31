@@ -34,6 +34,15 @@
         "memoryKnowledge": "Memory knowledge base",
         "costUsage": "Cost usage",
         "teamOverview": "Team overview",
+        "employeeSquare": "Employee square",
+        "sessions": "Sessions",
+        "searchSessions": "Search sessions...",
+        "uploadFile": "Upload file",
+        "noChannels": "No channels configured",
+        "noSessions": "No sessions",
+        "pin": "Pin",
+        "unpin": "Unpin",
+        "delete": "Delete",
         "teamMap": "Team map",
         "profile": "Profile",
         "selectAvatar": "Select avatar",
@@ -282,6 +291,10 @@
         "newTask": "Create task",
         "allTasks": "All tasks",
         "emptyColumn": "Drop here",
+        "views": {
+            "board": "Board",
+            "calendar": "Calendar"
+        },
         "columns": {
             "backlog": "Backlog",
             "todo": "To do",
