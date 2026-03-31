@@ -166,7 +166,7 @@ export function CalendarView({ onTaskClick }: CalendarViewProps) {
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 calendar-container">
+      <div className="flex-1 calendar-container border rounded-xl shadow-sm bg-card overflow-hidden">
         <FullCalendar
           ref={calendarRef}
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

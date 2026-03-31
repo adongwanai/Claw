@@ -5,19 +5,36 @@
   border: none;
 }
 
+/* Remove outer scrollgrid border - let container handle it */
+.fc.fc-theme-standard .fc-scrollgrid {
+  border: none !important;
+}
+
 /* 1. Grid Borders - Subtle and Light */
 .fc-theme-standard td,
 .fc-theme-standard th {
   border-color: hsl(var(--border) / 0.6) !important;
 }
 
-.fc-theme-standard .fc-scrollgrid {
-  border-color: hsl(var(--border) / 0.6) !important;
+/* 2. Today Cell - Shadcn Style with Circular Badge */
+/* Remove default background color */
+.fc .fc-day-today {
+  background-color: transparent !important;
 }
 
-/* 2. Today Cell - Subtle Accent Background */
-.fc-day-today {
-  background-color: hsl(var(--accent) / 0.3) !important;
+/* Make today's date number a solid circle badge */
+.fc .fc-day-today .fc-daygrid-day-number {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-radius: 9999px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 4px !important;
+  padding: 0 !important;
+  font-weight: 500 !important;
 }
 
 /* 3. Day Numbers */
