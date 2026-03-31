@@ -1,0 +1,194 @@
+/**
+ * TaskDetailPanel - Task detail view in right panel
+ * Phase 02-03: Task card interactions
+ */
+import { useState, useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import { useApprovalsStore } from '@/stores/approvals';
+import { useAgentsStore } from '@/stores/agents';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import type { KanbanTask, WorkState } from '@/types/task';
+
+interface TaskDetailPanelProps {
+  taskId: string;
+}
+
+function getWorkStateDotColor(state: WorkState): string {
+  const colors: Record<WorkState, string> = {
+    idle: 'bg-gray-400',
+    starting: 'bg-blue-400',
+    working: 'bg-blue-500',
+    blocked: 'bg-red-500',
+    waiting_approval: 'bg-yellow-500',
+    scheduled: 'bg-purple-500',
+    done: 'bg-green-500',
+    failed: 'bg-red-600',
+  };
+  return colors[state] || 'bg-gray-400';
+}
+
+function getWorkStateLabel(state: WorkState): string {
+  const labels: Record<WorkState, string> = {
+    idle: '空闲中',
+    starting: '启动中',
+    working: '工作中',
+    blocked: '阻塞',
+    waiting_approval: '等待审批',
+    scheduled: '已排期',
+    done: '完成',
+    failed: '失败',
+  };
+  return labels[state] || state;
+}
+
+export function TaskDetailPanel({ taskId }: TaskDetailPanelProps) {
+  const tasks = useApprovalsStore((s) => s.tasks);
+  const updateTask = useApprovalsStore((s) => s.updateTask);
+  const agents = useAgentsStore((s) => s.agents);
+
+  const task = useMemo(() => tasks.find((t) => t.id === taskId), [tasks, taskId]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedDescription, setEditedDescription] = useState('');
+
+  if (!task) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        任务不存在
+      </div>
+    );
+  }
+
+  const assignee = agents.find((a) => a.id === task.assigneeId);
+
+  const handleSave = async () => {
+    await updateTask(task.id, { description: editedDescription });
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="flex h-full flex-col gap-6 p-6">
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-semibold mb-2">
+          {task.isTeamTask && task.teamName && `团队${task.teamName}：`}
+          {task.title}
+        </h2>
+        <div className="flex items-center gap-2">
+          <Badge variant={task.priority === 'high' ? 'destructive' : 'secondary'}>
+            {task.priority === 'high' ? '高优先级' : task.priority === 'medium' ? '中优先级' : '低优先级'}
+          </Badge>
+          <Badge variant="outline">
+            {task.status === 'todo' ? '待办' : task.status === 'in-progress' ? '进行中' : task.status === 'review' ? '审查' : '完成'}
+          </Badge>
+          {task.workState !== 'idle' && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <span className={cn('h-2 w-2 rounded-full', getWorkStateDotColor(task.workState))} />
+              {getWorkStateLabel(task.workState)}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* Description */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">描述</h3>
+          {!isEditing && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditedDescription(task.description);
+                setIsEditing(true);
+              }}
+            >
+              编辑
+            </Button>
+          )}
+        </div>
+        {isEditing ? (
+          <div className="space-y-2">
+            <Textarea
+              value={editedDescription}
+              onChange={(e) => setEditedDescription(e.target.value)}
+              rows={6}
+            />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSave}>
+                保存
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setIsEditing(false)}>
+                取消
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+            {task.description || '无描述'}
+          </p>
+        )}
+      </div>
+
+      {/* Metadata */}
+      <div className="space-y-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">负责人</span>
+          <span className="font-medium">{assignee?.name ?? '未分配'}</span>
+        </div>
+        {task.deadline && (
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">截止时间</span>
+            <span className="font-medium">{new Date(task.deadline).toLocaleString('zh-CN')}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">创建时间</span>
+          <span className="font-medium">{new Date(task.createdAt).toLocaleString('zh-CN')}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">更新时间</span>
+          <span className="font-medium">{new Date(task.updatedAt).toLocaleString('zh-CN')}</span>
+        </div>
+      </div>
+
+      {/* Runtime execution records */}
+      {task.runtimeSessionId && (
+        <div>
+          <h3 className="text-sm font-medium mb-2">执行记录</h3>
+          <div className="rounded-lg border border-border p-3 text-sm">
+            <p className="text-muted-foreground">Session ID: {task.runtimeSessionId}</p>
+            {task.runtimeHistory && task.runtimeHistory.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {task.runtimeHistory.slice(-3).map((msg, idx) => (
+                  <p key={idx} className="text-xs">
+                    <span className="font-medium">{msg.role}:</span> {msg.content.slice(0, 100)}
+                    {msg.content.length > 100 && '...'}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Related session link */}
+      {task.runtimeSessionKey && (
+        <div>
+          <h3 className="text-sm font-medium mb-2">关联会话</h3>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              // Navigate to chat with this session
+              window.location.href = `/chat?session=${task.runtimeSessionKey}`;
+            }}
+          >
+            查看会话
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
