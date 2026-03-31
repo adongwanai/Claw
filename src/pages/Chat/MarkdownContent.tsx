@@ -225,7 +225,7 @@ const CodeBlock: React.FC<MarkdownCodeProps> = ({
 
   return (
     <code
-      className={`inline bg-black/[0.06] px-1.5 py-0.5 rounded text-[0.9em] font-mono font-medium text-[#c41a16] ${normalizedClassName}`}
+      className={`inline bg-muted text-foreground px-1.5 py-0.5 rounded-md text-sm font-mono border border-border/50 ${normalizedClassName}`}
       {...props}
     >
       {children}
