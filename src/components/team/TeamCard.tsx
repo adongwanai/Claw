@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { TeamSummary, TeamStatus } from '@/types/team';
 import { Trash2 } from 'lucide-react';
+import { TeamNameEditor } from './TeamNameEditor';
 
 interface TeamCardProps {
   team: TeamSummary;
@@ -65,9 +66,13 @@ export function TeamCard({ team, onDelete }: TeamCardProps) {
         className="flex flex-1 flex-col"
       >
         {/* Top: Team Name */}
-        <h3 className="mb-4 text-xl font-semibold text-slate-900">
-          {team.name}
-        </h3>
+        <div className="mb-4">
+          <TeamNameEditor
+            teamId={team.id}
+            initialName={team.name}
+            className="text-xl font-semibold text-slate-900"
+          />
+        </div>
 
         {/* Middle: Leader + Members */}
         <div className="mb-4 space-y-3">
