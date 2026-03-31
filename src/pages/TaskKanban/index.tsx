@@ -6,11 +6,13 @@ import { useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useAgentsStore } from '@/stores/agents';
 import { useApprovalsStore } from '@/stores/approvals';
+import { useRightPanelStore } from '@/stores/rightPanelStore';
 import type { KanbanTask, TaskStatus, WorkState } from '@/types/task';
 import type { AgentSummary } from '@/types/agent';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from 'react-i18next';
 
 const COLUMNS: { key: TaskStatus; label: string }[] = [
@@ -68,32 +70,50 @@ function TaskCard({ task, agents, onClick }: TaskCardProps) {
   const assignee = agents.find((a) => a.id === task.assigneeId);
 
   return (
-    <Card
-      className={cn(
-        'w-[280px] min-h-[120px] p-4 cursor-pointer hover:shadow-md transition-shadow',
-        task.isTeamTask && 'border-l-4 border-l-primary'
-      )}
-      onClick={() => onClick(task)}
-    >
-      <h3 className="text-sm font-semibold mb-2">
-        {task.isTeamTask && task.teamName && `团队${task.teamName}：`}
-        {task.title}
-      </h3>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span>{assignee?.name || '未指派'}</span>
-        {task.workState !== 'idle' && (
-          <Badge variant="outline" className="flex items-center gap-1">
-            <span className={cn('h-2 w-2 rounded-full', getWorkStateDotColor(task.workState))} />
-            {getWorkStateLabel(task.workState, t)}
-          </Badge>
-        )}
-      </div>
-      {task.deadline && (
-        <p className="text-xs text-muted-foreground mt-2">
-          截止: {formatDate(task.deadline)}
-        </p>
-      )}
-    </Card>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Card
+            className={cn(
+              'w-[280px] min-h-[120px] p-4 cursor-pointer hover:shadow-md transition-shadow',
+              task.isTeamTask && 'border-l-4 border-l-primary'
+            )}
+            onClick={() => onClick(task)}
+          >
+            <h3 className="text-sm font-semibold mb-2">
+              {task.isTeamTask && task.teamName && `团队${task.teamName}：`}
+              {task.title}
+            </h3>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>{assignee?.name || '未指派'}</span>
+              {task.workState !== 'idle' && (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <span className={cn('h-2 w-2 rounded-full', getWorkStateDotColor(task.workState))} />
+                  {getWorkStateLabel(task.workState, t)}
+                </Badge>
+              )}
+            </div>
+            {task.deadline && (
+              <p className="text-xs text-muted-foreground mt-2">
+                截止: {formatDate(task.deadline)}
+              </p>
+            )}
+          </Card>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <div className="space-y-1 text-xs">
+            <p><strong>创建时间:</strong> {new Date(task.createdAt).toLocaleString('zh-CN')}</p>
+            <p><strong>更新时间:</strong> {new Date(task.updatedAt).toLocaleString('zh-CN')}</p>
+            {task.workState !== 'idle' && (
+              <p><strong>运行状态:</strong> {getWorkStateLabel(task.workState, t)}</p>
+            )}
+            {task.runtimeSessionId && (
+              <p><strong>Session ID:</strong> {task.runtimeSessionId.slice(0, 16)}...</p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -152,6 +172,7 @@ export default function TaskKanban() {
   const fetchAgents = useAgentsStore((s) => s.fetchAgents);
   const tasks = useApprovalsStore((s) => s.tasks) || [];
   const fetchTasks = useApprovalsStore((s) => s.fetchTasks);
+  const openPanel = useRightPanelStore((s) => s.openPanel);
 
   useEffect(() => {
     if (fetchAgents) fetchAgents();
@@ -174,7 +195,7 @@ export default function TaskKanban() {
   }, [agents, tasks]);
 
   const handleTaskClick = (task: KanbanTask) => {
-    console.log('Task clicked:', task);
+    openPanel('task', task.id);
   };
 
   return (
