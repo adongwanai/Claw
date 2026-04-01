@@ -35,7 +35,7 @@ export function searchSessions(
     }
 
     // 2. Search agent name
-    const agent = agentMap.get(session.agentId);
+    const agent = session.agentId ? agentMap.get(session.agentId) : undefined;
     if (agent && agent.name.toLowerCase().includes(lowerQuery)) {
       return true;
     }

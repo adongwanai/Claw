@@ -117,6 +117,7 @@ export interface ChatState {
   toggleThinking: () => void;
   refresh: () => Promise<void>;
   clearError: () => void;
+  markSessionAsRead: (key: string) => void;
 }
 
 export const DEFAULT_CANONICAL_PREFIX = 'agent:main';
