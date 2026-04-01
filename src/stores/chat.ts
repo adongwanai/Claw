@@ -15,6 +15,12 @@ import {
 import { useGatewayStore } from './gateway';
 import { useAgentsStore } from './agents';
 import { buildCronSessionHistoryPath, isCronSessionKey } from './chat/cron-session-utils';
+import {
+  getUnreadCounts,
+  saveUnreadCounts,
+  markAsRead as markAsReadInStorage,
+  incrementUnreadCount as incrementUnreadInStorage,
+} from '@/lib/session-unread';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -127,6 +133,8 @@ interface ChatState {
   sessionLabels: Record<string, string>;
   /** Last message timestamp (ms) per session key, used for sorting */
   sessionLastActivity: Record<string, number>;
+  /** Unread message counts per session key */
+  sessionUnreadCounts: Record<string, number>;
 
   // Thinking
   showThinking: boolean;
@@ -151,6 +159,7 @@ interface ChatState {
   refresh: () => Promise<void>;
   clearError: () => void;
   markSessionAsRead: (key: string) => void;
+  updateSessionUnreadCount: (key: string, delta: number) => void;
 }
 
 // Module-level timestamp tracking the last chat event received.
@@ -1139,6 +1148,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentAgentId: 'main',
   sessionLabels: {},
   sessionLastActivity: {},
+  sessionUnreadCounts: getUnreadCounts(),
 
   showThinking: true,
   thinkingLevel: null,
@@ -1219,8 +1229,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
               .map((session) => [session.key, session.updatedAt!]),
           );
 
+          // Merge unread counts into sessions
+          const unreadCounts = get().sessionUnreadCounts;
+          const sessionsWithUnread = sessionsWithCurrent.map((session) => ({
+            ...session,
+            unreadCount: unreadCounts[session.key] || 0,
+          }));
+
           set((state) => ({
-            sessions: sessionsWithCurrent,
+            sessions: sessionsWithUnread,
             currentSessionKey: nextSessionKey,
             currentAgentId: getAgentIdFromSessionKey(nextSessionKey),
             sessionLastActivity: {
@@ -1292,6 +1309,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return;
     }
     set((s) => buildSessionSwitchPatch(s, key));
+    // Mark the new session as read
+    get().markSessionAsRead(key);
     get().loadHistory();
   },
 
@@ -2116,10 +2135,62 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearError: () => set({ error: null }),
 
   markSessionAsRead: (key: string) => {
-    set((state) => ({
-      sessions: state.sessions.map((session) =>
-        session.key === key ? { ...session, unreadCount: 0 } : session
-      ),
-    }));
+    // Clear from localStorage
+    markAsReadInStorage(key);
+    // Update state
+    set((state) => {
+      const newCounts = { ...state.sessionUnreadCounts };
+      delete newCounts[key];
+      return {
+        sessionUnreadCounts: newCounts,
+        sessions: state.sessions.map((session) =>
+          session.key === key ? { ...session, unreadCount: 0 } : session
+        ),
+      };
+    });
+  },
+
+  updateSessionUnreadCount: (key: string, delta: number) => {
+    set((state) => {
+      const currentCount = state.sessionUnreadCounts[key] || 0;
+      const newCount = Math.max(0, currentCount + delta);
+      const newCounts = { ...state.sessionUnreadCounts };
+
+      if (newCount === 0) {
+        delete newCounts[key];
+      } else {
+        newCounts[key] = newCount;
+      }
+
+      // Save to localStorage
+      saveUnreadCounts(newCounts);
+
+      return {
+        sessionUnreadCounts: newCounts,
+        sessions: state.sessions.map((session) =>
+          session.key === key ? { ...session, unreadCount: newCount } : session
+        ),
+      };
+    });
   },
 }));
+
+// Cross-tab sync: listen to localStorage changes
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'ktclaw-session-unread-counts' && event.newValue) {
+      try {
+        const newCounts = JSON.parse(event.newValue);
+        useChatStore.setState((state) => ({
+          sessionUnreadCounts: newCounts,
+          sessions: state.sessions.map((session) => ({
+            ...session,
+            unreadCount: newCounts[session.key] || 0,
+          })),
+        }));
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  });
+}
