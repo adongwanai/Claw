@@ -17,10 +17,10 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
-import { SessionItem } from '@/components/sessions/SessionItem';
+import { SessionGroup } from '@/components/sessions/SessionGroup';
 import { cn } from '@/lib/utils';
 import { usePinnedSessions } from '@/lib/pinned-sessions';
-import { searchSessions, extractMessagePreview } from '@/lib/session-search';
+import { searchSessions } from '@/lib/session-search';
 import { useAgentsStore } from '@/stores/agents';
 import { useChannelsStore } from '@/stores/channels';
 import { useChatStore } from '@/stores/chat';
@@ -227,7 +227,16 @@ export function Sidebar() {
     });
   }, [filteredSessions, pinnedSessionKeySet, sessionLastActivity]);
 
-  const searchSessions = sessions.map((session) => ({
+  // Split sessions into team and personal (per D-04)
+  const teamSessions = useMemo(() => {
+    return sortedSessions.filter((session) => session.isTeamSession || session.teamId != null);
+  }, [sortedSessions]);
+
+  const personalSessions = useMemo(() => {
+    return sortedSessions.filter((session) => !session.isTeamSession && session.teamId == null);
+  }, [sortedSessions]);
+
+  const searchSessionsData = sessions.map((session) => ({
     key: session.key,
     label: sessionLabels[session.key] ?? session.label ?? session.displayName ?? session.key,
   }));
@@ -348,37 +357,40 @@ export function Sidebar() {
               </div>
 
               {sortedSessions.length > 0 ? (
-                sortedSessions.map((session) => {
-                  const label =
-                    sessionLabels[session.key] ??
-                    session.label ??
-                    session.displayName ??
-                    session.key;
-                  const isPinned = pinnedSessionKeySet.has(session.key);
-                  const isActive = currentSessionKey === session.key;
-
-                  // Get message preview for current session
-                  const messagePreview = isActive && messages.length > 0
-                    ? extractMessagePreview(messages)
-                    : undefined;
-
-                  return (
-                    <SessionItem
-                      key={session.key}
-                      session={session}
-                      label={label}
-                      isPinned={isPinned}
-                      isActive={isActive}
-                      messagePreview={messagePreview}
-                      onClick={() => {
-                        switchSession(session.key);
-                        navigate('/');
-                      }}
-                      onPinToggle={() => toggleSessionPinned(session.key)}
-                      onDelete={() => void deleteSession(session.key)}
-                    />
-                  );
-                })
+                <>
+                  <SessionGroup
+                    title="团队会话"
+                    sessions={teamSessions}
+                    groupKey="teamSessions"
+                    currentSessionKey={currentSessionKey}
+                    pinnedSessionKeySet={pinnedSessionKeySet}
+                    sessionLabels={sessionLabels}
+                    sessionMessages={sessionMessagesMap}
+                    onSessionClick={(key) => {
+                      switchSession(key);
+                      navigate('/');
+                    }}
+                    onPinToggle={toggleSessionPinned}
+                    onDelete={(key) => void deleteSession(key)}
+                    collapsed={sidebarCollapsed}
+                  />
+                  <SessionGroup
+                    title="个人会话"
+                    sessions={personalSessions}
+                    groupKey="personalSessions"
+                    currentSessionKey={currentSessionKey}
+                    pinnedSessionKeySet={pinnedSessionKeySet}
+                    sessionLabels={sessionLabels}
+                    sessionMessages={sessionMessagesMap}
+                    onSessionClick={(key) => {
+                      switchSession(key);
+                      navigate('/');
+                    }}
+                    onPinToggle={toggleSessionPinned}
+                    onDelete={(key) => void deleteSession(key)}
+                    collapsed={sidebarCollapsed}
+                  />
+                </>
               ) : (
                 <p className="px-3 py-2 text-sm text-muted-foreground">
                   {debouncedSearch.trim()
@@ -432,7 +444,7 @@ export function Sidebar() {
       {searchOpen ? (
         <GlobalSearchModal
           onOpenChange={setSearchOpen}
-          sessions={searchSessions}
+          sessions={searchSessionsData}
           agents={searchAgents}
           onSelectSession={(sessionKey) => switchSession(sessionKey)}
           onNavigate={(path) => navigate(path)}
