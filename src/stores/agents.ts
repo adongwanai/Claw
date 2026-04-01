@@ -8,6 +8,7 @@ interface AgentsState {
   defaultAgentId: string;
   configuredChannelTypes: string[];
   channelOwners: Record<string, string>;
+  agentStatuses: Record<string, 'online' | 'offline' | 'busy'>;
   loading: boolean;
   error: string | null;
   fetchAgents: () => Promise<void>;
@@ -28,6 +29,8 @@ interface AgentsState {
   deleteAgent: (agentId: string) => Promise<void>;
   assignChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
   removeChannel: (agentId: string, channelType: ChannelType) => Promise<void>;
+  updateAgentStatus: (agentId: string, status: 'online' | 'offline' | 'busy') => void;
+  fetchAgentStatuses: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -45,6 +48,7 @@ export const useAgentsStore = create<AgentsState>((set) => ({
   defaultAgentId: 'main',
   configuredChannelTypes: [],
   channelOwners: {},
+  agentStatuses: {},
   loading: false,
   error: null,
 
@@ -52,9 +56,20 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     set({ loading: true, error: null });
     try {
       const snapshot = await hostApiFetch<AgentsSnapshot & { success?: boolean }>('/api/agents');
-      set({
-        ...applySnapshot(snapshot),
-        loading: false,
+      set((state) => {
+        const newState = {
+          ...applySnapshot(snapshot),
+          loading: false,
+        };
+        // Initialize agent statuses to online for all agents
+        const statuses: Record<string, 'online' | 'offline' | 'busy'> = {};
+        for (const agent of newState.agents || []) {
+          statuses[agent.id] = state.agentStatuses[agent.id] || 'online';
+        }
+        return {
+          ...newState,
+          agentStatuses: statuses,
+        };
       });
     } catch (error) {
       set({ loading: false, error: String(error) });
@@ -144,6 +159,28 @@ export const useAgentsStore = create<AgentsState>((set) => ({
       set({ error: String(error) });
       throw error;
     }
+  },
+
+  updateAgentStatus: (agentId: string, status: 'online' | 'offline' | 'busy') => {
+    set((state) => ({
+      agentStatuses: {
+        ...state.agentStatuses,
+        [agentId]: status,
+      },
+    }));
+  },
+
+  fetchAgentStatuses: async () => {
+    // Simplified implementation: default all agents to online
+    // If Gateway provides agent status API in the future, fetch from there
+    set((state) => {
+      const statuses: Record<string, 'online' | 'offline' | 'busy'> = {};
+      for (const agent of state.agents) {
+        // Default to online if not already set
+        statuses[agent.id] = state.agentStatuses[agent.id] || 'online';
+      }
+      return { agentStatuses: statuses };
+    });
   },
 
   clearError: () => set({ error: null }),
