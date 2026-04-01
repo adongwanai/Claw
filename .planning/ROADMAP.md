@@ -154,7 +154,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md — Channel type extension + Bot rail refactor
 - [x] 06-02-PLAN.md — BotBindingModal + simplified config pages (DingTalk/WeCom/QQ)
-- [ ] 06-03-PLAN.md — End-to-end integration + Phase 10/11 compatibility verification
+- [x] 06-03-PLAN.md — End-to-end integration + Phase 10/11 compatibility verification
 **Success Criteria (what must be TRUE):**
   1. 频道为独立的同步工作台（session list + message panel + composer）
   2. 消息不进入主会话列表

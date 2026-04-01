@@ -17,7 +17,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
-import { SessionGroup } from '@/components/sessions/SessionGroup';
+import { SessionItem } from '@/components/sessions/SessionItem';
 import { cn } from '@/lib/utils';
 import { usePinnedSessions } from '@/lib/pinned-sessions';
 import { searchSessions } from '@/lib/session-search';
@@ -227,14 +227,14 @@ export function Sidebar() {
     });
   }, [filteredSessions, pinnedSessionKeySet, sessionLastActivity]);
 
-  // Split sessions into team and personal (per D-04)
-  const teamSessions = useMemo(() => {
-    return sortedSessions.filter((session) => session.isTeamSession || session.teamId != null);
-  }, [sortedSessions]);
-
-  const personalSessions = useMemo(() => {
-    return sortedSessions.filter((session) => !session.isTeamSession && session.teamId == null);
-  }, [sortedSessions]);
+  // Get message preview for each session
+  const getMessagePreview = (sessionKey: string): string => {
+    const messages = sessionMessagesMap.get(sessionKey) || [];
+    if (messages.length === 0) return '';
+    const lastMessage = messages[messages.length - 1];
+    const content = typeof lastMessage.content === 'string' ? lastMessage.content : '';
+    return content.length > 50 ? content.slice(0, 50) + '...' : content;
+  };
 
   const searchSessionsData = sessions.map((session) => ({
     key: session.key,
@@ -357,40 +357,35 @@ export function Sidebar() {
               </div>
 
               {sortedSessions.length > 0 ? (
-                <>
-                  <SessionGroup
-                    title="团队会话"
-                    sessions={teamSessions}
-                    groupKey="teamSessions"
-                    currentSessionKey={currentSessionKey}
-                    pinnedSessionKeySet={pinnedSessionKeySet}
-                    sessionLabels={sessionLabels}
-                    sessionMessages={sessionMessagesMap}
-                    onSessionClick={(key) => {
-                      switchSession(key);
-                      navigate('/');
-                    }}
-                    onPinToggle={toggleSessionPinned}
-                    onDelete={(key) => void deleteSession(key)}
-                    collapsed={sidebarCollapsed}
-                  />
-                  <SessionGroup
-                    title="个人会话"
-                    sessions={personalSessions}
-                    groupKey="personalSessions"
-                    currentSessionKey={currentSessionKey}
-                    pinnedSessionKeySet={pinnedSessionKeySet}
-                    sessionLabels={sessionLabels}
-                    sessionMessages={sessionMessagesMap}
-                    onSessionClick={(key) => {
-                      switchSession(key);
-                      navigate('/');
-                    }}
-                    onPinToggle={toggleSessionPinned}
-                    onDelete={(key) => void deleteSession(key)}
-                    collapsed={sidebarCollapsed}
-                  />
-                </>
+                <div className="space-y-2">
+                  {sortedSessions.map((session) => {
+                    const label =
+                      sessionLabels[session.key] ??
+                      session.label ??
+                      session.displayName ??
+                      session.key;
+                    const isPinned = pinnedSessionKeySet.has(session.key);
+                    const isActive = currentSessionKey === session.key;
+                    const messagePreview = getMessagePreview(session.key);
+
+                    return (
+                      <SessionItem
+                        key={session.key}
+                        session={session}
+                        label={label}
+                        isPinned={isPinned}
+                        isActive={isActive}
+                        messagePreview={messagePreview}
+                        onClick={() => {
+                          switchSession(session.key);
+                          navigate('/');
+                        }}
+                        onPinToggle={() => toggleSessionPinned(session.key)}
+                        onDelete={() => void deleteSession(session.key)}
+                      />
+                    );
+                  })}
+                </div>
               ) : (
                 <p className="px-3 py-2 text-sm text-muted-foreground">
                   {debouncedSearch.trim()
