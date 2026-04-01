@@ -6,9 +6,9 @@ import { hostApiFetch } from '@/lib/host-api';
 import { subscribeHostEvent } from '@/lib/host-events';
 import { useChannelsStore } from '@/stores/channels';
 import { useSettingsStore } from '@/stores/settings';
+import { useRightPanelStore } from '@/stores/rightPanelStore';
 import { FeishuOnboardingWizard } from '@/components/channels/FeishuOnboardingWizard';
 import { WeChatOnboardingWizard } from '@/components/channels/WeChatOnboardingWizard';
-import { BotRail } from '@/components/channels/BotRail';
 import { BotBindingModal } from '@/components/channels/BotBindingModal';
 import { DingTalkConfigPage } from '@/components/channels/DingTalkConfigPage';
 import { WeComConfigPage } from '@/components/channels/WeComConfigPage';
@@ -172,7 +172,10 @@ export function Channels() {
   const location = useLocation();
   const { t } = useTranslation(['channels', 'common']);
   const requestedChannel = resolveRequestedChannel(location.search);
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const activeChannelId = useRightPanelStore((state) => state.activeChannelId);
+  const setActiveChannelId = useRightPanelStore((state) => state.setActiveChannelId);
+  const pendingBotSettings = useRightPanelStore((state) => state.pendingBotSettings);
+  const setPendingBotSettings = useRightPanelStore((state) => state.setPendingBotSettings);
   // Derived from activeChannelId for Phase 10/11 API calls
   const activeChannelType: ChannelType = activeChannelId
     ? (activeChannelId.split('-').slice(0, -1).join('-') as ChannelType)
@@ -236,7 +239,14 @@ export function Channels() {
       const bot = channels.find((c) => c.type === requestedChannel);
       if (bot) setActiveChannelId(bot.id);
     }
-  }, [requestedChannel, activeChannelId, channels]);
+  }, [requestedChannel, activeChannelId, channels, setActiveChannelId]);
+
+  // Clear sessions and messages when activeChannelId changes
+  useEffect(() => {
+    setSelectedConversationId(null);
+    setConversation(null);
+    setMessages([]);
+  }, [activeChannelId]);
 
   // Fetch feishu user auth status to decide whether to show identity toggle
   useEffect(() => {
@@ -554,26 +564,17 @@ export function Channels() {
     window.setTimeout(() => setTestResult(null), 4000);
   };
 
+  // Handle pendingBotSettings from Sidebar
+  useEffect(() => {
+    if (pendingBotSettings) {
+      setBindingBotId(pendingBotSettings);
+      setBindingModalOpen(true);
+      setPendingBotSettings(null);
+    }
+  }, [pendingBotSettings, setPendingBotSettings]);
+
   return (
     <div className="flex h-full flex-row overflow-hidden bg-[#f2f2f7]">
-      {/* Phase 6: Bot-list rail - replaces old channel-type rail */}
-      <BotRail
-        activeChannelId={activeChannelId}
-        onBotSelect={(botId) => {
-          setActiveChannelId(botId);
-          setSelectedConversationId(null);
-          setConversation(null);
-          setMessages([]);
-        }}
-        onBotSettings={(botId) => {
-          setActiveChannelId(botId);
-          setBindingBotId(botId);
-          setBindingModalOpen(true);
-        }}
-        connectChannel={connectChannel}
-        disconnectChannel={disconnectChannel}
-      />
-
       {/* Session list column */}
       <section className={cn(
         'flex w-[290px] shrink-0 flex-col border-r border-black/[0.06] bg-white',

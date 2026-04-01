@@ -8,9 +8,10 @@ import {
   PanelLeft,
   PanelLeftClose,
   Pin,
+  Plus,
   Radio,
   Search,
-  Settings,
+  Settings as SettingsIcon,
   Trash2,
   Users,
 } from 'lucide-react';
@@ -26,6 +27,8 @@ import { useChannelsStore } from '@/stores/channels';
 import { useChatStore } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
 import { useSettingsStore } from '@/stores/settings';
+import { useRightPanelStore } from '@/stores/rightPanelStore';
+import { CHANNEL_ICONS, CHANNEL_WORKBENCH_TYPES, type Channel } from '@/types/channel';
 
 const CHAT_REQUEST_FILE_UPLOAD_EVENT = 'chat:request-file-upload';
 const CHAT_UPLOAD_PENDING_KEY = 'ktclaw:pending-upload';
@@ -129,6 +132,9 @@ export function Sidebar() {
   const fetchAgents = useAgentsStore((state) => state.fetchAgents);
   const { channels, fetchChannels } = useChannelsStore();
   const { pinnedSessionKeySet, toggleSessionPinned } = usePinnedSessions();
+  const activeChannelId = useRightPanelStore((state) => state.activeChannelId);
+  const setActiveChannelId = useRightPanelStore((state) => state.setActiveChannelId);
+  const setPendingBotSettings = useRightPanelStore((state) => state.setPendingBotSettings);
 
   const [channelsOpen, setChannelsOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(true);
@@ -298,33 +304,87 @@ export function Sidebar() {
             collapsed={sidebarCollapsed}
           />
           {!sidebarCollapsed && channelsOpen ? (
-            <div className="space-y-1">
-              {channels.length > 0 ? (
-                channels.map((channel) => (
-                  <button
-                    key={channel.id}
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                    onClick={() => navigate(`/channels?channel=${channel.type}`)}
-                  >
-                    <span
-                      className={cn(
-                        'h-2.5 w-2.5 shrink-0 rounded-full',
-                        channel.status === 'connected'
-                          ? 'bg-green-500'
-                          : channel.status === 'connecting'
-                            ? 'bg-amber-400'
-                            : 'bg-slate-300',
-                      )}
-                    />
-                    <span className="truncate">{channel.name}</span>
-                  </button>
-                ))
-              ) : (
-                <p className="px-3 py-2 text-sm text-muted-foreground">
-                  {tSidebar('noChannels', 'No channels configured')}
-                </p>
-              )}
+            <div className="space-y-1 pl-4 pr-2 py-1">
+              {(() => {
+                const workbenchChannels = channels.filter((c) =>
+                  CHANNEL_WORKBENCH_TYPES.includes(c.type),
+                );
+                const sortedBots = [...workbenchChannels].sort((a, b) => {
+                  if (a.status === 'connected' && b.status !== 'connected') return -1;
+                  if (a.status !== 'connected' && b.status === 'connected') return 1;
+                  return a.name.localeCompare(b.name);
+                });
+
+                if (sortedBots.length === 0) {
+                  return (
+                    <p className="px-3 py-2 text-[13px] text-muted-foreground">
+                      {tSidebar('noChannels', 'No channels configured')}
+                    </p>
+                  );
+                }
+
+                return (
+                  <>
+                    {sortedBots.map((bot) => {
+                      const isActive = bot.id === activeChannelId;
+                      const icon = CHANNEL_ICONS[bot.type] ?? '🔌';
+                      const statusDotColor =
+                        bot.status === 'connected'
+                          ? 'bg-[#10b981]'
+                          : bot.status === 'connecting'
+                            ? 'bg-[#f59e0b]'
+                            : bot.status === 'error'
+                              ? 'bg-[#ef4444]'
+                              : 'bg-[#94a3b8]';
+
+                      return (
+                        <div
+                          key={bot.id}
+                          className={cn(
+                            'flex items-center gap-2 rounded-lg px-3 py-2 text-[14px] transition-colors',
+                            isActive
+                              ? 'bg-[#EEF2FF] text-[#6366f1] font-medium'
+                              : 'text-[#000000] hover:bg-[#e5e5ea]',
+                          )}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveChannelId(bot.id);
+                              navigate('/channels');
+                            }}
+                            className="flex min-w-0 flex-1 items-center gap-2"
+                          >
+                            <span className="shrink-0 text-[14px]">{icon}</span>
+                            <span className="truncate text-[13px]">{bot.name}</span>
+                            <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusDotColor)} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveChannelId(bot.id);
+                              setPendingBotSettings(bot.id);
+                              navigate('/channels');
+                            }}
+                            className="shrink-0 text-[12px] text-[#8e8e93] hover:text-[#3c3c43]"
+                            aria-label="设置"
+                          >
+                            ⚙
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => navigate('/channels')}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-[#8e8e93] transition-colors hover:bg-[#e5e5ea] hover:text-[#3c3c43]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>添加渠道</span>
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           ) : null}
         </div>
@@ -400,7 +460,7 @@ export function Sidebar() {
                 onClick={() => navigate('/settings')}
                 title={tSidebar('settings', 'Settings')}
               >
-                <Settings className="h-4 w-4" />
+                <SettingsIcon className="h-4 w-4" />
               </button>
             </>
           )}

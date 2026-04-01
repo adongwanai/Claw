@@ -7,8 +7,12 @@ interface RightPanelState {
   type: RightPanelType;
   agentId: string | null;
   taskId: string | null;
+  activeChannelId: string | null;
+  pendingBotSettings: string | null;
   openPanel: (type: Exclude<RightPanelType, null>, id?: string) => void;
   closePanel: () => void;
+  setActiveChannelId: (channelId: string | null) => void;
+  setPendingBotSettings: (botId: string | null) => void;
 }
 
 export const useRightPanelStore = create<RightPanelState>((set) => ({
@@ -16,6 +20,8 @@ export const useRightPanelStore = create<RightPanelState>((set) => ({
   type: null,
   agentId: null,
   taskId: null,
+  activeChannelId: null,
+  pendingBotSettings: null,
   openPanel: (type, id) => {
     if (type === 'agent') {
       set({ open: true, type, agentId: id ?? null, taskId: null });
@@ -26,4 +32,6 @@ export const useRightPanelStore = create<RightPanelState>((set) => ({
     }
   },
   closePanel: () => set({ open: false, type: null, agentId: null, taskId: null }),
+  setActiveChannelId: (channelId) => set({ activeChannelId: channelId }),
+  setPendingBotSettings: (botId) => set({ pendingBotSettings: botId }),
 }));
