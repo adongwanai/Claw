@@ -46,6 +46,10 @@ export interface Channel {
   error?: string;
   avatar?: string;
   metadata?: Record<string, unknown>;
+  // Phase 6: Bot binding fields (one-to-one binding)
+  boundAgentId?: string;
+  boundTeamId?: string;
+  responsiblePerson?: string;
 }
 
 /**
