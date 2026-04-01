@@ -1,11 +1,11 @@
-import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
+import { UserPlus, Users, X, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useTeamsStore } from '@/stores/teams';
 import { useAgentsStore } from '@/stores/agents';
-import { motion, AnimatePresence } from 'framer-motion';
-import { UserPlus, Users, ArrowRight } from 'lucide-react';
 
 interface DroppedAgent {
   id: string;
@@ -17,6 +17,7 @@ interface CreateTeamZoneProps {
   initialLeader?: DroppedAgent | null;
   onCancel?: () => void;
   onSuccess?: () => void;
+  isDragging?: boolean;
 }
 
 export interface CreateTeamZoneRef {
@@ -25,224 +26,399 @@ export interface CreateTeamZoneRef {
 }
 
 function AgentChip({ agent, onRemove }: { agent: DroppedAgent; onRemove: () => void }) {
-  const initials = agent.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const initials = agent.name
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 
   return (
-    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-slate-100 shadow-sm">
-      <Avatar className="h-7 w-7 ring-2 ring-slate-100">
+    <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <Avatar className="h-6 w-6">
         {agent.avatar ? (
           <img src={agent.avatar} alt={agent.name} className="object-cover" />
         ) : (
-          <AvatarFallback className="bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 text-xs font-semibold">
+          <AvatarFallback className="bg-gradient-to-br from-blue-100 to-indigo-100 text-xs font-semibold text-blue-600">
             {initials}
           </AvatarFallback>
         )}
       </Avatar>
       <span className="flex-1 text-sm font-medium text-slate-700">{agent.name}</span>
-      <button onClick={onRemove} className="p-1 rounded-md hover:bg-slate-100 transition-colors" aria-label="移除">
-        <span className="text-slate-400 hover:text-slate-600">✕</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="rounded-md p-0.5 transition-colors hover:bg-slate-100"
+        aria-label="移除"
+      >
+        <X className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600" />
       </button>
     </div>
   );
 }
 
 export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>(
-  ({ initialLeader, onCancel, onSuccess }, ref) => {
+  ({ initialLeader, onCancel, onSuccess, isDragging = false }, ref) => {
     const [leader, setLeader] = useState<DroppedAgent | null>(initialLeader || null);
     const [members, setMembers] = useState<DroppedAgent[]>([]);
-    const [showConfirmForm, setShowConfirmForm] = useState(!!initialLeader);
+    const [showConfirmForm, setShowConfirmForm] = useState(false);
     const [teamName, setTeamName] = useState('');
     const [description, setDescription] = useState('');
     const [creating, setCreating] = useState(false);
 
-    const createTeam = useTeamsStore(state => state.createTeam);
-    const agents = useAgentsStore(state => state.agents);
+    const createTeam = useTeamsStore((state) => state.createTeam);
+    const agents = useAgentsStore((state) => state.agents);
 
     useEffect(() => {
-      if (initialLeader) {
-        setLeader(initialLeader);
-        setShowConfirmForm(true);
-      }
+      if (!initialLeader) return;
+      setLeader(initialLeader);
     }, [initialLeader]);
 
-    const { setNodeRef: setLeaderRef, isOver: isOverLeader } = useDroppable({ id: 'leader-zone', data: { type: 'leader' } });
-    const { setNodeRef: setMemberRef, isOver: isOverMember } = useDroppable({ id: 'member-zone', data: { type: 'member' } });
+    // 自动生成团队名称（仅在打开确认表单时）
+    useEffect(() => {
+      if (showConfirmForm && leader && !teamName.trim()) {
+        setTeamName(`${leader.name} 的团队`);
+      }
+    }, [showConfirmForm, leader, teamName]);
 
+    const { setNodeRef: setLeaderRef, isOver: isOverLeader } = useDroppable({
+      id: 'leader-zone',
+      data: { type: 'leader' },
+    });
+    const { setNodeRef: setMemberRef, isOver: isOverMember } = useDroppable({
+      id: 'member-zone',
+      data: { type: 'member' },
+    });
+
+    // 生成唯一名称（带后缀）
     const generateUniqueName = (baseName: string, existingNames: string[]): string => {
       if (!existingNames.includes(baseName)) return baseName;
+
       let counter = 1;
-      let newName = baseName + '-' + counter;
-      while (existingNames.includes(newName)) { counter++; newName = baseName + '-' + counter; }
-      return newName;
+      let nextName = `${baseName}-${counter}`;
+      while (existingNames.includes(nextName)) {
+        counter += 1;
+        nextName = `${baseName}-${counter}`;
+      }
+      return nextName;
     };
 
     const handleLeaderDrop = (agentId: string) => {
-      const agent = agents.find(a => a.id === agentId);
+      const agent = agents.find((item) => item.id === agentId);
       if (!agent) return;
-      if (leader?.id === agentId) return;
-      const existingNames = [leader?.name, ...members.map(m => m.name)].filter(Boolean) as string[];
+
+      // 允许重复：如果已经是 Leader，也可以再次放入（会替换）
+      // 如果在成员区，移除该成员
+      setMembers((prev) => prev.filter((member) => member.id !== agentId));
+
+      // 生成唯一名称（考虑成员区的名称）
+      const existingNames = members.map((member) => member.name);
       const uniqueName = generateUniqueName(agent.name, existingNames);
+
       setLeader({ id: agent.id, name: uniqueName, avatar: agent.avatar });
+      // 不再自动弹窗！
     };
 
     const handleMemberDrop = (agentId: string) => {
-      const agent = agents.find(a => a.id === agentId);
+      const agent = agents.find((item) => item.id === agentId);
       if (!agent) return;
-      const existingNames = [leader?.name, ...members.map(m => m.name)].filter(Boolean) as string[];
+
+      // 允许重复：同一个 Agent 可以多次加入成员区
+      // 生成唯一名称（考虑 Leader 和已有成员的名称）
+      const existingNames = [
+        leader?.name,
+        ...members.map((member) => member.name)
+      ].filter(Boolean) as string[];
+
       const uniqueName = generateUniqueName(agent.name, existingNames);
-      const exists = members.some(m => m.id === agentId && m.name === uniqueName);
-      if (!exists) setMembers(prev => [...prev, { id: agent.id, name: uniqueName, avatar: agent.avatar }]);
+
+      // 直接添加，不检查是否已存在
+      setMembers((prev) => [...prev, { id: agent.id, name: uniqueName, avatar: agent.avatar }]);
     };
 
-    useImperativeHandle(ref, () => ({ handleLeaderDrop, handleMemberDrop }), [agents, leader, members]);
+    useImperativeHandle(
+      ref,
+      () => ({
+        handleLeaderDrop,
+        handleMemberDrop,
+      }),
+      [agents, leader, members]
+    );
 
     const handleConfirm = async () => {
       if (!leader || !teamName.trim()) return;
+
       setCreating(true);
       try {
         await createTeam({
           leaderId: leader.id,
-          memberIds: members.map(m => m.id),
+          memberIds: members.map((member) => member.id),
           name: teamName.trim(),
           description: description.trim() || undefined,
         });
-        setLeader(null); setMembers([]); setTeamName(''); setDescription(''); setShowConfirmForm(false);
+
+        setLeader(null);
+        setMembers([]);
+        setTeamName('');
+        setDescription('');
+        setShowConfirmForm(false);
         onSuccess?.();
-      } catch (error) { console.error('Failed to create team:', error); }
-      finally { setCreating(false); }
+      } catch (error) {
+        console.error('Failed to create team:', error);
+      } finally {
+        setCreating(false);
+      }
     };
 
     const handleCancel = () => {
-      setShowConfirmForm(false); setTeamName(''); setDescription(''); setLeader(null); setMembers([]);
+      setShowConfirmForm(false);
+      setTeamName('');
+      setDescription('');
+      setLeader(null);
+      setMembers([]);
       onCancel?.();
     };
 
+    const handleNextStep = () => {
+      if (!leader) return;
+      setShowConfirmForm(true);
+    };
+
+    // 判断是否应该高亮整个拖拽区
+    const shouldHighlight = isDragging && !leader && members.length === 0;
+
     return (
-      <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
-        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200/50 p-5 shadow-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
-              <Users className="h-4 w-4 text-blue-500" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">创建新团队</h3>
-              <p className="text-xs text-slate-500">{leader ? '继续添加成员' : '拖拽 Agent 到下方区域'}</p>
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <UserPlus className="h-3.5 w-3.5 text-slate-400" />
-                <span className="text-xs font-medium text-slate-600">Leader</span>
-              </div>
-              <span className="text-[10px] text-slate-400">限 1 人</span>
-            </div>
-            <div ref={setLeaderRef} className={cn(
-              "min-h-[72px] rounded-xl border-2 p-3 transition-all",
-              isOverLeader ? "border-blue-400 bg-blue-50/50 border-solid" :
-              leader ? "border-slate-200 bg-slate-50/50 border-solid" :
-              "border-dashed border-slate-200 bg-white/80"
-            )}>
-              {leader ? (
-                <AgentChip agent={leader} onRemove={() => setLeader(null)} />
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-1 py-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
-                    <span className="text-base">👤</span>
-                  </div>
-                  <span className="text-xs text-slate-400">拖拽 Agent 到这里</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {leader && (
-            <div className="flex justify-center mb-3">
-              <div className="flex items-center gap-2 text-slate-300">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-200" />
-                <ArrowRight className="h-3.5 w-3.5" />
-                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-200" />
-              </div>
-            </div>
+      <div className="w-full max-w-3xl mx-auto">
+        {/* 轻量化拖拽接收区 - 拖拽时高亮 */}
+        <motion.div
+          animate={{
+            borderColor: shouldHighlight ? 'rgb(59, 130, 246)' : 'rgb(203, 213, 225)',
+            backgroundColor: shouldHighlight ? 'rgb(239, 246, 255)' : 'rgb(248, 250, 252)',
+          }}
+          transition={{ duration: 0.2 }}
+          className={cn(
+            'rounded-2xl border-2 border-dashed p-6 transition-all',
+            shouldHighlight && 'shadow-lg shadow-blue-100'
           )}
-
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5 text-slate-400" />
-                <span className="text-xs font-medium text-slate-600">成员</span>
-              </div>
-              {members.length > 0 && members.length < 3 && (
-                <span className="text-[10px] text-amber-500 font-medium">建议至少 2-3 人</span>
-              )}
-            </div>
-            <div ref={setMemberRef} className={cn(
-              "min-h-[88px] rounded-xl border-2 p-3 transition-all",
-              isOverMember ? "border-blue-400 bg-blue-50/50 border-solid" :
-              members.length > 0 ? "border-slate-200 bg-slate-50/50 border-solid" :
-              "border-dashed border-slate-200 bg-white/80"
-            )}>
-              {members.length > 0 ? (
-                <div className="space-y-2">
-                  {members.map(member => (
-                    <AgentChip key={member.id + '-' + member.name} agent={member} onRemove={() => setMembers(prev => prev.filter(m => !(m.id === member.id && m.name === member.name))} />
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center gap-1 py-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100">
-                    <span className="text-base">👥</span>
-                  </div>
-                  <span className="text-xs text-slate-400">拖拽多个 Agent 到这里</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {!showConfirmForm && (
-            <button onClick={() => setShowConfirmForm(true)} disabled={!leader} className={cn(
-              "w-full py-2.5 rounded-xl text-sm font-semibold transition-all",
-              leader ? "bg-blue-500 text-white hover:bg-blue-600 shadow-sm" :
-              "bg-slate-100 text-slate-400 cursor-not-allowed"
-            )}>
-              创建团队
-            </button>
-          )}
-
+        >
+          {/* 常驻提示 - 拖拽时更明显 */}
           <AnimatePresence>
-            {showConfirmForm && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-3">
-                  <h4 className="text-xs font-semibold text-slate-700">确认创建团队</h4>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-500 mb-1">团队名称</label>
-                    <input type="text" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="输入团队名称"
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-500 mb-1">职责描述 <span className="text-slate-400">(可选)</span></label>
-                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="描述团队的职责和目标" rows={2}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none resize-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all" />
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={handleCancel} disabled={creating}
-                      className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm font-medium hover:bg-white transition-colors">
-                      取消
-                    </button>
-                    <button onClick={handleConfirm} disabled={creating || !teamName.trim()}
-                      className="flex-1 py-2 rounded-lg bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors shadow-sm">
-                      {creating ? '创建中...' : '确认创建'}
-                    </button>
-                  </div>
-                </div>
+            {shouldHighlight && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-4 flex items-center gap-2 rounded-lg bg-blue-100 px-4 py-3 text-sm font-medium text-blue-700"
+              >
+                <Sparkles className="h-4 w-4" />
+                将右侧 Agent 拖拽至此框内作为 Leader 或成员
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
-      </motion.div>
+
+          <div className="flex items-start gap-6">
+            {/* Leader 区 */}
+            <div className="flex-1">
+              <div className="mb-2 flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">Leader</span>
+                <span className="text-xs text-slate-400">(限 1 人)</span>
+              </div>
+              <div
+                ref={setLeaderRef}
+                className={cn(
+                  'min-h-[80px] rounded-xl border-2 p-3 transition-all',
+                  isOverLeader
+                    ? 'border-solid border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
+                    : leader
+                      ? 'border-solid border-slate-200 bg-white'
+                      : isDragging
+                        ? 'border-dashed border-blue-400 bg-blue-50/30'
+                        : 'border-dashed border-slate-300 bg-white/50'
+                )}
+              >
+                {leader ? (
+                  <AgentChip agent={leader} onRemove={() => setLeader(null)} />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-3">
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
+                        isDragging ? 'bg-blue-100' : 'bg-slate-100'
+                      )}
+                    >
+                      <span className="text-base">👑</span>
+                    </div>
+                    <span
+                      className={cn(
+                        'text-xs transition-colors',
+                        isDragging ? 'text-blue-600 font-medium' : 'text-slate-400'
+                      )}
+                    >
+                      拖拽 Agent 到这里
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 成员区 */}
+            <div className="flex-1">
+              <div className="mb-2 flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-medium text-slate-700">成员</span>
+                {members.length > 0 && members.length < 3 && (
+                  <span className="text-xs font-medium text-amber-500">建议至少 2-3 人</span>
+                )}
+              </div>
+              <div
+                ref={setMemberRef}
+                className={cn(
+                  'min-h-[80px] rounded-xl border-2 p-3 transition-all',
+                  isOverMember
+                    ? 'border-solid border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
+                    : members.length > 0
+                      ? 'border-solid border-slate-200 bg-white'
+                      : isDragging
+                        ? 'border-dashed border-blue-400 bg-blue-50/30'
+                        : 'border-dashed border-slate-300 bg-white/50'
+                )}
+              >
+                {members.length > 0 ? (
+                  <div className="space-y-2">
+                    {members.map((member, index) => (
+                      <AgentChip
+                        key={`${member.id}-${member.name}-${index}`}
+                        agent={member}
+                        onRemove={() =>
+                          setMembers((prev) => prev.filter((_, i) => i !== index))
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-1.5 py-3">
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 items-center justify-center rounded-full transition-colors',
+                        isDragging ? 'bg-blue-100' : 'bg-slate-100'
+                      )}
+                    >
+                      <span className="text-base">👥</span>
+                    </div>
+                    <span
+                      className={cn(
+                        'text-xs transition-colors',
+                        isDragging ? 'text-blue-600 font-medium' : 'text-slate-400'
+                      )}
+                    >
+                      拖拽多个 Agent
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="mt-6 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              onClick={handleNextStep}
+              disabled={!leader}
+              className={cn(
+                'px-6 py-2 rounded-lg text-sm font-semibold transition-all',
+                leader
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              )}
+            >
+              下一步
+            </button>
+          </div>
+        </motion.div>
+
+        {/* 确认表单 Modal - 仅在点击"下一步"时显示 */}
+        <AnimatePresence>
+          {showConfirmForm && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowConfirmForm(false)}
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 z-50"
+              >
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">确认创建团队</h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      团队名称
+                    </label>
+                    <input
+                      type="text"
+                      value={teamName}
+                      onChange={(event) => setTeamName(event.target.value)}
+                      placeholder="输入团队名称"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      职责描述 <span className="text-slate-400 font-normal">(可选)</span>
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      placeholder="描述团队的职责和目标"
+                      rows={3}
+                      className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmForm(false)}
+                    disabled={creating}
+                    className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                  >
+                    返回
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirm}
+                    disabled={creating || !teamName.trim()}
+                    className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {creating ? '创建中...' : '确认创建'}
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+      </div>
     );
   }
 );
+
+CreateTeamZone.displayName = 'CreateTeamZone';
 
 export default CreateTeamZone;

@@ -26,12 +26,10 @@ export const useRightPanelStore = create<RightPanelState>((set) => ({
   pendingBotSettings: null,
   pendingAddChannel: false,
   openPanel: (type, id) => {
-    if (type === 'agent') {
-      set({ open: true, type, agentId: id ?? null, taskId: null });
-    } else if (type === 'task') {
+    if (type === 'task') {
       set({ open: true, type, taskId: id ?? null, agentId: null });
     } else {
-      set({ open: true, type, agentId: null, taskId: null });
+      set({ open: true, type, agentId: id ?? null, taskId: null });
     }
   },
   closePanel: () => set({ open: false, type: null, agentId: null, taskId: null }),
