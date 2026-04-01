@@ -149,11 +149,11 @@ Plans:
 - `.planning/PRODUCT-RESTRUCTURE.md` §八（频道）
 - `.planning/PRODUCT-RESTRUCTURE.md` §十二.6（外部接入绑定规则）
 - `src/pages/Channels/index.tsx` — 现有频道页面
-**Plans:** 3 plans
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 06-01-PLAN.md — Channel type extension + Bot rail refactor
-- [ ] 06-02-PLAN.md — BotBindingModal + simplified config pages (DingTalk/WeCom/QQ)
+- [x] 06-01-PLAN.md — Channel type extension + Bot rail refactor
+- [x] 06-02-PLAN.md — BotBindingModal + simplified config pages (DingTalk/WeCom/QQ)
 - [ ] 06-03-PLAN.md — End-to-end integration + Phase 10/11 compatibility verification
 **Success Criteria (what must be TRUE):**
   1. 频道为独立的同步工作台（session list + message panel + composer）
