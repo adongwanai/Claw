@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Bell,
   Bot,
@@ -17,8 +17,10 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { GlobalSearchModal } from '@/components/search/GlobalSearchModal';
+import { SessionItem } from '@/components/sessions/SessionItem';
 import { cn } from '@/lib/utils';
 import { usePinnedSessions } from '@/lib/pinned-sessions';
+import { searchSessions, extractMessagePreview } from '@/lib/session-search';
 import { useAgentsStore } from '@/stores/agents';
 import { useChannelsStore } from '@/stores/channels';
 import { useChatStore } from '@/stores/chat';
@@ -117,6 +119,7 @@ export function Sidebar() {
   const currentSessionKey = useChatStore((state) => state.currentSessionKey);
   const sessionLabels = useChatStore((state) => state.sessionLabels);
   const sessionLastActivity = useChatStore((state) => state.sessionLastActivity);
+  const messages = useChatStore((state) => state.messages);
   const switchSession = useChatStore((state) => state.switchSession);
   const deleteSession = useChatStore((state) => state.deleteSession);
   const loadSessions = useChatStore((state) => state.loadSessions);
@@ -130,6 +133,7 @@ export function Sidebar() {
   const [channelsOpen, setChannelsOpen] = useState(false);
   const [sessionsOpen, setSessionsOpen] = useState(true);
   const [sessionSearch, setSessionSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [avatarPopupOpen, setAvatarPopupOpen] = useState(false);
   const [nickname, setNickname] = useState(() => localStorage.getItem('clawx-user-nickname') || 'Administrator');
@@ -137,6 +141,14 @@ export function Sidebar() {
 
   const tSidebar = (key: string, defaultValue?: string) =>
     t(`common:sidebar.${key}`, { defaultValue });
+
+  // Debounce search input (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(sessionSearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [sessionSearch]);
 
   useEffect(() => {
     void fetchAgents();
@@ -182,8 +194,26 @@ export function Sidebar() {
     },
   ];
 
-  const sortedSessions = [...sessions]
-    .sort((left, right) => {
+  // Build message map for current session only (for message preview)
+  const sessionMessagesMap = useMemo(() => {
+    const map = new Map();
+    if (currentSessionKey && messages.length > 0) {
+      map.set(currentSessionKey, messages);
+    }
+    return map;
+  }, [currentSessionKey, messages]);
+
+  // Filter sessions using search function
+  const filteredSessions = useMemo(() => {
+    if (!debouncedSearch.trim()) {
+      return sessions;
+    }
+    return searchSessions(sessions, debouncedSearch, agents, sessionMessagesMap);
+  }, [sessions, debouncedSearch, agents, sessionMessagesMap]);
+
+  // Sort sessions (pinned first, then by activity)
+  const sortedSessions = useMemo(() => {
+    return [...filteredSessions].sort((left, right) => {
       const leftPinned = pinnedSessionKeySet.has(left.key);
       const rightPinned = pinnedSessionKeySet.has(right.key);
       if (leftPinned !== rightPinned) {
@@ -194,12 +224,8 @@ export function Sidebar() {
         (sessionLastActivity[right.key] ?? right.updatedAt ?? 0) -
         (sessionLastActivity[left.key] ?? left.updatedAt ?? 0)
       );
-    })
-    .filter((session) => {
-      const label =
-        sessionLabels[session.key] ?? session.label ?? session.displayName ?? session.key;
-      return label.toLowerCase().includes(sessionSearch.trim().toLowerCase());
     });
+  }, [filteredSessions, pinnedSessionKeySet, sessionLastActivity]);
 
   const searchSessions = sessions.map((session) => ({
     key: session.key,
@@ -329,64 +355,35 @@ export function Sidebar() {
                     session.displayName ??
                     session.key;
                   const isPinned = pinnedSessionKeySet.has(session.key);
+                  const isActive = currentSessionKey === session.key;
+
+                  // Get message preview for current session
+                  const messagePreview = isActive && messages.length > 0
+                    ? extractMessagePreview(messages)
+                    : undefined;
 
                   return (
-                    <div key={session.key} className="group relative">
-                      <button
-                        type="button"
-                        className={cn(
-                          'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition-colors',
-                          currentSessionKey === session.key
-                            ? 'bg-accent text-accent-foreground font-medium border-l-4 border-primary'
-                            : 'text-[#000000] hover:bg-[#e5e5ea]',
-                        )}
-                        onClick={() => {
-                          switchSession(session.key);
-                          navigate('/');
-                        }}
-                      >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                          {label.slice(0, 1).toUpperCase()}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="truncate font-medium">{label}</span>
-                            {isPinned ? (
-                              <Pin
-                                className="h-3.5 w-3.5 shrink-0"
-                                aria-label={tSidebar('pinnedSession', 'Pinned session')}
-                              />
-                            ) : null}
-                          </div>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {session.key}
-                          </p>
-                        </div>
-                      </button>
-                      <div className="absolute right-2 top-2 flex items-center gap-1">
-                        <button
-                          type="button"
-                          aria-label={isPinned ? tSidebar('unpin', 'Unpin') : tSidebar('pin', 'Pin')}
-                          className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground group-hover:opacity-100"
-                          onClick={() => toggleSessionPinned(session.key)}
-                        >
-                          <Pin className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          aria-label={tSidebar('delete', 'Delete')}
-                          className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-accent-foreground group-hover:opacity-100"
-                          onClick={() => void deleteSession(session.key)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                    <SessionItem
+                      key={session.key}
+                      session={session}
+                      label={label}
+                      isPinned={isPinned}
+                      isActive={isActive}
+                      messagePreview={messagePreview}
+                      onClick={() => {
+                        switchSession(session.key);
+                        navigate('/');
+                      }}
+                      onPinToggle={() => toggleSessionPinned(session.key)}
+                      onDelete={() => void deleteSession(session.key)}
+                    />
                   );
                 })
               ) : (
                 <p className="px-3 py-2 text-sm text-muted-foreground">
-                  {tSidebar('noSessions', 'No sessions')}
+                  {debouncedSearch.trim()
+                    ? tSidebar('noMatchingSessions', '未找到匹配的会话')
+                    : tSidebar('noSessions', 'No sessions')}
                 </p>
               )}
             </div>
