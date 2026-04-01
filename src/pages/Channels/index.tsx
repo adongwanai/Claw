@@ -364,6 +364,7 @@ export function Channels() {
   };
 
   useEffect(() => {
+    if (!activeChannelId) return;
     let active = true;
     setSessions([]);
     setConversation(null);
@@ -396,7 +397,7 @@ export function Channels() {
     return () => {
       active = false;
     };
-  }, [activeChannelType]);
+  }, [activeChannelId, activeChannelType]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
