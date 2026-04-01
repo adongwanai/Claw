@@ -6,6 +6,118 @@
 import type { ChatSession, RawMessage } from '@/stores/chat';
 import type { AgentSummary } from '@/types/agent';
 
+export interface MessageMatch {
+  messageIndex: number;
+  content: string;
+  matchStart: number;
+  matchEnd: number;
+  contextBefore: string;
+  contextAfter: string;
+}
+
+export interface SessionSearchResult {
+  session: ChatSession;
+  matchType: 'name' | 'agent' | 'content';
+  messageMatches?: MessageMatch[];
+}
+
+/**
+ * Search sessions and return detailed match information.
+ * @param sessions - All sessions to search
+ * @param query - Search query string
+ * @param agents - All agents (for agent name search)
+ * @param sessionMessages - Map of session key to messages (for content search)
+ * @returns Array of search results with match details
+ */
+export function searchSessionsWithContext(
+  sessions: ChatSession[],
+  query: string,
+  agents: AgentSummary[],
+  sessionMessages: Map<string, RawMessage[]>,
+): SessionSearchResult[] {
+  if (!query.trim()) {
+    return sessions.map((session) => ({
+      session,
+      matchType: 'name' as const,
+    }));
+  }
+
+  const lowerQuery = query.toLowerCase();
+  const agentMap = new Map(agents.map((a) => [a.id, a]));
+  const results: SessionSearchResult[] = [];
+
+  for (const session of sessions) {
+    // 1. Search session name (label/displayName)
+    const sessionName = (session.label || session.displayName || '').toLowerCase();
+    if (sessionName.includes(lowerQuery)) {
+      results.push({
+        session,
+        matchType: 'name',
+      });
+      continue;
+    }
+
+    // 2. Search agent name
+    const agent = session.agentId ? agentMap.get(session.agentId) : undefined;
+    if (agent && agent.name.toLowerCase().includes(lowerQuery)) {
+      results.push({
+        session,
+        matchType: 'agent',
+      });
+      continue;
+    }
+
+    // 3. Search message content
+    const messages = sessionMessages.get(session.key) || [];
+    const recentMessages = messages.slice(-100); // Limit to last 100 messages
+    const messageMatches: MessageMatch[] = [];
+
+    for (let i = 0; i < recentMessages.length; i++) {
+      const msg = recentMessages[i];
+      const content = extractTextContent(msg);
+      const lowerContent = content.toLowerCase();
+      const matchIndex = lowerContent.indexOf(lowerQuery);
+
+      if (matchIndex !== -1) {
+        // Found a match - extract context
+        const contextLength = 50; // Characters before/after match
+        const matchStart = matchIndex;
+        const matchEnd = matchIndex + query.length;
+
+        // Extract context before match
+        const beforeStart = Math.max(0, matchStart - contextLength);
+        const contextBefore = content.slice(beforeStart, matchStart);
+
+        // Extract context after match
+        const afterEnd = Math.min(content.length, matchEnd + contextLength);
+        const contextAfter = content.slice(matchEnd, afterEnd);
+
+        messageMatches.push({
+          messageIndex: i,
+          content,
+          matchStart,
+          matchEnd,
+          contextBefore: beforeStart > 0 ? '...' + contextBefore : contextBefore,
+          contextAfter: afterEnd < content.length ? contextAfter + '...' : contextAfter,
+        });
+
+        // Limit to 3 matches per session
+        if (messageMatches.length >= 3) break;
+      }
+    }
+
+    if (messageMatches.length > 0) {
+      results.push({
+        session,
+        matchType: 'content',
+        messageMatches,
+      });
+    }
+  }
+
+  return results;
+}
+
 /**
  * Search sessions by name, agent name, or message content.
  * @param sessions - All sessions to search
