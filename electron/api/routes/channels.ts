@@ -1727,8 +1727,16 @@ export async function handleChannelRoutes(
     try {
       await weChatLoginManager.start();
       const state = weChatLoginManager.getState();
-      if (!state || !state.qrcode) {
-        sendJson(res, 500, { success: false, error: 'Failed to generate QR code' });
+      if (!state) {
+        sendJson(res, 500, { success: false, error: 'Failed to generate QR code: no state' });
+        return true;
+      }
+      if (state.status === 'error') {
+        sendJson(res, 500, { success: false, error: state.error || state.message || 'Unknown error' });
+        return true;
+      }
+      if (!state.qrcode) {
+        sendJson(res, 500, { success: false, error: 'Failed to generate QR code: empty qrcode' });
         return true;
       }
       sendJson(res, 200, {

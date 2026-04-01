@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Chat } from '@/pages/Chat';
-import { useSettingsStore } from '@/stores/settings';
+import { useRightPanelStore } from '@/stores/rightPanelStore';
 
 const chatState = {
   messages: [] as Array<Record<string, unknown>>,
@@ -48,6 +49,8 @@ const agentsState = {
     },
   ],
   fetchAgents: vi.fn(),
+  configuredChannelTypes: [] as string[],
+  channelOwners: {} as Record<string, string>,
 };
 
 vi.mock('@/stores/chat', () => ({
@@ -79,19 +82,18 @@ vi.mock('@/pages/Chat/ChatInput', () => ({
 
 function translate(key: string, vars?: Record<string, unknown>): string {
   const map: Record<string, string> = {
-    'common:workbench.files': '文件',
-    'common:workbench.session': '会话',
-    'common:workbench.agent': 'Agent',
-    'chat:workbench.quickConfig': '快速配置',
-    'workbench.quickConfig': '快速配置',
-    'chat:workbench.hero.subtitle': '描述你的目标，主分身会协同分身执行并实时反馈',
-    'workbench.hero.subtitle': '描述你的目标，主分身会协同分身执行并实时反馈',
-    'chat:workbench.quickConfigDescription': '设置当前分身的名称、角色、常用通道、默认技能与常用工具，让它立刻进入可工作状态。',
-    'workbench.quickConfigDescription': '设置当前分身的名称、角色、常用通道、默认技能与常用工具，让它立刻进入可工作状态。',
+    'common:rightPanel.openFiles': 'Open files panel',
+    'common:rightPanel.openAgent': 'Open agent panel',
+    'chat:workbench.quickConfig': '蹇€熼厤缃?',
+    'workbench.quickConfig': '蹇€熼厤缃?',
+    'chat:workbench.hero.subtitle': '鎻忚堪浣犵殑鐩爣锛屼富鍒嗚韩浼氬崗鍚屽垎韬墽琛屽苟瀹炴椂鍙嶉',
+    'workbench.hero.subtitle': '鎻忚堪浣犵殑鐩爣锛屼富鍒嗚韩浼氬崗鍚屽垎韬墽琛屽苟瀹炴椂鍙嶉',
+    'chat:workbench.quickConfigDescription': '璁剧疆褰撳墠鍒嗚韩鐨勫悕绉般€佽鑹层€佸父鐢ㄩ€氶亾銆侀粯璁ゆ妧鑳戒笌甯哥敤宸ュ叿锛岃瀹冪珛鍒昏繘鍏ュ彲宸ヤ綔鐘舵€併€?',
+    'workbench.quickConfigDescription': '璁剧疆褰撳墠鍒嗚韩鐨勫悕绉般€佽鑹层€佸父鐢ㄩ€氶亾銆侀粯璁ゆ妧鑳戒笌甯哥敤宸ュ叿锛岃瀹冪珛鍒昏繘鍏ュ彲宸ヤ綔鐘舵€併€?',
   };
 
   if (key === 'chat:toolbar.currentAgent') {
-    return `当前工作台：${String(vars?.agent ?? '')}`;
+    return `褰撳墠宸ヤ綔鍙帮細${String(vars?.agent ?? '')}`;
   }
 
   return map[key] ?? key;
@@ -116,42 +118,59 @@ describe('Chat workbench shell', () => {
     chatState.error = null;
     chatState.showThinking = false;
     gatewayState.status = { state: 'running', port: 18789 };
-    useSettingsStore.setState({ rightPanelMode: null });
+    useRightPanelStore.setState({ open: false, type: null, agentId: null });
   });
 
-  it('renders workbench quick actions, premium onboarding cards, and the agent inspector shell', () => {
-    render(<Chat />);
+  it('renders right-panel trigger buttons and opens the global panel store', () => {
+    render(
+      <MemoryRouter>
+        <Chat />
+      </MemoryRouter>,
+    );
 
-    expect(screen.getByRole('button', { name: /文件/ })).toBeInTheDocument();
-    const sessionButton = screen.getByRole('button', { name: /会话/ });
-    const agentButton = screen.getByRole('button', { name: /Agent/ });
-    expect(sessionButton).toBeInTheDocument();
+    const fileButton = screen.getByRole('button', { name: 'Open files panel' });
+    const agentButton = screen.getByRole('button', { name: 'Open agent panel' });
+    expect(fileButton).toBeInTheDocument();
     expect(agentButton).toBeInTheDocument();
     expect(screen.getAllByText('KaiTianClaw').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: '有什么我可以帮你的？' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /有什么我可以帮你的/ })).toBeInTheDocument();
     expect(screen.getByText('代码重构方案')).toBeInTheDocument();
     expect(screen.getByText('检查系统健康度')).toBeInTheDocument();
-    fireEvent.click(sessionButton);
-    expect(useSettingsStore.getState().rightPanelMode).toBe('session');
+
+    fireEvent.click(fileButton);
+    expect(useRightPanelStore.getState()).toMatchObject({ open: true, type: 'file', agentId: 'main' });
+
     fireEvent.click(agentButton);
-    expect(useSettingsStore.getState().rightPanelMode).toBe('agent');
+    expect(useRightPanelStore.getState()).toMatchObject({ open: true, type: 'agent', agentId: 'main' });
     expect(screen.getByTestId('chat-input')).toBeInTheDocument();
   });
 
   it('does not show a top-level export action in the chat header tool area', () => {
-    render(<Chat />);
+    render(
+      <MemoryRouter>
+        <Chat />
+      </MemoryRouter>,
+    );
     expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
   });
 
   it('displays the thinking banner when the assistant run is active', () => {
     chatState.sending = true;
-    render(<Chat />);
-    expect(screen.getByText('KaiTianClaw 正在思考中')).toBeInTheDocument();
+    render(
+      <MemoryRouter>
+        <Chat />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/正在思考中/)).toBeInTheDocument();
   });
 
   it('hides the thinking banner when no run is active', () => {
     chatState.sending = false;
-    render(<Chat />);
-    expect(screen.queryByText(/正在思考中/)).not.toBeInTheDocument();
+    render(
+      <MemoryRouter>
+        <Chat />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/姝ｅ湪鎬濊€冧腑/)).not.toBeInTheDocument();
   });
 });

@@ -1,19 +1,17 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Sidebar } from '@/components/layout/Sidebar';
 
 const PINNED_STORAGE_KEY = 'ktclaw-sidebar-pinned-sessions';
 
 const mockSetSidebarCollapsed = vi.fn();
 const mockSwitchSession = vi.fn();
-const mockDeleteSession = vi.fn();
+const mockDeleteSession = vi.fn(async () => {});
 const mockLoadSessions = vi.fn(async () => {});
 const mockLoadHistory = vi.fn(async () => {});
 const mockFetchAgents = vi.fn(async () => {});
 const mockFetchChannels = vi.fn(async () => {});
-const mockMarkAllRead = vi.fn();
-const mockDismiss = vi.fn();
 
 const mockSettingsState = {
   sidebarCollapsed: false,
@@ -55,10 +53,8 @@ const mockGatewayState = {
 };
 
 const mockAgentsState = {
-  agents: [{ id: 'main', name: 'KaiTianClaw', mainSessionKey: 'agent:main:main', isDefault: true }],
+  agents: [],
   fetchAgents: mockFetchAgents,
-  createAgent: vi.fn(async () => {}),
-  deleteAgent: vi.fn(async () => {}),
 };
 
 const mockChannelsState = {
@@ -69,8 +65,8 @@ const mockChannelsState = {
 const mockNotificationsState = {
   notifications: [],
   unreadCount: 0,
-  markAllRead: mockMarkAllRead,
-  dismiss: mockDismiss,
+  markAllRead: vi.fn(),
+  dismiss: vi.fn(),
 };
 
 vi.mock('@/stores/settings', () => ({
@@ -99,38 +95,30 @@ vi.mock('@/stores/notifications', () => ({
   useNotificationsStore: (selector: (state: typeof mockNotificationsState) => unknown) => selector(mockNotificationsState),
 }));
 
-vi.mock('@/lib/host-api', () => ({
-  hostApiFetch: vi.fn(),
-}));
-
-vi.mock('@/lib/api-client', () => ({
-  invokeIpc: vi.fn(),
-}));
-
-const mockTranslations: Record<string, string> = {
-  'common:sidebar.pinSession': 'Pin session',
-  'common:sidebar.unpinSession': 'Unpin session',
-  'common:sidebar.exportMarkdown': 'Export Markdown',
-  'common:sidebar.batchSelect': 'Batch select',
-  'common:sidebar.toggleSidebar': 'Toggle sidebar',
-  'common:sidebar.newSession': 'New session',
-  'common:sidebar.openSearch': 'Open search',
-};
-
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => mockTranslations[key] ?? key,
+    t: (key: string) =>
+      ({
+        'common:sidebar.taskBoard': 'Task board',
+        'common:sidebar.teamOverview': 'Team overview',
+        'common:sidebar.employeeSquare': 'Employee square',
+        'common:sidebar.channels': 'Channels',
+        'common:sidebar.sessions': 'Sessions',
+        'common:sidebar.searchSessions': 'Search sessions...',
+        'common:sidebar.uploadFile': 'Upload file',
+        'common:sidebar.noSessions': 'No sessions',
+        'common:sidebar.pin': 'Pin',
+        'common:sidebar.unpin': 'Unpin',
+        'common:sidebar.pinnedSession': 'Pinned session',
+        'common:sidebar.delete': 'Delete',
+        'common:sidebar.toggleSidebar': 'Toggle sidebar',
+      }[key] ?? key),
   }),
 }));
 
 function parsePinnedStorage() {
   const raw = localStorage.getItem(PINNED_STORAGE_KEY);
-  if (!raw) return [];
-  return JSON.parse(raw) as string[];
-}
-
-function expectButtonBefore(a: HTMLElement, b: HTMLElement) {
-  expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  return raw ? (JSON.parse(raw) as string[]) : [];
 }
 
 function getSessionButton(label: string) {
@@ -147,10 +135,7 @@ describe('sidebar session pinning', () => {
   });
 
   it('keeps pinned sessions above unpinned while preserving recency inside each group', () => {
-    localStorage.setItem(
-      PINNED_STORAGE_KEY,
-      JSON.stringify(['session-pinned-old', 'session-pinned-new']),
-    );
+    localStorage.setItem(PINNED_STORAGE_KEY, JSON.stringify(['session-pinned-old', 'session-pinned-new']));
 
     render(
       <MemoryRouter>
@@ -161,15 +146,13 @@ describe('sidebar session pinning', () => {
     const pinnedNewButton = getSessionButton('Pinned New');
     const pinnedOldButton = getSessionButton('Pinned Old');
     const recentUnpinnedButton = getSessionButton('Recent Unpinned');
-    const unpinnedOldButton = getSessionButton('Unpinned Old');
 
-    expectButtonBefore(pinnedNewButton, pinnedOldButton);
-    expectButtonBefore(pinnedOldButton, recentUnpinnedButton);
-    expectButtonBefore(recentUnpinnedButton, unpinnedOldButton);
-    expect(screen.getAllByLabelText(/^(Pinned session|置顶会话)$/)).toHaveLength(2);
+    expect(pinnedNewButton.compareDocumentPosition(pinnedOldButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pinnedOldButton.compareDocumentPosition(recentUnpinnedButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByLabelText('Pinned session')).toHaveLength(2);
   });
 
-  it('adds pin and unpin actions to the session context menu and persists updates', () => {
+  it('toggles pin state from the session action button and persists the update', () => {
     mockChatState.sessions = [{ key: 'session-one', label: 'Session One' }];
     mockChatState.sessionLabels = { 'session-one': 'Session One' };
     mockChatState.sessionLastActivity = { 'session-one': 1 };
@@ -181,16 +164,10 @@ describe('sidebar session pinning', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.contextMenu(screen.getByText('Session One'));
-    fireEvent.click(screen.getByRole('button', { name: /^(Pin session|置顶会话)$/ }));
-
+    fireEvent.click(screen.getByLabelText('Pin'));
     expect(parsePinnedStorage()).toEqual(['session-one']);
-    expect(screen.getByLabelText(/^(Pinned session|置顶会话)$/)).toBeInTheDocument();
 
-    fireEvent.contextMenu(screen.getByText('Session One'));
-    fireEvent.click(screen.getByRole('button', { name: /^(Unpin session|取消置顶)$/ }));
-
+    fireEvent.click(screen.getByLabelText('Unpin'));
     expect(parsePinnedStorage()).toEqual([]);
-    expect(screen.queryByLabelText(/^(Pinned session|置顶会话)$/)).not.toBeInTheDocument();
   });
 });

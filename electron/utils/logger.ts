@@ -54,6 +54,7 @@ let flushing = false;
 
 const FLUSH_INTERVAL_MS = 500;
 const FLUSH_SIZE_THRESHOLD = 20;
+const CONSOLE_MIRROR_ENABLED = process.env.KTCLAW_LOG_TO_CONSOLE === '1';
 
 async function flushBuffer(): Promise<void> {
   if (flushing || writeBuffer.length === 0 || !logFilePath) return;
@@ -108,7 +109,11 @@ export function initLogger(): void {
     const sessionHeader = `\n${'='.repeat(80)}\n[${new Date().toISOString()}] === KTClaw Session Start (v${app.getVersion()}) ===\n${'='.repeat(80)}\n`;
     appendFileSync(logFilePath, sessionHeader);
   } catch (error) {
-    console.error('Failed to initialize logger:', error);
+    try {
+      console.error('Failed to initialize logger:', error);
+    } catch {
+      // stdout/stderr may already be closed during dev-process teardown
+    }
   }
 }
 
@@ -147,6 +152,35 @@ function formatMessage(level: string, message: string, ...args: unknown[]): stri
   return `[${timestamp}] [${level.padEnd(5)}] ${message}${formattedArgs}`;
 }
 
+function isBrokenPipeError(error: unknown): boolean {
+  const err = error as NodeJS.ErrnoException | undefined;
+  if (!err) return false;
+
+  if (err.code === 'EPIPE') {
+    return true;
+  }
+
+  const message = typeof err.message === 'string' ? err.message.toLowerCase() : '';
+  return message.includes('broken pipe') || message.includes('epipe');
+}
+
+function writeToConsole(
+  method: (message?: unknown, ...optionalParams: unknown[]) => void,
+  formatted: string,
+): void {
+  if (!CONSOLE_MIRROR_ENABLED) {
+    return;
+  }
+  try {
+    method(formatted);
+  } catch (error) {
+    if (isBrokenPipeError(error)) {
+      return;
+    }
+    throw error;
+  }
+}
+
 // ── Core write ───────────────────────────────────────────────────
 
 /**
@@ -180,32 +214,32 @@ function writeLog(formatted: string): void {
 export function debug(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.DEBUG) {
     const formatted = formatMessage('DEBUG', message, ...args);
-    console.debug(formatted);
     writeLog(formatted);
+    writeToConsole(console.debug, formatted);
   }
 }
 
 export function info(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.INFO) {
     const formatted = formatMessage('INFO', message, ...args);
-    console.info(formatted);
     writeLog(formatted);
+    writeToConsole(console.info, formatted);
   }
 }
 
 export function warn(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.WARN) {
     const formatted = formatMessage('WARN', message, ...args);
-    console.warn(formatted);
     writeLog(formatted);
+    writeToConsole(console.warn, formatted);
   }
 }
 
 export function error(message: string, ...args: unknown[]): void {
   if (currentLevel <= LogLevel.ERROR) {
     const formatted = formatMessage('ERROR', message, ...args);
-    console.error(formatted);
     writeLog(formatted);
+    writeToConsole(console.error, formatted);
   }
 }
 

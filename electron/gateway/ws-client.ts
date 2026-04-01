@@ -77,6 +77,10 @@ export async function waitForGatewayReady(options: {
   const intervalMs = options.intervalMs ?? DEFAULT_GATEWAY_READY_INTERVAL_MS;
   const probeTimeoutMs = options.probeTimeoutMs ?? DEFAULT_GATEWAY_READY_PROBE_TIMEOUT_MS;
   let extensionLogged = false;
+  const delay = async (ms: number) => {
+    if (ms <= 0) return;
+    await new Promise((resolve) => setTimeout(resolve, ms));
+  };
 
   for (let i = 0; i < maxRetries; i++) {
     const exitCode = options.getProcessExitCode();
@@ -85,6 +89,7 @@ export async function waitForGatewayReady(options: {
       throw new Error(`Gateway process exited before becoming ready (code=${exitCode})`);
     }
 
+    const probeStartedAt = Date.now();
     try {
       const ready = await probeGatewayReady(options.port, probeTimeoutMs);
       if (ready) {
@@ -95,23 +100,30 @@ export async function waitForGatewayReady(options: {
       // Gateway not ready yet.
     }
 
+    const probeElapsedMs = Date.now() - probeStartedAt;
+    if (probeElapsedMs < probeTimeoutMs) {
+      await delay(probeTimeoutMs - probeElapsedMs);
+    }
+
     if (i > 0 && i % 10 === 0) {
       logger.debug(`Still waiting for Gateway... (attempt ${i + 1}/${maxRetries})`);
     }
 
     if (!extensionLogged && i + 1 === retries && maxRetries > retries && exitCode === null) {
       extensionLogged = true;
-      const baseBudgetMs = retries * (intervalMs + probeTimeoutMs);
-      const extendedBudgetMs = maxRetries * (intervalMs + probeTimeoutMs);
+      const baseBudgetMs = retries * probeTimeoutMs + Math.max(0, retries - 1) * intervalMs;
+      const extendedBudgetMs = maxRetries * probeTimeoutMs + Math.max(0, maxRetries - 1) * intervalMs;
       logger.warn(
         `Gateway still booting after initial ${baseBudgetMs}ms; extending ready wait budget to ${extendedBudgetMs}ms on ${process.platform}`,
       );
     }
 
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    if (i < maxRetries - 1) {
+      await delay(intervalMs);
+    }
   }
 
-  const waitBudgetMs = maxRetries * (intervalMs + probeTimeoutMs);
+  const waitBudgetMs = maxRetries * probeTimeoutMs + Math.max(0, maxRetries - 1) * intervalMs;
   logger.error(
     `Gateway failed to become ready after ${maxRetries} attempts on port ${options.port} (budget=${waitBudgetMs}ms)`,
   );

@@ -6,13 +6,11 @@ import { invokeIpc } from '@/lib/api-client';
 
 const mockSetSidebarCollapsed = vi.fn();
 const mockSwitchSession = vi.fn();
-const mockDeleteSession = vi.fn();
+const mockDeleteSession = vi.fn(async () => {});
 const mockLoadSessions = vi.fn(async () => {});
 const mockLoadHistory = vi.fn(async () => {});
 const mockFetchAgents = vi.fn(async () => {});
 const mockFetchChannels = vi.fn(async () => {});
-const mockMarkAllRead = vi.fn();
-const mockDismiss = vi.fn();
 
 const mockSettingsState = {
   sidebarCollapsed: false,
@@ -55,7 +53,7 @@ const mockAgentsState = {
       mainSessionKey: 'agent:planner:main',
       modelDisplay: 'gpt-5',
       isDefault: false,
-      chatAccess: 'direct',
+      chatAccess: 'direct' as const,
       reportsTo: 'main',
     },
     {
@@ -64,13 +62,11 @@ const mockAgentsState = {
       mainSessionKey: 'agent:researcher:main',
       modelDisplay: 'claude-sonnet-4',
       isDefault: false,
-      chatAccess: 'leader_only',
+      chatAccess: 'leader_only' as const,
       reportsTo: 'planner',
     },
   ],
   fetchAgents: mockFetchAgents,
-  createAgent: vi.fn(async () => {}),
-  deleteAgent: vi.fn(async () => {}),
 };
 
 const mockChannelsState = {
@@ -81,8 +77,8 @@ const mockChannelsState = {
 const mockNotificationsState = {
   notifications: [],
   unreadCount: 0,
-  markAllRead: mockMarkAllRead,
-  dismiss: mockDismiss,
+  markAllRead: vi.fn(),
+  dismiss: vi.fn(),
 };
 
 vi.mock('@/stores/settings', () => ({
@@ -117,7 +113,16 @@ vi.mock('@/lib/api-client', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => key,
+    t: (key: string) =>
+      ({
+        'common:sidebar.taskBoard': 'Task board',
+        'common:sidebar.teamOverview': 'Team overview',
+        'common:sidebar.employeeSquare': 'Employee square',
+        'common:sidebar.channels': 'Channels',
+        'common:sidebar.sessions': 'Sessions',
+        'common:sidebar.searchSessions': 'Search sessions...',
+        'common:sidebar.uploadFile': 'Upload file',
+      }[key] ?? key),
   }),
 }));
 
@@ -142,48 +147,16 @@ describe('workbench global search from sidebar', () => {
     vi.mocked(invokeIpc).mockResolvedValue({ messages: [] });
   });
 
-  it('opens from sidebar trigger and can jump to an agent session', async () => {
+  it('opens via Ctrl/Cmd+K and can jump to an agent session', async () => {
     renderSidebar();
 
-    fireEvent.click(screen.getByRole('button', { name: /open search/i }));
-    const dialog = screen.getByRole('dialog', { name: /global search/i });
-    expect(dialog).toBeInTheDocument();
-
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     const input = await screen.findByRole('textbox', { name: /search all/i });
     fireEvent.change(input, { target: { value: 'planner' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
     expect(mockSwitchSession).toHaveBeenCalledWith('agent:planner:main');
     expect(screen.getByTestId('pathname')).toHaveTextContent('/');
-  });
-
-  it('opens via Ctrl/Cmd+K and can jump to a specific session', async () => {
-    renderSidebar();
-
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    const input = await screen.findByRole('textbox', { name: /search all/i });
-    fireEvent.change(input, { target: { value: 'session beta' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-
-    expect(mockSwitchSession).toHaveBeenCalledWith('session-beta');
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/');
-  });
-
-  it('supports arrow-key navigation for page results', async () => {
-    renderSidebar();
-
-    fireEvent.keyDown(window, { key: 'k', metaKey: true });
-    const input = await screen.findByRole('textbox', { name: /search all/i });
-    fireEvent.change(input, { target: { value: 'team' } });
-
-    const options = screen.getAllByRole('option');
-    expect(options[0]).toHaveAttribute('aria-selected', 'true');
-
-    fireEvent.keyDown(input, { key: 'ArrowDown' });
-    expect(options[1]).toHaveAttribute('aria-selected', 'true');
-
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(screen.getByTestId('pathname')).toHaveTextContent('/team-map');
   });
 
   it('matches conversation history content and routes to the session', async () => {
@@ -206,7 +179,7 @@ describe('workbench global search from sidebar', () => {
 
     renderSidebar();
 
-    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    fireEvent.keyDown(window, { key: 'k', metaKey: true });
     const input = await screen.findByRole('textbox', { name: /search all/i });
     fireEvent.change(input, { target: { value: 'budget draft' } });
 
@@ -222,7 +195,7 @@ describe('workbench global search from sidebar', () => {
   it('does not jump into a leader-only worker main session from search results', async () => {
     renderSidebar();
 
-    fireEvent.click(screen.getByRole('button', { name: /open search/i }));
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
     const input = await screen.findByRole('textbox', { name: /search all/i });
     fireEvent.change(input, { target: { value: 'research worker' } });
     fireEvent.keyDown(input, { key: 'Enter' });

@@ -26,7 +26,8 @@
       "Bash(xargs ls:*)",
       "Bash(npx tsc:*)",
       "Bash(grep -n \"drainSystemEvent\\\\|peekSystemEvent\" /c/Users/22688/Desktop/ClawX-main/reference/openclaw-main/src/gateway/*.ts)",
-      "Bash(grep -n \"systemEvent\\\\|peekSystemEvent\\\\|drainSystemEvent\" /c/Users/22688/Desktop/ClawX-main/reference/openclaw-main/src/agents/*.ts)"
+      "Bash(grep -n \"systemEvent\\\\|peekSystemEvent\\\\|drainSystemEvent\" /c/Users/22688/Desktop/ClawX-main/reference/openclaw-main/src/agents/*.ts)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

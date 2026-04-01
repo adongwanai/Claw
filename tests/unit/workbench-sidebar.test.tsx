@@ -1,36 +1,35 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { hostApiFetch } from '@/lib/host-api';
-import { invokeIpc } from '@/lib/api-client';
-import { toast } from '@/lib/toast';
-
-const { mockToastError, mockToastSuccess, mockToastInfo } = vi.hoisted(() => ({
-  mockToastError: vi.fn(),
-  mockToastSuccess: vi.fn(),
-  mockToastInfo: vi.fn(),
-}));
 
 const mockSetSidebarCollapsed = vi.fn();
 const mockSwitchSession = vi.fn();
-const mockDeleteSession = vi.fn();
+const mockDeleteSession = vi.fn(async () => {});
 const mockLoadSessions = vi.fn(async () => {});
 const mockLoadHistory = vi.fn(async () => {});
 const mockFetchAgents = vi.fn(async () => {});
 const mockFetchChannels = vi.fn(async () => {});
-const mockMarkAllRead = vi.fn();
-const mockDismiss = vi.fn();
+
 const mockSettingsState = {
   sidebarCollapsed: false,
   setSidebarCollapsed: mockSetSidebarCollapsed,
 };
 
 const mockChatState = {
-  sessions: [{ key: 'agent:main:session-1', label: 'Alpha Session' }],
-  currentSessionKey: 'agent:main:session-1',
-  sessionLabels: { 'agent:main:session-1': 'Alpha Session' },
-  sessionLastActivity: { 'agent:main:session-1': Date.now() },
+  sessions: [
+    { key: 'session-alpha', label: 'Alpha Session' },
+    { key: 'session-beta', label: 'Beta Session' },
+  ],
+  currentSessionKey: 'session-alpha',
+  sessionLabels: {
+    'session-alpha': 'Alpha Session',
+    'session-beta': 'Beta Session',
+  },
+  sessionLastActivity: {
+    'session-alpha': 200,
+    'session-beta': 100,
+  },
   switchSession: mockSwitchSession,
   deleteSession: mockDeleteSession,
   loadSessions: mockLoadSessions,
@@ -46,20 +45,20 @@ const mockGatewayState = {
 };
 
 const mockAgentsState = {
-  agents: [{ id: 'main', name: 'KaiTianClaw', mainSessionKey: 'agent:main:main', isDefault: true, chatAccess: 'direct', reportsTo: null }],
+  agents: [],
   fetchAgents: mockFetchAgents,
 };
 
 const mockChannelsState = {
-  channels: [],
+  channels: [{ id: 'feishu-default', type: 'feishu', name: 'Feishu Bot', status: 'connected' as const }],
   fetchChannels: mockFetchChannels,
 };
 
 const mockNotificationsState = {
   notifications: [],
   unreadCount: 0,
-  markAllRead: mockMarkAllRead,
-  dismiss: mockDismiss,
+  markAllRead: vi.fn(),
+  dismiss: vi.fn(),
 };
 
 vi.mock('@/stores/settings', () => ({
@@ -88,238 +87,97 @@ vi.mock('@/stores/notifications', () => ({
   useNotificationsStore: (selector: (state: typeof mockNotificationsState) => unknown) => selector(mockNotificationsState),
 }));
 
-vi.mock('@/lib/host-api', () => ({
-  hostApiFetch: vi.fn(),
-}));
-
-vi.mock('@/lib/api-client', () => ({
-  invokeIpc: vi.fn(),
-}));
-
-vi.mock('@/lib/toast', () => ({
-  toast: {
-    error: mockToastError,
-    success: mockToastSuccess,
-    info: mockToastInfo,
-  },
-}));
-
-const mockTranslations: Record<string, string> = {
-  'common:sidebar.settings': 'Settings',
-  'common:sidebar.clones': 'Clones',
-  'common:sidebar.channels': 'Channels',
-  'common:sidebar.teams': 'Team management',
-  'common:sidebar.tasks': 'Tasks',
-  'common:sidebar.addClone': 'Add clone',
-  'common:sidebar.addChannel': 'Add channel',
-  'common:sidebar.selectedCount': '{{count}} selected',
-  'common:sidebar.batchSelect': 'Batch select',
-  'common:sidebar.pinSession': 'Pin session',
-  'common:sidebar.unpinSession': 'Unpin session',
-  'common:sidebar.exportMarkdown': 'Export Markdown',
-  'common:sidebar.notifications': 'Notifications',
-  'common:sidebar.noNotifications': 'No notifications',
-  'common:sidebar.openSearch': 'Open search',
-  'common:sidebar.newSession': 'New session',
-  'common:sidebar.toggleSidebar': 'Toggle sidebar',
-  'common:sidebar.taskBoard': 'Task board',
-  'common:sidebar.taskSchedule': 'Task schedule',
-  'common:sidebar.memoryKnowledge': 'Memory knowledge base',
-  'common:sidebar.costUsage': 'Cost usage',
-  'common:sidebar.teamOverview': 'Team overview',
-  'common:sidebar.teamMap': 'Team map',
-  'common:sidebar.profile': 'Profile',
-  'common:sidebar.selectAvatar': 'Select avatar',
-  'common:sidebar.nickname': 'Nickname',
-  'common:sidebar.nicknamePlaceholder': 'Enter nickname...',
-  'common:sidebar.deleteSelected': 'Delete selected',
-  'common:sidebar.cancelBatch': 'Cancel batch',
-  'common:sidebar.exportSuccess': 'Session export saved',
-  'common:sidebar.exportCancelled': 'Export cancelled',
-  'common:sidebar.exportNoMessages': 'No exportable messages in this session yet',
-  'common:sidebar.exportFailed': 'Session export failed: {{error}}',
-  'common:sidebar.museAssistant': 'Quiet assistant',
-  'common:sidebar.agentMainSessionMissing': 'Could not find the main session for this agent',
-  'common:sidebar.agentDeleted': 'Agent deleted',
-  'common:sidebar.agentCreated': 'Agent created',
-  'common:sidebar.deleteAgent': 'Delete agent',
-  'common:sidebar.avatarCat': 'Cat',
-  'common:sidebar.avatarDog': 'Dog',
-  'common:sidebar.avatarFox': 'Fox',
-  'common:sidebar.avatarBear': 'Bear',
-  'common:sidebar.avatarPanda': 'Panda',
-  'common:sidebar.avatarLion': 'Lion',
-  'common:sidebar.avatarFrog': 'Frog',
-  'common:sidebar.avatarKoala': 'Koala',
-  'common:sidebar.avatarUnicorn': 'Unicorn',
-  'common:actions.confirm': 'Confirm',
-  'common:actions.delete': 'Delete',
-  'common:actions.cancel': 'Cancel',
-  'common:actions.save': 'Save',
-  'common:sidebar.deleteSessionConfirm': 'Confirm deletion',
-};
-
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => mockTranslations[key] ?? key,
+    t: (key: string) =>
+      ({
+        'common:sidebar.taskBoard': 'Task board',
+        'common:sidebar.teamOverview': 'Team overview',
+        'common:sidebar.employeeSquare': 'Employee square',
+        'common:sidebar.channels': 'Channels',
+        'common:sidebar.sessions': 'Sessions',
+        'common:sidebar.searchSessions': 'Search sessions...',
+        'common:sidebar.uploadFile': 'Upload file',
+        'common:sidebar.noChannels': 'No channels configured',
+        'common:sidebar.noSessions': 'No sessions',
+        'common:sidebar.toggleSidebar': 'Toggle sidebar',
+        'common:sidebar.pin': 'Pin',
+        'common:sidebar.unpin': 'Unpin',
+        'common:sidebar.delete': 'Delete',
+        'common:sidebar.pinnedSession': 'Pinned session',
+      }[key] ?? key),
   }),
 }));
+
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="pathname">{location.pathname}</div>;
+}
+
+function renderSidebar(initialRoute = '/') {
+  return render(
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <Sidebar />
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+}
 
 describe('workbench sidebar', () => {
   beforeEach(() => {
     mockSettingsState.sidebarCollapsed = false;
     vi.clearAllMocks();
-    vi.mocked(hostApiFetch).mockResolvedValue({});
-    vi.mocked(invokeIpc).mockResolvedValue({ success: true, result: { messages: [] } });
   });
 
-  it('renders accordion groups with clone sessions and settings footer', () => {
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
+  it('renders fixed nav items, keeps channels collapsed by default, and shows sessions expanded', () => {
+    renderSidebar();
 
-    expect(screen.getByText('Clones')).toBeInTheDocument();
-    expect(screen.getByText('Team management')).toBeInTheDocument();
-    expect(screen.getByText('Channels')).toBeInTheDocument();
-    expect(screen.getByText('Tasks')).toBeInTheDocument();
-    expect(screen.getByText('KaiTianClaw')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Task board' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Team overview' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Employee square' })).toBeInTheDocument();
+    expect(screen.getByText('Alpha Session')).toBeInTheDocument();
+    expect(screen.queryByText('Feishu Bot')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Search sessions...')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload file' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'common:sidebar.selectAvatar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'common:sidebar.notifications' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'common:sidebar.settingsAria' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Add clone')).not.toBeInTheDocument();
+  });
+
+  it('toggles channels independently and keeps session content visible', () => {
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Channels' }));
+
+    expect(screen.getByText('Feishu Bot')).toBeInTheDocument();
     expect(screen.getByText('Alpha Session')).toBeInTheDocument();
   });
 
-  it('keeps a collapsed icon rail instead of disappearing', () => {
+  it('navigates from fixed nav items and switches sessions from the list', () => {
+    renderSidebar('/settings');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Team overview' }));
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/team-overview');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Task board' }));
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/kanban');
+
+    fireEvent.click(screen.getByText('Beta Session'));
+    expect(mockSwitchSession).toHaveBeenCalledWith('session-beta');
+    expect(screen.getByTestId('pathname')).toHaveTextContent('/');
+  });
+
+  it('keeps a collapsed icon rail and a scrollable content region', () => {
     mockSettingsState.sidebarCollapsed = true;
-    const { container } = render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
+    const { container } = renderSidebar();
 
     const aside = container.querySelector('aside');
-    expect(aside).toBeInTheDocument();
     expect(aside).toHaveClass('w-16');
-  });
+    expect(screen.queryByText('Task board')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload file' })).toBeInTheDocument();
 
-  it('keeps the main sidebar content region scrollable while the footer stays pinned', () => {
-    const { container } = render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
-
-    const scrollRegion = container.querySelector('aside > div.flex.min-h-0.flex-1.flex-col.overflow-y-auto');
+    const scrollRegion = container.querySelector('aside .overflow-y-auto');
     expect(scrollRegion).toBeInTheDocument();
-    expect(scrollRegion).toHaveClass('overflow-y-auto');
-
-    const footer = container.querySelector('aside > div.mt-auto');
-    expect(footer).toBeInTheDocument();
-  });
-
-  it('allows first-level sidebar groups to collapse independently', () => {
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByText('KaiTianClaw')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /collapse clones/i }));
-    expect(screen.queryByText('KaiTianClaw')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /expand clones/i }));
-    expect(screen.getByText('KaiTianClaw')).toBeInTheDocument();
-  });
-
-  it('exports a session from the context menu through the host save flow', async () => {
-    mockChatState.currentSessionKey = 'agent:main:main';
-    vi.mocked(invokeIpc).mockResolvedValueOnce({
-      success: true,
-      result: {
-        messages: [
-          { role: 'user', content: 'Export me' },
-          { role: 'assistant', content: 'Done' },
-        ],
-      },
-    });
-    vi.mocked(hostApiFetch).mockResolvedValueOnce({ success: true, savedPath: 'C:/tmp/alpha-session.md' });
-
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
-
-    fireEvent.contextMenu(screen.getByText('Alpha Session'));
-    fireEvent.click(await screen.findByRole('button', { name: /markdown/i }));
-
-    await waitFor(() => {
-      expect(invokeIpc).toHaveBeenCalledWith(
-        'gateway:rpc',
-        'chat.history',
-        { sessionKey: 'agent:main:session-1', limit: 200 },
-      );
-    });
-    expect(hostApiFetch).toHaveBeenCalledWith(
-      '/api/files/save-image',
-      expect.objectContaining({
-        method: 'POST',
-      }),
-    );
-  });
-
-  it('exports an agent main session from the agent context menu', async () => {
-    mockChatState.currentSessionKey = 'agent:main:session-1';
-    vi.mocked(invokeIpc).mockResolvedValueOnce({
-      success: true,
-      result: {
-        messages: [
-          { role: 'user', content: 'Export agent main' },
-          { role: 'assistant', content: 'Agent export ready' },
-        ],
-      },
-    });
-    vi.mocked(hostApiFetch).mockResolvedValueOnce({ success: true, savedPath: 'C:/tmp/main-agent.md' });
-
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
-
-    fireEvent.contextMenu(screen.getByText('KaiTianClaw'));
-    fireEvent.click(await screen.findByRole('button', { name: /markdown/i }));
-
-    await waitFor(() => {
-      expect(invokeIpc).toHaveBeenCalledWith(
-        'gateway:rpc',
-        'chat.history',
-        { sessionKey: 'agent:main:main', limit: 200 },
-      );
-    });
-    expect(hostApiFetch).toHaveBeenCalledWith(
-      '/api/files/save-image',
-      expect.objectContaining({
-        method: 'POST',
-      }),
-    );
-  });
-
-  it('blocks opening a leader-only worker from the agent list', () => {
-    mockChatState.currentSessionKey = 'agent:main:main';
-    mockAgentsState.agents = [
-      { id: 'main', name: 'KaiTianClaw', mainSessionKey: 'agent:main:main', isDefault: true, chatAccess: 'direct', reportsTo: null },
-      { id: 'researcher', name: 'Researcher', mainSessionKey: 'agent:researcher:main', isDefault: false, chatAccess: 'leader_only', reportsTo: 'main' },
-    ];
-
-    render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
-    );
-
-    fireEvent.click(screen.getByText('Researcher'));
-
-    expect(mockSwitchSession).not.toHaveBeenCalledWith('agent:researcher:main');
-    expect(toast.error).toHaveBeenCalledTimes(1);
   });
 });

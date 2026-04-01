@@ -3,7 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { logger } from './logger';
-import { normalizeOpenClawAccountId } from './channel-alias';
+import { normalizeOpenClawAccountId, OPENCLAW_WECHAT_CHANNEL_TYPE } from './channel-alias';
+import { proxyAwareFetch } from './proxy-fetch';
 
 type WeChatQrStatus = 'pending' | 'scanned' | 'confirmed' | 'expired' | 'error';
 
@@ -113,16 +114,38 @@ function saveWeChatAccount(accountId: string, update: { token?: string; baseUrl?
 async function fetchJson(url: string, timeoutMs: number): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const startTime = Date.now();
   try {
-    const response = await fetch(url, {
+    logger.info(`[WeChatLoginManager] Fetching ${url} (timeout: ${timeoutMs}ms)`);
+    const response = await proxyAwareFetch(url, {
       method: 'GET',
       signal: controller.signal,
     });
     const text = await response.text();
+    const elapsed = Date.now() - startTime;
+    logger.info(`[WeChatLoginManager] Response ${response.status} in ${elapsed}ms: ${text.slice(0, 100)}`);
     if (!response.ok) {
-      throw new Error(`${response.status}: ${text}`);
+      throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
     }
-    return JSON.parse(text);
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`Invalid JSON response: ${text.slice(0, 200)}`);
+    }
+  } catch (error) {
+    const elapsed = Date.now() - startTime;
+    if (error instanceof Error && error.name === 'AbortError') {
+      const msg = `请求超时 (${timeoutMs}ms)，请检查网络连接`;
+      logger.error(`[WeChatLoginManager] Timeout after ${elapsed}ms`);
+      throw new Error(msg);
+    }
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      const msg = `网络请求失败：${error.message}。请检查网络连接或代理设置。`;
+      logger.error(`[WeChatLoginManager] Network error:`, error);
+      throw new Error(msg);
+    }
+    logger.error(`[WeChatLoginManager] Fetch error after ${elapsed}ms:`, error);
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -143,10 +166,11 @@ class WeChatLoginManager extends EventEmitter {
     try {
       const result = await fetchJson(
         `${WECHAT_QR_API_BASE}/ilink/bot/get_bot_qrcode?bot_type=${encodeURIComponent(WECHAT_QR_BOT_TYPE)}`,
-        5_000,
+        15_000,
       ) as WeChatQrFetchResponse;
       if (!result?.qrcode || !result?.qrcode_img_content) {
-        throw new Error('Failed to fetch QR code from WeChat login endpoint');
+        const detail = result ? JSON.stringify(result).slice(0, 200) : 'empty response';
+        throw new Error(`微信二维码获取失败：${detail}`);
       }
       this.activeLogin = {
         qrcode: result.qrcode,
@@ -171,14 +195,16 @@ class WeChatLoginManager extends EventEmitter {
         }
       }, WECHAT_QR_TTL_MS);
     } catch (error) {
-      logger.error('[WeChatLoginManager] start failed', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logger.error('[WeChatLoginManager] start failed:', errorMsg);
       this.state = {
         qrcode: '',
         qrcodeUrl: '',
         sessionKey: WECHAT_QR_SESSION_KEY,
         status: 'error',
         connected: false,
-        error: String(error),
+        error: errorMsg,
+        message: `微信登录失败：${errorMsg}`,
       };
       this.emit('state', this.state);
     }

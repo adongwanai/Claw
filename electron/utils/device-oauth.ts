@@ -21,17 +21,15 @@ import { BrowserWindow, shell } from 'electron';
 import { logger } from './logger';
 import { saveProvider, getProvider, ProviderConfig } from './secure-storage';
 import { getProviderDefaultModel } from './provider-registry';
-import { isOpenClawPresent } from './paths';
+import { getOpenClawResolvedDir, isOpenClawPresent } from './paths';
 import { proxyAwareFetch } from './proxy-fetch';
 import {
-    loginMiniMaxPortalOAuth,
+    loadMiniMaxPortalOAuthModule,
+    loadQwenPortalOAuthModule,
     type MiniMaxOAuthToken,
     type MiniMaxRegion,
-} from '../../node_modules/openclaw/extensions/minimax-portal-auth/oauth';
-import {
-    loginQwenPortalOAuth,
     type QwenOAuthToken,
-} from '../../node_modules/openclaw/extensions/qwen-portal-auth/oauth';
+} from './openclaw-oauth-runtime';
 import { saveOAuthTokenToOpenClaw, setOpenClawDefaultModelWithOverride } from './openclaw-auth';
 
 export type OAuthProviderType = 'minimax-portal' | 'minimax-portal-cn' | 'qwen-portal';
@@ -120,6 +118,7 @@ class DeviceOAuthManager extends EventEmitter {
             throw new Error('OpenClaw package not found');
         }
         const provider = this.activeProvider!;
+        const { loginMiniMaxPortalOAuth } = await loadMiniMaxPortalOAuthModule(getOpenClawResolvedDir());
 
         const token: MiniMaxOAuthToken = await this.runWithProxyAwareFetch(() => loginMiniMaxPortalOAuth({
             region,
@@ -170,6 +169,7 @@ class DeviceOAuthManager extends EventEmitter {
             throw new Error('OpenClaw package not found');
         }
         const provider = this.activeProvider!;
+        const { loginQwenPortalOAuth } = await loadQwenPortalOAuthModule(getOpenClawResolvedDir());
 
         const token: QwenOAuthToken = await this.runWithProxyAwareFetch(() => loginQwenPortalOAuth({
             openUrl: async (url) => {

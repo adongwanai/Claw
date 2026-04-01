@@ -122,9 +122,13 @@ export function acquireProcessInstanceFileLock(
       // best-effort
     }
     if (staleOwner.kind !== 'unknown') {
-      console.info(
-        `[KTClaw] Force-cleaned stale instance lock (pid=${staleOwner.pid}, format=${staleOwner.kind})`,
-      );
+      try {
+        console.info(
+          `[KTClaw] Force-cleaned stale instance lock (pid=${staleOwner.pid}, format=${staleOwner.kind})`,
+        );
+      } catch {
+        // Dev stdout may already be closed; lock cleanup should still proceed.
+      }
     }
   }
 

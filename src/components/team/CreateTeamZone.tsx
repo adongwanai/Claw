@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Network, X } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useTeamsStore } from '@/stores/teams';
 import { useAgentsStore } from '@/stores/agents';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface DroppedAgent {
   id: string;
@@ -16,7 +18,6 @@ interface DroppedAgent {
 export function CreateTeamZone() {
   const [leader, setLeader] = useState<DroppedAgent | null>(null);
   const [members, setMembers] = useState<DroppedAgent[]>([]);
-  const [isDragging] = useState(false);
   const [showConfirmForm, setShowConfirmForm] = useState(false);
   const [teamName, setTeamName] = useState('');
   const [description, setDescription] = useState('');
@@ -25,15 +26,36 @@ export function CreateTeamZone() {
   const createTeam = useTeamsStore(state => state.createTeam);
   const agents = useAgentsStore(state => state.agents);
 
-  const { setNodeRef: setLeaderRef, isOver: isOverLeader } = useDroppable({
+  const { setNodeRef: setLeaderRef, isOver: isOverLeader, active: activeLeader } = useDroppable({
     id: 'leader-zone',
     data: { type: 'leader' },
   });
 
-  const { setNodeRef: setMemberRef, isOver: isOverMember } = useDroppable({
+  const { setNodeRef: setMemberRef, isOver: isOverMember, active: activeMember } = useDroppable({
     id: 'member-zone',
     data: { type: 'member' },
   });
+
+  // Handle drop events
+  useEffect(() => {
+    if (activeLeader && isOverLeader) {
+      const agentId = activeLeader.id as string;
+      const agent = agents.find(a => a.id === agentId);
+      if (agent && (!leader || leader.id !== agentId)) {
+        setLeader({ id: agent.id, name: agent.name, avatar: agent.avatar });
+      }
+    }
+  }, [activeLeader, isOverLeader, agents, leader]);
+
+  useEffect(() => {
+    if (activeMember && isOverMember) {
+      const agentId = activeMember.id as string;
+      const agent = agents.find(a => a.id === agentId);
+      if (agent && !members.find(m => m.id === agentId) && leader?.id !== agentId) {
+        setMembers(prev => [...prev, { id: agent.id, name: agent.name, avatar: agent.avatar }]);
+      }
+    }
+  }, [activeMember, isOverMember, agents, members, leader]);
 
   // Auto-generate team name when leader is set (per D-15)
   useEffect(() => {
@@ -77,10 +99,10 @@ export function CreateTeamZone() {
   };
 
   // 空状态：虚线框 + 提示文字 (per D-11)
-  if (!leader && members.length === 0 && !isDragging) {
+  if (!leader && members.length === 0) {
     return (
-      <div className="fixed left-8 top-1/2 -translate-y-1/2 w-80">
-        <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center">
+      <div className="absolute left-8 top-1/2 -translate-y-1/2 w-80 z-10">
+        <div className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center bg-white/80 backdrop-blur-sm">
           <Network className="w-12 h-12 text-slate-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-700 mb-2">
             创建新团队
@@ -95,7 +117,7 @@ export function CreateTeamZone() {
 
   // 展开状态：Leader 区 + 成员区 (per D-12)
   return (
-    <div className="fixed left-8 top-1/2 -translate-y-1/2 w-96">
+    <div className="absolute left-8 top-1/2 -translate-y-1/2 w-96 z-10">
       <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6 space-y-6">
         {/* Leader 区 */}
         <div>

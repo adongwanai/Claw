@@ -22,15 +22,26 @@ export function TeamOverview() {
     setActiveId(event.active.id as string);
   };
 
-  const handleDragEnd = (_event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
     setActiveId(null);
-    // 拖拽完成逻辑将在 Plan 04 实现
+
+    if (!over) return;
+
+    // 将拖拽事件传递给 CreateTeamZone 处理
+    const agentId = active.id as string;
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent) return;
+
+    // CreateTeamZone 会通过 useDroppable 监听这些事件
   };
 
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="flex h-full flex-col bg-slate-50 p-6 xl:p-8">
-        <div className="flex flex-1 flex-col overflow-y-auto rounded-[32px] bg-white p-8 shadow-sm border border-slate-200/60 mr-80">
+      <div className="flex h-full bg-slate-50">
+        {/* 主内容区 */}
+        <div className="flex-1 flex flex-col p-6 xl:p-8 overflow-y-auto relative">
+          <div className="flex-1 rounded-[32px] bg-white p-8 shadow-sm border border-slate-200/60">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">
@@ -67,10 +78,11 @@ export function TeamOverview() {
               onDeleteTeam={deleteTeam}
             />
           )}
-        </div>
+          </div>
 
-        {/* 创建区（左侧固定） */}
-        <CreateTeamZone />
+          {/* 创建区（绝对定位，在主内容区内） */}
+          <CreateTeamZone />
+        </div>
 
         {/* Agent 面板（右侧固定） */}
         <AgentPanel />

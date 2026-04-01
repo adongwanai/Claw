@@ -35,6 +35,9 @@ import {
 import { FolderSelectorPopover } from './FolderSelectorPopover';
 import { getChatInputSlashMatches, isSlashCommandPrefixInput, parseChatInputSlashCommand } from './slash-commands';
 
+const CHAT_REQUEST_FILE_UPLOAD_EVENT = 'chat:request-file-upload';
+const CHAT_UPLOAD_PENDING_KEY = 'ktclaw:pending-upload';
+
 // ── Types ────────────────────────────────────────────────────────
 
 export interface FileAttachment {
@@ -313,6 +316,30 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
       ));
     }
   }, []);
+
+  useEffect(() => {
+    const consumePendingUpload = () => {
+      try {
+        const pendingUpload = sessionStorage.getItem(CHAT_UPLOAD_PENDING_KEY);
+        if (pendingUpload === '1') {
+          sessionStorage.removeItem(CHAT_UPLOAD_PENDING_KEY);
+          void pickFiles();
+        }
+      } catch {
+        // ignore storage read errors
+      }
+    };
+
+    consumePendingUpload();
+
+    const onRequestUpload = () => {
+      void pickFiles();
+    };
+    window.addEventListener(CHAT_REQUEST_FILE_UPLOAD_EVENT, onRequestUpload);
+    return () => {
+      window.removeEventListener(CHAT_REQUEST_FILE_UPLOAD_EVENT, onRequestUpload);
+    };
+  }, [pickFiles]);
 
   // ── Stage browser File objects (paste / drag-drop) ─────────────
 
@@ -760,76 +787,6 @@ export function ChatInput({ onSend, onStop, disabled = false, sending = false, i
             >
               <Paperclip className="h-4 w-4" />
             </Button>
-
-            {/* Folder / Working Directory Button */}
-            <div className="relative shrink-0">
-              <Button
-                ref={folderBtnRef}
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  'h-[30px] w-[30px] rounded-full bg-transparent text-[#3c3c43] transition-colors hover:bg-[#e5e5ea] hover:text-black',
-                  workingDirectory && 'bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20',
-                )}
-                onClick={() => setFolderPopoverOpen((v) => !v)}
-                disabled={disabled || sending}
-                title={workingDirectory
-                  ? (workingDirectory.split(/[\\/]/).filter(Boolean).pop() ?? workingDirectory)
-                  : '选择工作目录'}
-              >
-                <FolderOpen className="h-4 w-4" />
-              </Button>
-              <FolderSelectorPopover
-                isOpen={folderPopoverOpen}
-                onClose={() => setFolderPopoverOpen(false)}
-                onSelectFolder={(p) => {
-                  setWorkingDirectory(p);
-                  setFolderPopoverOpen(false);
-                }}
-                anchorRef={folderBtnRef}
-              />
-            </div>
-
-            {showAgentPicker && (
-              <div ref={pickerRef} className="relative shrink-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    'h-[30px] w-[30px] rounded-full bg-transparent text-[#3c3c43] transition-colors hover:bg-[#e5e5ea] hover:text-black',
-                    (pickerOpen || selectedTarget) && 'bg-primary/10 text-primary hover:bg-primary/20'
-                  )}
-                  onClick={() => setPickerOpen((open) => !open)}
-                  disabled={disabled || sending}
-                  title={t('composer.pickAgent')}
-                >
-                  <AtSign className="h-4 w-4" />
-                </Button>
-                {pickerOpen && createPortal(
-                  <AgentPickerDropdown
-                    anchorRef={pickerRef}
-                    agents={mentionableAgents}
-                    targetAgentId={targetAgentId}
-                    title={t('composer.agentPickerTitle', { currentAgent: currentAgentName })}
-                    onSelect={(id) => {
-                      const nextAgent = agents.find((agent) => agent.id === id);
-                      if (isLeaderOnlyAgent(nextAgent)) {
-                        showLeaderOnlyBlockedMessage(id);
-                        setTargetAgentId(null);
-                        setPickerOpen(false);
-                        textareaRef.current?.focus();
-                        return;
-                      }
-                      setTargetAgentId(id);
-                      setPickerOpen(false);
-                      textareaRef.current?.focus();
-                    }}
-                    onClose={() => setPickerOpen(false)}
-                  />,
-                  document.body,
-                )}
-              </div>
-            )}
 
             {/* Textarea */}
             <div className="flex-1 relative">

@@ -3,6 +3,7 @@
  * Manages window creation, system tray, and IPC handlers
  */
 import { app, BrowserWindow, nativeImage, session, shell } from 'electron';
+import { appInstanceScope } from './bootstrap-instance-scope';
 import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { Server } from 'node:http';
@@ -48,8 +49,6 @@ import { McpRuntimeManager } from '../services/mcp/runtime-manager';
 import { SessionRuntimeManager, type RuntimeSessionRecord } from '../services/session-runtime-manager';
 import { loadMcpConfig } from '../api/routes/mcp';
 
-const WINDOWS_APP_USER_MODEL_ID = 'app.clawx.desktop';
-
 // Disable GPU hardware acceleration globally for maximum stability across
 // all GPU configurations (no GPU, integrated, discrete).
 //
@@ -79,7 +78,9 @@ if (process.platform === 'linux') {
 // same port, then each treats the other's gateway as "orphaned" and kills
 // it — creating an infinite kill/restart loop on Windows.
 // The losing process must exit immediately so it never reaches Gateway startup.
-const gotElectronLock = app.requestSingleInstanceLock();
+const gotElectronLock = appInstanceScope.useElectronSingleInstanceLock
+  ? app.requestSingleInstanceLock()
+  : true;
 if (!gotElectronLock) {
   app.exit(0);
 }
@@ -89,8 +90,8 @@ if (gotElectronLock) {
   try {
     const fileLock = acquireProcessInstanceFileLock({
       userDataDir: app.getPath('userData'),
-      lockName: 'ktclaw',
-      force: true,
+      lockName: appInstanceScope.lockName,
+      force: appInstanceScope.forceCleanProcessLock,
     });
     gotFileLock = fileLock.acquired;
     releaseProcessInstanceFileLock = fileLock.release;
@@ -518,7 +519,7 @@ if (gotTheLock) {
   });
 
   if (process.platform === 'win32') {
-    app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
+    app.setAppUserModelId(appInstanceScope.windowsAppUserModelId);
   }
 
   gatewayManager = new GatewayManager();

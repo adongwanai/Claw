@@ -44,6 +44,12 @@ export function patchInstalledWeChatPluginCompatibility(pluginRoot: string): boo
 }
 
 const FEISHU_NORMALIZE_IMPORT = "import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from 'openclaw/plugin-sdk';";
+const FEISHU_PLUGIN_IMPORT_JS = "import { FEISHU_CONFIG_JSON_SCHEMA } from '../core/config-schema.js';";
+const FEISHU_PLUGIN_IMPORT_TS = "import { FEISHU_CONFIG_JSON_SCHEMA } from '../core/config-schema';";
+const FEISHU_MONITOR_STATIC_IMPORT_JS = "import { monitorFeishuProvider } from './monitor.js';";
+const FEISHU_MONITOR_STATIC_IMPORT_TS = "import { monitorFeishuProvider } from './monitor';";
+const FEISHU_MONITOR_DYNAMIC_IMPORT_JS = "const { monitorFeishuProvider } = await import('./monitor.js');";
+const FEISHU_MONITOR_DYNAMIC_IMPORT_TS = "const { monitorFeishuProvider } = await import('./monitor');";
 const FEISHU_NORMALIZE_SHIM = `${SHIM_MARKER}
 const DEFAULT_ACCOUNT_ID = 'default';
 function normalizeAccountId(raw: string): string {
@@ -56,19 +62,37 @@ function normalizeAccountId(raw: string): string {
 }`;
 
 export function patchFeishuPluginCompatibilitySource(source: string): string {
-  if (!source.includes(FEISHU_NORMALIZE_IMPORT)) {
-    return source;
+  let next = source;
+
+  if (next.includes(FEISHU_NORMALIZE_IMPORT) && !next.includes(SHIM_MARKER)) {
+    next = next.replace(FEISHU_NORMALIZE_IMPORT, FEISHU_NORMALIZE_SHIM);
   }
-  if (source.includes(SHIM_MARKER)) {
-    return source;
+
+  if (next.includes(FEISHU_MONITOR_DYNAMIC_IMPORT_JS) && !next.includes(FEISHU_MONITOR_STATIC_IMPORT_JS)) {
+    next = next.replace(
+      FEISHU_PLUGIN_IMPORT_JS,
+      `${FEISHU_PLUGIN_IMPORT_JS}\n${FEISHU_MONITOR_STATIC_IMPORT_JS}`,
+    );
+    next = next.replace(FEISHU_MONITOR_DYNAMIC_IMPORT_JS, '');
   }
-  return source.replace(FEISHU_NORMALIZE_IMPORT, FEISHU_NORMALIZE_SHIM);
+
+  if (next.includes(FEISHU_MONITOR_DYNAMIC_IMPORT_TS) && !next.includes(FEISHU_MONITOR_STATIC_IMPORT_TS)) {
+    next = next.replace(
+      FEISHU_PLUGIN_IMPORT_TS,
+      `${FEISHU_PLUGIN_IMPORT_TS}\n${FEISHU_MONITOR_STATIC_IMPORT_TS}`,
+    );
+    next = next.replace(FEISHU_MONITOR_DYNAMIC_IMPORT_TS, '');
+  }
+
+  return next;
 }
 
 export function patchInstalledFeishuPluginCompatibility(pluginRoot: string): boolean {
   const candidateFiles = [
     join(pluginRoot, 'src', 'core', 'accounts.js'),
     join(pluginRoot, 'src', 'core', 'accounts.ts'),
+    join(pluginRoot, 'src', 'channel', 'plugin.js'),
+    join(pluginRoot, 'src', 'channel', 'plugin.ts'),
   ];
 
   let patched = false;

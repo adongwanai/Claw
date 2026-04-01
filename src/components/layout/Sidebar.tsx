@@ -53,14 +53,14 @@ function SectionHeader({
       aria-label={label}
       onClick={onToggle}
       className={cn(
-        'flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-[#e5e5ea]',
+        'flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors hover:bg-[#e5e5ea]',
         collapsed && 'justify-center px-2',
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
       {!collapsed ? (
         <>
-          <span className="ml-2 flex-1 truncate text-left">{label}</span>
+          <span className="flex-1 truncate text-left">{label}</span>
           <ChevronRight
             className={cn(
               'h-4 w-4 shrink-0 text-[#8e8e93] transition-transform',
@@ -270,7 +270,7 @@ export function Sidebar() {
             collapsed={sidebarCollapsed}
           />
           {!sidebarCollapsed && channelsOpen ? (
-            <div className="space-y-1 pl-2">
+            <div className="space-y-1">
               {channels.length > 0 ? (
                 channels.map((channel) => (
                   <button
@@ -310,7 +310,7 @@ export function Sidebar() {
             collapsed={sidebarCollapsed}
           />
           {!sidebarCollapsed && sessionsOpen ? (
-            <div className="space-y-2 pl-2">
+            <div className="space-y-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8e8e93]" />
                 <input

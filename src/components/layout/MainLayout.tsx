@@ -3,6 +3,7 @@
  * TitleBar at top, then sidebar + content below.
  */
 import { Outlet } from 'react-router-dom';
+import { RightPanel } from './RightPanel';
 import { Sidebar } from './Sidebar';
 import { TitleBar } from './TitleBar';
 
@@ -18,6 +19,7 @@ export function MainLayout() {
         <main className="flex-1 overflow-hidden bg-white dark:bg-background">
           <Outlet />
         </main>
+        <RightPanel />
       </div>
     </div>
   );
