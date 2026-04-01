@@ -217,7 +217,8 @@ export function Channels() {
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionIndex, setMentionIndex] = useState(0);
   const [workbenchMembers, setWorkbenchMembers] = useState<Array<{ openId: string; name: string }>>([]);
-  const composerRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
 
   const {
@@ -626,13 +627,6 @@ export function Channels() {
             </h1>
             <p className="text-[12px] text-[#8e8e93]">{t('syncWorkbench.sessionsTitle', { defaultValue: '同步会话' })}</p>
           </div>
-          <button
-            type="button"
-            onClick={handleQuickAddCurrentType}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 text-[16px] text-[#3c3c43] hover:bg-[#f8fafc]"
-          >
-            +
-          </button>
         </div>
 
         <div className="px-4 pb-3">
@@ -741,7 +735,12 @@ export function Channels() {
                 <span className="text-[12px] text-[#64748b]">{conversation.participantSummary}</span>
                 <button
                   type="button"
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={() => {
+                    if (selectedChannel) {
+                      setBindingBotId(selectedChannel.id);
+                      setBindingModalOpen(true);
+                    }
+                  }}
                   className="rounded-xl border border-black/10 px-3 py-1.5 text-[13px] text-[#3c3c43] hover:bg-[#f8fafc]"
                 >
                   设置
@@ -913,51 +912,35 @@ export function Channels() {
                   )}
                 </div>
               )}
-              <div className="flex items-center gap-3 rounded-[24px] border border-black/[0.08] bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-                <button type="button" className="text-[18px] text-[#94a3b8]">📎</button>
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#f1f5f9] px-3 py-1 text-[12px] font-medium text-[#475569]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#10b981]" />
-                  {defaultModel || t('notConfigured', { defaultValue: '未配置模型' })}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-[#ecfeff] px-3 py-1 text-[12px] font-medium text-[#0f766e]">
-                  当前发言身份：{conversation.visibleAgentId || 'KTClaw'}
-                </span>
-                {activeChannelType === 'feishu' && userAuthStatus === 'authorized' && (
-                  <div
-                    data-testid="identity-toggle"
-                    aria-label="切换发言身份"
-                    className="inline-flex items-center rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-1 py-0.5 text-[12px] font-medium"
-                  >
-                    <button
-                      type="button"
-                      aria-label="机器人"
-                      onClick={() => setIdentityMode('bot')}
-                      className={cn(
-                        'rounded-full px-2 py-0.5 transition-colors',
-                        identityMode === 'bot' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
-                      )}
-                    >
-                      机器人
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="我"
-                      onClick={() => setIdentityMode('self')}
-                      className={cn(
-                        'rounded-full px-2 py-0.5 transition-colors',
-                        identityMode === 'self' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
-                      )}
-                    >
-                      我
-                    </button>
-                  </div>
-                )}
+              <div className="flex items-end gap-3 rounded-[24px] border border-black/[0.08] bg-white px-4 py-3 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
                 <input
-                  ref={composerRef}
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // TODO: Handle file upload
+                      console.log('File selected:', file.name);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 text-[18px] text-[#94a3b8] hover:text-[#3c3c43]"
+                >
+                  📎
+                </button>
+                <textarea
+                  ref={composerRef as React.RefObject<HTMLTextAreaElement>}
                   value={composerValue}
                   onChange={(event) => {
                     const val = event.target.value;
                     setComposerValue(val);
+                    // Auto-resize textarea
+                    event.target.style.height = 'auto';
+                    event.target.style.height = `${event.target.scrollHeight}px`;
                     // Open mention popover when '@' is typed
                     const atIdx = val.lastIndexOf('@');
                     if (atIdx >= 0 && !mentionOpen && val.endsWith('@')) {
@@ -1025,13 +1008,44 @@ export function Channels() {
                     }
                   }}
                   placeholder="在群聊发送消息（将同步至飞书）..."
-                  className="min-w-0 flex-1 bg-transparent text-[14px] text-[#111827] outline-none placeholder:text-[#8e8e93]"
+                  rows={1}
+                  className="min-h-[24px] max-h-[120px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent text-[14px] text-[#111827] outline-none placeholder:text-[#8e8e93]"
                 />
+                {activeChannelType === 'feishu' && userAuthStatus === 'authorized' && (
+                  <div
+                    data-testid="identity-toggle"
+                    aria-label="切换发言身份"
+                    className="inline-flex shrink-0 items-center rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-1 py-0.5 text-[12px] font-medium"
+                  >
+                    <button
+                      type="button"
+                      aria-label="机器人"
+                      onClick={() => setIdentityMode('bot')}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 transition-colors',
+                        identityMode === 'bot' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
+                      )}
+                    >
+                      机器人
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="我"
+                      onClick={() => setIdentityMode('self')}
+                      className={cn(
+                        'rounded-full px-2 py-0.5 transition-colors',
+                        identityMode === 'self' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
+                      )}
+                    >
+                      我
+                    </button>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => void handleSend()}
                   disabled={!composerValue.trim()}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0f172a] text-white disabled:opacity-40"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-white disabled:opacity-40"
                 >
                   ➤
                 </button>
