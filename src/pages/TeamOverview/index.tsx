@@ -6,6 +6,7 @@ import { TeamGrid } from '@/components/team/TeamGrid';
 import { DndContext, DragOverlay, useDroppable, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { AgentPanel } from '@/components/team/AgentPanel';
 import { CreateTeamZone } from '@/components/team/CreateTeamZone';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Network } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
