@@ -50,23 +50,53 @@ export function CreateTeamZone({ initialLeader, onCancel, onSuccess }: CreateTea
     data: { type: 'member' },
   });
 
-  // Handle drop events
+  // 生成带后缀的名称（如果重复）
+  const generateUniqueName = (baseName: string, existingNames: string[]): string => {
+    if (!existingNames.includes(baseName)) {
+      return baseName;
+    }
+
+    let counter = 1;
+    let newName = `${baseName}-${counter}`;
+    while (existingNames.includes(newName)) {
+      counter++;
+      newName = `${baseName}-${counter}`;
+    }
+    return newName;
+  };
+
+  // Handle drop events for Leader zone
   useEffect(() => {
     if (activeLeader && isOverLeader) {
       const agentId = activeLeader.id as string;
       const agent = agents.find(a => a.id === agentId);
-      if (agent && (!leader || leader.id !== agentId)) {
-        setLeader({ id: agent.id, name: agent.name, avatar: agent.avatar });
+      if (agent) {
+        // 允许重复，但生成唯一名称
+        const existingNames = [
+          leader?.name,
+          ...members.map(m => m.name)
+        ].filter(Boolean) as string[];
+
+        const uniqueName = generateUniqueName(agent.name, existingNames);
+        setLeader({ id: agent.id, name: uniqueName, avatar: agent.avatar });
       }
     }
-  }, [activeLeader, isOverLeader, agents, leader]);
+  }, [activeLeader, isOverLeader, agents, leader, members]);
 
+  // Handle drop events for Member zone
   useEffect(() => {
     if (activeMember && isOverMember) {
       const agentId = activeMember.id as string;
       const agent = agents.find(a => a.id === agentId);
-      if (agent && !members.find(m => m.id === agentId) && leader?.id !== agentId) {
-        setMembers(prev => [...prev, { id: agent.id, name: agent.name, avatar: agent.avatar }]);
+      if (agent) {
+        // 允许重复，但生成唯一名称
+        const existingNames = [
+          leader?.name,
+          ...members.map(m => m.name)
+        ].filter(Boolean) as string[];
+
+        const uniqueName = generateUniqueName(agent.name, existingNames);
+        setMembers(prev => [...prev, { id: agent.id, name: uniqueName, avatar: agent.avatar }]);
       }
     }
   }, [activeMember, isOverMember, agents, members, leader]);
