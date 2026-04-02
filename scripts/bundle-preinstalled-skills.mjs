@@ -93,6 +93,12 @@ async function fetchSparseRepo(repo, ref, paths, checkoutDir) {
   return runGit(command, args, { capture: true }).trim();
 }
 
+function isWindowsPathCompatibilityError(error) {
+  const message = String(error?.message || error || '');
+  return process.platform === 'win32'
+    && message.includes('invalid path');
+}
+
 export async function main() {
   echo('Bundling preinstalled skills...');
   const manifestSkills = loadManifest();
@@ -109,11 +115,25 @@ export async function main() {
 
   const groups = groupByRepoRef(manifestSkills);
   for (const group of groups) {
+    if (process.platform === 'win32' && group.repo === 'openclaw/skills') {
+      echo(`   WARN skipped ${group.repo} on Windows due to upstream path names incompatible with NTFS checkout`);
+      continue;
+    }
+
     const repoDir = join(TMP_ROOT, createRepoDirName(group.repo, group.ref));
     const sparsePaths = [...new Set(group.entries.map((entry) => entry.repoPath))];
 
     echo(`Fetching ${group.repo} @ ${group.ref}`);
-    const commit = await fetchSparseRepo(group.repo, group.ref, sparsePaths, repoDir);
+    let commit;
+    try {
+      commit = await fetchSparseRepo(group.repo, group.ref, sparsePaths, repoDir);
+    } catch (error) {
+      if (isWindowsPathCompatibilityError(error)) {
+        echo(`   WARN skipped ${group.repo} on Windows due to invalid upstream path names`);
+        continue;
+      }
+      throw error;
+    }
     echo(`   commit ${commit}`);
 
     for (const entry of group.entries) {
@@ -157,7 +177,9 @@ export async function main() {
 
 const scriptPath = process.argv[1] ? resolve(process.argv[1]) : null;
 const currentModulePath = fileURLToPath(import.meta.url);
+const invokedViaArgv = process.argv.some((arg) => arg?.includes('bundle-preinstalled-skills.mjs'));
+const invokedViaNpmScript = process.env.npm_lifecycle_event === 'bundle:preinstalled-skills';
 
-if (scriptPath === currentModulePath) {
+if (scriptPath === currentModulePath || invokedViaArgv || invokedViaNpmScript) {
   await main();
 }
