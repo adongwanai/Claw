@@ -648,6 +648,13 @@ export function Channels() {
             </h1>
             <p className="text-[12px] text-[#8e8e93]">{t('syncWorkbench.sessionsTitle', { defaultValue: '同步会话' })}</p>
           </div>
+          <button
+            type="button"
+            onClick={handleQuickAddCurrentType}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-black/10 text-[16px] text-[#3c3c43] hover:bg-[#f8fafc]"
+          >
+            +
+          </button>
         </div>
 
         <div className="px-4 pb-3">
