@@ -4,6 +4,7 @@ import { axe } from 'vitest-axe';
 import { MemoryRouter } from 'react-router-dom';
 import Settings from '@/pages/Settings';
 import { TitleBar } from '@/components/layout/TitleBar';
+import enSettings from '@/i18n/locales/en/settings.json';
 import { SETTINGS_NAV_GROUPS, type SettingsSectionId } from '@/components/settings-center/settings-shell-data';
 import { hostApiFetch } from '@/lib/host-api';
 import { useSettingsStore } from '@/stores/settings';
@@ -131,6 +132,18 @@ function getNavLabel(id: SettingsSectionId): string {
   return item.labelKey;
 }
 
+function getTopLevelNavItems() {
+  return SETTINGS_NAV_GROUPS.flatMap((group) => group.items);
+}
+
+const LEGACY_TOP_LEVEL_IDS = [
+  'team-role-strategy',
+  'channel-advanced',
+  'automation-defaults',
+  'agent-avatars',
+  'feedback-developer',
+] as const;
+
 describe('Settings center', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -149,15 +162,31 @@ describe('Settings center', () => {
     });
   });
 
-  it('renders grouped navigation and key section shells', async () => {
+  it('renders the canonical 9-item settings IA without legacy top-level groups', async () => {
     const { container } = render(
       <MemoryRouter>
         <Settings />
       </MemoryRouter>,
     );
 
-    for (const group of SETTINGS_NAV_GROUPS) {
-      expect(screen.getAllByText(group.labelKey).length).toBeGreaterThan(0);
+    const topLevelItems = getTopLevelNavItems();
+    expect(topLevelItems).toHaveLength(9);
+    expect(topLevelItems[0]?.id).toBe('costs-usage');
+    expect(enSettings.settingsShell.items['costs-usage'].label).toBe('Costs & Usage');
+    expect(topLevelItems.at(-1)?.id).toBe('about');
+    expect(enSettings.settingsShell.items.about.label).toBe('About');
+
+    expect(screen.getByRole('button', { name: getNavLabel('costs-usage') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: getNavLabel('about') })).toBeInTheDocument();
+
+    for (const groupId of ['basic', 'workflow', 'capability', 'governance'] as const) {
+      expect(screen.queryByText(`settings:settingsShell.groups.${groupId}`)).not.toBeInTheDocument();
+    }
+
+    for (const legacyId of LEGACY_TOP_LEVEL_IDS) {
+      expect(
+        screen.queryByRole('button', { name: `settings:settingsShell.items.${legacyId}.label` }),
+      ).not.toBeInTheDocument();
     }
 
     fireEvent.click(screen.getByRole('button', { name: getNavLabel('migration-backup') }));
@@ -167,7 +196,7 @@ describe('Settings center', () => {
     expect(screen.getByRole('tab', { name: 'memoryKnowledge.tabs.strategy' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'memoryKnowledge.tabs.browser' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: getNavLabel('feedback-developer') }));
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('about') }));
     expect(screen.getByText('KTClaw Doctor')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Re-run Setup' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset All Settings' })).toBeInTheDocument();
@@ -210,7 +239,7 @@ describe('Settings center', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: getNavLabel('feedback-developer') }));
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('about') }));
 
     fireEvent.click(screen.getByRole('switch', { name: /API RPC/ }));
     expect(hostApiFetchMock).toHaveBeenCalledWith(
@@ -239,7 +268,7 @@ describe('Settings center', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: getNavLabel('feedback-developer') }));
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('about') }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Re-run Setup' }));
     expect(navigateMock).toHaveBeenCalledWith('/setup');
@@ -270,7 +299,7 @@ describe('Settings center', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: getNavLabel('auto-update') }));
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('app-updates') }));
     fireEvent.change(screen.getByRole('combobox', { name: 'Update channel' }), {
       target: { value: 'beta' },
     });
@@ -361,7 +390,7 @@ describe('Settings center', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: getNavLabel('agent-avatars') }));
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('general') }));
 
     expect(await screen.findByText('Researcher')).toBeInTheDocument();
 
@@ -401,7 +430,7 @@ describe('Settings center', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: getNavLabel('agent-avatars') }));
+    fireEvent.click(screen.getByRole('button', { name: getNavLabel('general') }));
     await screen.findByText('Researcher');
 
     fireEvent.change(document.getElementById('agent-avatar-researcher') as HTMLInputElement, {
