@@ -355,20 +355,14 @@ type RenderSectionArgs = {
 
 function renderActiveSection(args: RenderSectionArgs) {
   switch (args.activeSection) {
-    case 'general':
-      return <GeneralSection />;
+    case 'costs-usage':
+      return <CostsUsageSection />;
 
-    case 'model-provider':
+    case 'models-providers':
       return <ModelProviderSection gatewayStatus={args.gatewayStatus} restartGateway={args.restartGateway} />;
 
-    case 'team-role-strategy':
-      return <TeamRoleSection />;
-
-    case 'channel-advanced':
-      return <ChannelAdvancedSection />;
-
-    case 'automation-defaults':
-      return <AutomationDefaultsSection />;
+    case 'general':
+      return <GeneralSettingsSection />;
 
     case 'memory-knowledge':
       return <SettingsMemoryKnowledgePanel />;
@@ -379,13 +373,10 @@ function renderActiveSection(args: RenderSectionArgs) {
     case 'tool-permissions':
       return <ToolPermissionsSection />;
 
-    case 'agent-avatars':
-      return <AgentAvatarsSection />;
-
     case 'migration-backup':
       return <SettingsMigrationPanel onLaunchWizard={args.openMigrationWizard} />;
 
-    case 'auto-update':
+    case 'app-updates':
       return (
         <AutoUpdateSection
           currentVersion={args.currentVersion}
@@ -407,7 +398,7 @@ function renderActiveSection(args: RenderSectionArgs) {
         />
       );
 
-    case 'feedback-developer':
+    case 'about':
       return (
         <>
           {/* Card 1: 实验室实验 */}
@@ -690,6 +681,29 @@ function BrandImageUploadField({
 }
 
 /* ─── Section: General (07.1) ─── */
+
+function CostsUsageSection() {
+  return (
+    <SettingsCard title="Costs & Usage">
+      <div className="rounded-lg border border-dashed border-[#c6c6c8] bg-[#f9fafb] px-4 py-3 text-[13px] text-[#3c3c43]">
+        This canonical section anchors usage monitoring, spend visibility, and budget controls inside
+        Settings. Subsequent Phase 08 plans will plug the full costs surfaces into this location.
+      </div>
+    </SettingsCard>
+  );
+}
+
+function GeneralSettingsSection() {
+  return (
+    <>
+      <GeneralSection />
+      <TeamRoleSection />
+      <ChannelAdvancedSection />
+      <AutomationDefaultsSection />
+      <AgentAvatarsSection />
+    </>
+  );
+}
 
 function GeneralSection() {
   const { t } = useTranslation(['settings']);

@@ -312,6 +312,8 @@
       "governance": "治理"
     },
     "items": {
+      "costs-usage": { "label": "费用与用量" },
+      "models-providers": { "label": "模型与提供方" },
       "general": { "label": "常规设置" },
       "model-provider": { "label": "模型与 Provider" },
       "team-role-strategy": { "label": "团队与角色策略" },
@@ -322,10 +324,22 @@
       "tool-permissions": { "label": "工具权限" },
       "agent-avatars": { "label": "分身头像" },
       "migration-backup": { "label": "迁移与备份" },
+      "app-updates": { "label": "应用更新" },
+      "about": { "label": "关于" },
       "auto-update": { "label": "应用更新" },
       "feedback-developer": { "label": "反馈与开发者" }
     },
     "meta": {
+      "costs-usage": {
+        "title": "费用与用量",
+        "subtitle": "在统一设置入口中查看费用、用量、预算和告警能力。",
+        "kicker": "用量可视化"
+      },
+      "models-providers": {
+        "title": "模型与提供方",
+        "subtitle": "管理 provider 接入、默认模型和基于 Gateway 的模型行为。",
+        "kicker": "Provider 与默认策略"
+      },
       "general": {
         "title": "常规设置",
         "subtitle": "管理全局外观、语言以及应用启动行为。",
@@ -375,6 +389,16 @@
         "title": "迁移与备份",
         "subtitle": "防止配置迷失、意外损毁并支持在主副工作计算机间的转移。",
         "kicker": "配置同步、回滚、系统迁移"
+      },
+      "app-updates": {
+        "title": "应用更新",
+        "subtitle": "管理自动检查与下载策略，查看当前版本与更新进度。",
+        "kicker": "版本管理"
+      },
+      "about": {
+        "title": "关于",
+        "subtitle": "查看产品信息、支持入口和开发者诊断工具，但不再占据一级导航。",
+        "kicker": "产品与诊断"
       },
       "auto-update": {
         "title": "应用更新",

@@ -306,59 +306,43 @@
   },
   "settingsShell": {
     "groups": {
-      "basic": "Basic",
-      "workflow": "Workflow",
-      "capability": "Capability",
-      "governance": "Governance"
+      "canonical": "Settings"
     },
     "items": {
-      "general": { "label": "General Settings" },
-      "model-provider": { "label": "Models & Providers" },
-      "team-role-strategy": { "label": "Team & Role Strategy" },
-      "channel-advanced": { "label": "Advanced Channel Config" },
-      "automation-defaults": { "label": "Automation Defaults" },
-      "memory-knowledge": { "label": "Memory & Knowledge" },
+      "costs-usage": { "label": "Costs & Usage" },
+      "models-providers": { "label": "Models & Providers" },
+      "general": { "label": "General" },
       "skills-mcp": { "label": "Skills & MCP" },
       "tool-permissions": { "label": "Tool Permissions" },
-      "agent-avatars": { "label": "Agent Avatars" },
+      "memory-knowledge": { "label": "Memory Knowledge Base" },
       "migration-backup": { "label": "Migration & Backup" },
-      "auto-update": { "label": "App Updates" },
-      "feedback-developer": { "label": "Feedback & Developer" }
+      "app-updates": { "label": "App Updates" },
+      "about": { "label": "About" }
     },
     "meta": {
-      "general": {
-        "title": "General Settings",
-        "subtitle": "Manage global appearance, language, and app startup behavior.",
-        "kicker": "Appearance and behavior"
+      "costs-usage": {
+        "title": "Costs & Usage",
+        "subtitle": "Track spend, usage visibility, and budget controls from the canonical settings entry.",
+        "kicker": "Usage visibility"
       },
-      "model-provider": {
+      "models-providers": {
         "title": "Models & Providers",
-        "subtitle": "Configure the core reasoning engine, bind third-party API keys, and define the global fallback model.",
-        "kicker": "API keys and model selection"
+        "subtitle": "Configure provider access, default models, and gateway-backed model behavior.",
+        "kicker": "Providers and defaults"
       },
-      "team-role-strategy": {
-        "title": "Team Architecture",
-        "subtitle": "Control how the system derives sub-agents automatically and assigns default roles to different task classes.",
-        "kicker": "Role assignment and context boundaries"
-      },
-      "channel-advanced": {
-        "title": "Advanced Channel Config",
-        "subtitle": "Manage messaging strategy across Feishu, WeCom, Telegram, and other host environments.",
-        "kicker": "IM integrations, quiet rules, and routing"
-      },
-      "automation-defaults": {
-        "title": "Automation Defaults",
-        "subtitle": "Define concurrency pools and fault-breaker behavior for unattended workflows such as cron jobs.",
-        "kicker": "Scheduling limits, retries, and alerts"
+      "general": {
+        "title": "General",
+        "subtitle": "Manage appearance, language, identity, avatars, and default workspace behavior in one place.",
+        "kicker": "Preferences and defaults"
       },
       "memory-knowledge": {
-        "title": "Memory & Knowledge Base",
+        "title": "Memory Knowledge Base",
         "subtitle": "Manage long-term memory storage, summarization rules, and mounted local knowledge directories.",
-        "kicker": "Capabilities"
+        "kicker": "Shared memory system"
       },
       "skills-mcp": {
         "title": "Skills & MCP Services",
-        "subtitle": "Manage internal executors (Skills) and external protocol services (mcp-servers).",
+        "subtitle": "Manage internal executors (Skills) and external protocol services (MCP servers).",
         "kicker": "Capability modules"
       },
       "tool-permissions": {
@@ -366,25 +350,20 @@
         "subtitle": "Strictly define which tools and folders intelligent systems are allowed to modify.",
         "kicker": "Capability sandbox and blocklists"
       },
-      "agent-avatars": {
-        "title": "Agent Avatars",
-        "subtitle": "Upload custom avatar images for each agent.",
-        "kicker": "Avatar management"
-      },
       "migration-backup": {
         "title": "Migration & Backup",
         "subtitle": "Protect configuration from loss or damage and support moving between primary and secondary machines.",
         "kicker": "Sync, rollback, and migration"
       },
-      "auto-update": {
+      "app-updates": {
         "title": "App Updates",
         "subtitle": "Manage automatic checks and downloads, and review current version and update progress.",
         "kicker": "Versioning and updates"
       },
-      "feedback-developer": {
-        "title": "Feedback & Developer",
-        "subtitle": "Continue to host real tooling such as updates, Doctor diagnostics, and developer mode.",
-        "kicker": "Governance"
+      "about": {
+        "title": "About",
+        "subtitle": "Review product information, support links, and developer diagnostics without promoting them to top-level navigation.",
+        "kicker": "Product and diagnostics"
       }
     }
   },

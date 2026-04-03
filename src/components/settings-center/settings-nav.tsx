@@ -11,13 +11,18 @@ type SettingsNavProps = {
 export function SettingsNav({ groups, activeItemId, onChange }: SettingsNavProps) {
   const { t } = useTranslation(['settings']);
   return (
-    <nav className="w-full max-w-[220px] shrink-0 border-r border-[#c6c6c8] bg-[#fcfcfc] px-3 py-7">
+    <nav
+      aria-label="Settings sections"
+      className="w-full max-w-[220px] shrink-0 border-r border-[#c6c6c8] bg-[#fcfcfc] px-3 py-7"
+    >
       <div className="flex flex-col gap-5">
         {groups.map((group) => (
           <section key={group.id} className="flex flex-col">
-            <div className="px-[10px] pb-[6px] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#8e8e93]">
-              {t(group.labelKey)}
-            </div>
+            {group.labelKey ? (
+              <div className="px-[10px] pb-[6px] text-[10px] font-semibold uppercase tracking-[0.05em] text-[#8e8e93]">
+                {t(group.labelKey)}
+              </div>
+            ) : null}
             <div className="space-y-0">
               {group.items.map((item) => {
                 const active = item.id === activeItemId;
