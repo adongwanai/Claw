@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { TeamNameEditor } from '@/components/team/TeamNameEditor';
 import { useTeamsStore } from '@/stores/teams';
 
@@ -34,8 +34,7 @@ describe('TeamNameEditor', () => {
   it('enters edit mode when name is clicked', () => {
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
     const input = screen.getByDisplayValue('测试团队');
     expect(input).toBeInTheDocument();
@@ -45,8 +44,7 @@ describe('TeamNameEditor', () => {
   it('selects all text when entering edit mode', () => {
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
     const input = screen.getByDisplayValue('测试团队') as HTMLInputElement;
     expect(input.selectionStart).toBe(0);
@@ -57,23 +55,16 @@ describe('TeamNameEditor', () => {
     mockUpdateTeam.mockResolvedValueOnce(undefined);
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('测试团队')).toBeInTheDocument();
-    });
-
-    const input = screen.getByDisplayValue('测试团队');
+    const input = await screen.findByDisplayValue('测试团队');
     fireEvent.change(input, { target: { value: '新团队名称' } });
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    // Wait for edit mode to exit
     await waitFor(() => {
       expect(screen.queryByDisplayValue('新团队名称')).not.toBeInTheDocument();
-    }, { timeout: 1000 });
+    });
 
-    // Verify updateTeam was called
     expect(mockUpdateTeam).toHaveBeenCalledWith('team-1', { name: '新团队名称' });
   });
 
@@ -81,31 +72,23 @@ describe('TeamNameEditor', () => {
     mockUpdateTeam.mockResolvedValueOnce(undefined);
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('测试团队')).toBeInTheDocument();
-    });
-
-    const input = screen.getByDisplayValue('测试团队');
+    const input = await screen.findByDisplayValue('测试团队');
     fireEvent.change(input, { target: { value: '新团队名称' } });
     fireEvent.blur(input);
 
-    // Wait for edit mode to exit
     await waitFor(() => {
       expect(screen.queryByDisplayValue('新团队名称')).not.toBeInTheDocument();
-    }, { timeout: 1000 });
+    });
 
-    // Verify updateTeam was called
     expect(mockUpdateTeam).toHaveBeenCalledWith('team-1', { name: '新团队名称' });
   });
 
   it('cancels edit when Escape is pressed', () => {
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
     const input = screen.getByDisplayValue('测试团队');
     fireEvent.change(input, { target: { value: '新团队名称' } });
@@ -118,8 +101,7 @@ describe('TeamNameEditor', () => {
   it('does not save if name is empty', async () => {
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
     const input = screen.getByDisplayValue('测试团队');
     fireEvent.change(input, { target: { value: '' } });
@@ -134,11 +116,9 @@ describe('TeamNameEditor', () => {
   it('does not save if name is unchanged', async () => {
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
-    const input = screen.getByDisplayValue('测试团队');
-    fireEvent.blur(input);
+    fireEvent.blur(screen.getByDisplayValue('测试团队'));
 
     await waitFor(() => {
       expect(mockUpdateTeam).not.toHaveBeenCalled();
@@ -146,46 +126,40 @@ describe('TeamNameEditor', () => {
   });
 
   it('disables input during save', async () => {
-    // Create a promise that we can control
     let resolveUpdate: () => void = () => {};
-    const updatePromise = new Promise<void>(resolve => {
+    const updatePromise = new Promise<void>((resolve) => {
       resolveUpdate = resolve;
     });
     mockUpdateTeam.mockReturnValue(updatePromise);
 
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
-    await waitFor(() => {
-      expect(screen.getByDisplayValue('测试团队')).toBeInTheDocument();
-    });
-
-    const input = screen.getByDisplayValue('测试团队');
+    const input = await screen.findByDisplayValue('测试团队');
     fireEvent.change(input, { target: { value: '新团队名称' } });
-
-    // Trigger save
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    // Check if disabled (may need a small delay for state update)
     await waitFor(() => {
       const currentInput = screen.queryByDisplayValue('新团队名称');
       if (currentInput) {
         expect(currentInput).toBeDisabled();
       }
-    }, { timeout: 500 });
+    });
 
-    // Resolve the promise to complete the test
-    resolveUpdate();
+    await act(async () => {
+      resolveUpdate();
+      await updatePromise;
+    });
   });
 
   it('reverts to original name on save error', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockUpdateTeam.mockRejectedValueOnce(new Error('Save failed'));
+
     render(<TeamNameEditor teamId="team-1" initialName="测试团队" />);
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
     const input = screen.getByDisplayValue('测试团队');
     fireEvent.change(input, { target: { value: '新团队名称' } });
@@ -194,18 +168,19 @@ describe('TeamNameEditor', () => {
     await waitFor(() => {
       expect(screen.getByText('测试团队')).toBeInTheDocument();
     });
+
+    consoleErrorSpy.mockRestore();
   });
 
   it('stops event propagation when clicked', () => {
     const handleParentClick = vi.fn();
-    const { container } = render(
+    render(
       <div onClick={handleParentClick}>
         <TeamNameEditor teamId="team-1" initialName="测试团队" />
-      </div>
+      </div>,
     );
 
-    const nameElement = screen.getByText('测试团队');
-    fireEvent.click(nameElement);
+    fireEvent.click(screen.getByText('测试团队'));
 
     expect(handleParentClick).not.toHaveBeenCalled();
   });

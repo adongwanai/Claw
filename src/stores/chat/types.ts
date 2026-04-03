@@ -49,6 +49,9 @@ export interface ChatSession {
   teamId?: string;
   teamName?: string;
   agentId?: string;
+  targetAgentId?: string;
+  isPrivateChat?: boolean;
+  isLeaderChat?: boolean;
   agentStatus?: 'online' | 'offline' | 'busy';
   unreadCount?: number;
 }
@@ -96,6 +99,14 @@ export interface ChatState {
   // Actions
   loadSessions: () => Promise<void>;
   switchSession: (key: string) => void;
+  openDirectAgentSession: (
+    agentId: string,
+    options?: {
+      teamId?: string;
+      teamName?: string;
+      isLeaderChat?: boolean;
+    },
+  ) => string;
   newSession: () => void;
   deleteSession: (key: string) => Promise<void>;
   cleanupEmptySession: () => void;

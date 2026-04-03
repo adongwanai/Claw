@@ -21,6 +21,8 @@ export function BotBindingModal({ botId, onClose, onBound }: BotBindingModalProp
   const { channels, updateChannel } = useChannelsStore();
   const { agents, fetchAgents } = useAgentsStore();
   const { teams, fetchTeams } = useTeamsStore();
+  const agentList = agents ?? [];
+  const teamList = teams ?? [];
 
   const bot = channels.find((c) => c.id === botId);
 
@@ -58,8 +60,8 @@ export function BotBindingModal({ botId, onClose, onBound }: BotBindingModalProp
     }
   }, [bot]);
 
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId);
-  const selectedTeam = teams.find((t) => t.id === selectedTeamId);
+  const selectedAgent = agentList.find((a) => a.id === selectedAgentId);
+  const selectedTeam = teamList.find((t) => t.id === selectedTeamId);
 
   const handleSave = async () => {
     if (!bot || !bindType) return;
@@ -218,7 +220,7 @@ export function BotBindingModal({ botId, onClose, onBound }: BotBindingModalProp
                   className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-[14px] text-[#111827] outline-none focus:border-[#6366f1] focus:ring-1 focus:ring-[#6366f1]"
                 >
                   <option value="">— 选择 Agent —</option>
-                  {agents.map((agent: AgentSummary) => (
+                    {agentList.map((agent: AgentSummary) => (
                     <option key={agent.id} value={agent.id}>
                       {agent.name}
                     </option>
@@ -241,7 +243,7 @@ export function BotBindingModal({ botId, onClose, onBound }: BotBindingModalProp
                   className="w-full rounded-xl border border-black/10 px-3 py-2.5 text-[14px] text-[#111827] outline-none focus:border-[#6366f1] focus:ring-1 focus:ring-[#6366f1]"
                 >
                   <option value="">— 选择团队 —</option>
-                  {teams.map((team: TeamSummary) => (
+                    {teamList.map((team: TeamSummary) => (
                     <option key={team.id} value={team.id}>
                       {team.name}
                     </option>

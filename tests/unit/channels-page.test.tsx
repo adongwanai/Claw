@@ -229,7 +229,7 @@ describe('Channels sync workbench', () => {
   it('renders the chat-first workbench shell for feishu instead of the old detail panel', async () => {
     render(<Channels />);
 
-    expect(await screen.findByText('飞书配置详情')).toBeInTheDocument();
+    expect((await screen.findAllByText('研发中心 DevOps 总群')).length).toBeGreaterThan(1);
     expect((await screen.findAllByText('研发中心 DevOps 总群')).length).toBeGreaterThan(1);
     expect(await screen.findByText('李明（人类）')).toBeInTheDocument();
     expect((await screen.findAllByText('KTClaw')).length).toBeGreaterThan(0);
@@ -240,7 +240,7 @@ describe('Channels sync workbench', () => {
 
   it('no longer renders a duplicate channel family rail inside the page body', async () => {
     render(<Channels />);
-    await screen.findByText('飞书配置详情');
+    expect((await screen.findAllByText('研发中心 DevOps 总群')).length).toBeGreaterThan(1);
 
     expect(screen.queryByText('飞书接入')).not.toBeInTheDocument();
     expect(screen.queryByText('钉钉接入')).not.toBeInTheDocument();
@@ -328,7 +328,8 @@ describe('Channels sync workbench', () => {
       );
     });
 
-    expect(screen.queryByText('hello from channel')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('optimistic-bubble')).toHaveTextContent('hello from channel');
+    expect(screen.queryByText('runtime-generated reply')).not.toBeInTheDocument();
     expect(input).toHaveValue('');
   });
 
@@ -386,6 +387,91 @@ describe('Channels sync workbench', () => {
     expect(screen.getByText('断开连接')).toBeInTheDocument();
     expect(screen.getByText('App ID')).toBeInTheDocument();
     expect(screen.getByText('query_k8s_logs')).toBeInTheDocument();
+  });
+
+  it('shows account entries for the selected channel inside the settings drawer', async () => {
+    hostApiFetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const fixtures = buildWorkbenchFixtures();
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/channels/accounts') {
+        return {
+          success: true,
+          channels: [
+            {
+              channelType: 'feishu',
+              defaultAccountId: 'default',
+              status: 'connected',
+              accounts: [
+                { accountId: 'default', name: 'Feishu Main', status: 'connected', connected: true, configured: true, running: true, linked: false, isDefault: true, agentId: 'main' },
+                { accountId: 'agent-a', name: 'Feishu Agent A', status: 'connected', connected: true, configured: true, running: true, linked: false, isDefault: false, agentId: 'agent-a' },
+              ],
+            },
+          ],
+        };
+      }
+      if (path === '/api/channels/config/feishu?accountId=default') {
+        return { success: true, values: { appId: 'demo-app', appSecret: 'demo-secret' } };
+      }
+      if (path.includes('/send')) return { success: true };
+      return { success: true };
+    });
+
+    render(<Channels />);
+    fireEvent.click(await screen.findByRole('button', { name: '设置' }));
+
+    expect(await screen.findByText('Feishu Main')).toBeInTheDocument();
+    expect(screen.getByText('Feishu Agent A')).toBeInTheDocument();
+    expect(screen.getByText('默认账号')).toBeInTheDocument();
+    expect(screen.getByText('设为默认')).toBeInTheDocument();
+  });
+
+  it('switches the default account from the settings drawer', async () => {
+    hostApiFetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      const fixtures = buildWorkbenchFixtures();
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/channels/accounts') {
+        return {
+          success: true,
+          channels: [
+            {
+              channelType: 'feishu',
+              defaultAccountId: 'default',
+              status: 'connected',
+              accounts: [
+                { accountId: 'default', name: 'Feishu Main', status: 'connected', connected: true, configured: true, running: true, linked: false, isDefault: true, agentId: 'main' },
+                { accountId: 'agent-a', name: 'Feishu Agent A', status: 'connected', connected: true, configured: true, running: true, linked: false, isDefault: false, agentId: 'agent-a' },
+              ],
+            },
+          ],
+        };
+      }
+      if (path === '/api/channels/config/feishu?accountId=default') {
+        return { success: true, values: { appId: 'demo-app', appSecret: 'demo-secret' } };
+      }
+      if (path === '/api/channels/default-account' && init?.method === 'PUT') {
+        return { success: true };
+      }
+      if (path.includes('/send')) return { success: true };
+      return { success: true };
+    });
+
+    render(<Channels />);
+    fireEvent.click(await screen.findByRole('button', { name: '设置' }));
+    fireEvent.click(await screen.findByText('设为默认'));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith(
+        '/api/channels/default-account',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ channelType: 'feishu', accountId: 'agent-a' }),
+        }),
+      );
+    });
   });
 
   it('renders isSelf messages right-aligned with blue bubble', async () => {

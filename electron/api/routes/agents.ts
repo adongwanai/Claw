@@ -12,6 +12,11 @@ import {
   updateAgentProfile,
 } from '../../utils/agent-config';
 import {
+  assignInstalledSkillToAgentWorkspace,
+  removeAgentWorkspaceSkill,
+  updateAgentWorkspaceSkill,
+} from '../../utils/agent-workspace-skills';
+import {
   deleteAgentChannelAccounts,
   deleteChannelAccountConfig,
   readOpenClawConfig,
@@ -190,8 +195,18 @@ export async function handleAgentRoutes(
 
   if (url.pathname === '/api/agents' && req.method === 'POST') {
     try {
-      const body = await parseJsonBody<{ name: string; persona?: string }>(req);
-      const snapshot = await createAgent(body.name, body.persona);
+      const body = await parseJsonBody<{
+        name: string;
+        persona?: string;
+        teamRole?: 'leader' | 'worker';
+        model?: string;
+      }>(req);
+      const result = await createAgent({
+        name: body.name,
+        ...(body.persona !== undefined ? { persona: body.persona } : {}),
+        ...(body.teamRole !== undefined ? { teamRole: body.teamRole } : {}),
+        ...(body.model !== undefined ? { model: body.model } : {}),
+      });
       // Sync provider API keys to the new agent's auth-profiles.json so the
       // embedded runner can authenticate with LLM providers when messages
       // arrive via channel bots (e.g. Feishu). Without this, the copied
@@ -200,7 +215,11 @@ export async function handleAgentRoutes(
         logger.warn('[agents] Failed to sync provider auth after agent creation:', err);
       });
       scheduleGatewayReload(ctx, 'create-agent');
-      sendJson(res, 200, { success: true, ...snapshot });
+      sendJson(res, 200, {
+        success: true,
+        createdAgentId: result.createdAgentId,
+        ...result.snapshot,
+      });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }
@@ -311,6 +330,22 @@ export async function handleAgentRoutes(
 
   // Skills listing: GET /api/agents/:agentId/workspace/skills
   const skillsListMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/workspace\/skills$/);
+  if (skillsListMatch && req.method === 'POST') {
+    const agentId = decodeURIComponent(skillsListMatch[1]);
+    try {
+      const body = await parseJsonBody<{ slug: string }>(req);
+      if (typeof body?.slug !== 'string' || !/^[\w-]+$/.test(body.slug)) {
+        sendJson(res, 400, { success: false, error: 'Invalid skill slug' });
+        return true;
+      }
+      await assignInstalledSkillToAgentWorkspace(agentId, body.slug);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
   if (skillsListMatch && req.method === 'GET') {
     const agentId = decodeURIComponent(skillsListMatch[1]);
     try {
@@ -338,6 +373,45 @@ export async function handleAgentRoutes(
 
   // Skill file read: GET /api/agents/:agentId/workspace/skills/:skillName
   const skillFileMatch = url.pathname.match(/^\/api\/agents\/([^/]+)\/workspace\/skills\/([^/]+)$/);
+  if (skillFileMatch && req.method === 'PUT') {
+    const agentId = decodeURIComponent(skillFileMatch[1]);
+    const skillName = decodeURIComponent(skillFileMatch[2]);
+    if (!/^[\w-]+$/.test(skillName)) {
+      sendJson(res, 400, { success: false, error: 'Invalid skill name' });
+      return true;
+    }
+
+    try {
+      const body = await parseJsonBody<{ content: string }>(req);
+      if (typeof body?.content !== 'string') {
+        sendJson(res, 400, { success: false, error: 'content required' });
+        return true;
+      }
+      await updateAgentWorkspaceSkill(agentId, skillName, body.content);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (skillFileMatch && req.method === 'DELETE') {
+    const agentId = decodeURIComponent(skillFileMatch[1]);
+    const skillName = decodeURIComponent(skillFileMatch[2]);
+    if (!/^[\w-]+$/.test(skillName)) {
+      sendJson(res, 400, { success: false, error: 'Invalid skill name' });
+      return true;
+    }
+
+    try {
+      await removeAgentWorkspaceSkill(agentId, skillName);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
   if (skillFileMatch && req.method === 'GET') {
     const agentId = decodeURIComponent(skillFileMatch[1]);
     const skillName = decodeURIComponent(skillFileMatch[2]);

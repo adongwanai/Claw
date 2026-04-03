@@ -20,7 +20,7 @@
 
 - [x] **Phase 1: Sidebar Restructure** - ChatGPT 网页版侧边栏布局，3 固定 + 2 折叠，ChatGPT 风格
 - [ ] **Phase 2: Task Board Redesign** - 看板 4 列 + 日程视图双切换，Agent 分组，团队前缀，对话创建
-- [ ] **Phase 3: Team Overview Rebuild** - 团队卡片列表，拖拽创建团队，多团队支持
+- [x] **Phase 3: Team Overview Rebuild** - 团队卡片列表，拖拽创建团队，多团队支持
 - [ ] **Phase 4: Team Map Evolution** - 动态路由，Memory/Skills 管理与同步，成员管理，私聊
 - [ ] **Phase 5: Employee Square** - Agent 卡片展示，创建，私聊，Memory 管理，会话管理
 - [ ] **Phase 6: Channel Redesign** - 频道同步工作台，机器人一对一绑定，显式指定负责人
@@ -90,7 +90,7 @@ Plans:
 - [x] 03-01-PLAN.md — Team data structure & store (types, Zustand store, backend API)
 - [x] 03-02-PLAN.md — Team card grid layout (TeamCard, TeamGrid, responsive layout)
 - [x] 03-03-PLAN.md — Drag and drop infrastructure (AgentPanel, CreateTeamZone, @dnd-kit)
-- [ ] 03-04-PLAN.md — Team creation flow (confirmation form, auto-naming, inline editing)
+- [x] 03-04-PLAN.md — Team creation flow (confirmation form, auto-naming, inline editing)
 **Depends on:** Phase 1
 **Canonical refs:**
 - `.planning/PRODUCT-RESTRUCTURE.md` §五（团队总览）
@@ -105,6 +105,13 @@ Plans:
   7. 创建后自动更新成员关系、Memory、Soul、Identity、引用关系
 
 ### Phase 4: Team Map Evolution
+**Plans:** 4 plans
+
+Plans:
+- [x] 04-01-PLAN.md 鈥?Canonical routing + team-scoped TeamMap shell and contracts
+- [x] 04-02-PLAN.md 鈥?Header/add-member/remove-member member-management surfaces
+- [x] 04-03-PLAN.md 鈥?Shared memory/skills data adapters + writable agent skill routes
+- [ ] 04-04-PLAN.md 鈥?Final TeamMap wiring + private chat sessions + manual verification closeout
 
 **Goal:** 将 TeamMap 改造为团队内部管理页面，每个团队有独立的团队地图，支持 Memory/Skills 管理与同步。
 **Depends on:** Phase 3
@@ -149,12 +156,14 @@ Plans:
 - `.planning/PRODUCT-RESTRUCTURE.md` §八（频道）
 - `.planning/PRODUCT-RESTRUCTURE.md` §十二.6（外部接入绑定规则）
 - `src/pages/Channels/index.tsx` — 现有频道页面
-**Plans:** 2/3 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 - [x] 06-01-PLAN.md — Channel type extension + Bot rail refactor
 - [x] 06-02-PLAN.md — BotBindingModal + simplified config pages (DingTalk/WeCom/QQ)
 - [x] 06-03-PLAN.md — End-to-end integration + Phase 10/11 compatibility verification
+- [ ] 06-04-PLAN.md — Reference feature backfill: account groups, scoped config modal, binding/default-account routes
+- [ ] 06-05-PLAN.md — Reference utility backfill: channel targets, generic QR/login plumbing, current-shape integration
 **Success Criteria (what must be TRUE):**
   1. 频道为独立的同步工作台（session list + message panel + composer）
   2. 消息不进入主会话列表
@@ -164,6 +173,7 @@ Plans:
   6. 每个 bot 对应一个 Agent/团队（一对一绑定）
   7. 配置频道时必须显式指定负责人，不允许默认绑定
   8. 频道默认折叠，点击展开
+  9. 在保持当前“Chat-first 工作台”形态的前提下，吸收 reference 仓库中的多账号配置、默认账号切换、目标选择与 QR/登录通用能力
 
 ### Phase 7: Session Redesign
 
@@ -282,8 +292,8 @@ Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phase 5 → Phase 6 → Phase 7 
 |-------|-------|--------|
 | 1. Sidebar Restructure | 3/3 | Complete |
 | 2. Task Board Redesign | TBD | Not started |
-| 3. Team Overview Rebuild | 4/4 | Not started |
-| 4. Team Map Evolution | TBD | Not started |
+| 3. Team Overview Rebuild | 4/4 | Complete |
+| 4. Team Map Evolution | 3/4 | In progress |
 | 5. Employee Square | TBD | Not started |
 | 6. Channel Redesign | TBD | Not started |
 | 7. Session Redesign | 3 plans | Not started |

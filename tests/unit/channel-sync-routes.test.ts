@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   deleteChannelAccountConfig: vi.fn(),
   clearAllBindingsForChannel: vi.fn(),
   clearChannelBinding: vi.fn(),
+  cleanupDanglingWeChatPluginState: vi.fn(async () => ({ cleanedDanglingState: false })),
   getChannelFormValues: vi.fn(),
   saveChannelConfig: vi.fn(),
   whatsAppStart: vi.fn(),
@@ -37,6 +38,7 @@ vi.mock('@electron/api/route-utils', () => ({
 }));
 
 vi.mock('@electron/utils/channel-config', () => ({
+  cleanupDanglingWeChatPluginState: mocks.cleanupDanglingWeChatPluginState,
   listConfiguredChannels: mocks.listConfiguredChannels,
   deleteChannelConfig: mocks.deleteChannelConfig,
   deleteChannelAccountConfig: mocks.deleteChannelAccountConfig,
@@ -68,6 +70,16 @@ vi.mock('@electron/utils/wechat-login', () => ({
     stop: mocks.weChatStop,
     getState: mocks.weChatGetState,
   },
+}));
+
+vi.mock('@electron/utils/openclaw-sdk', () => ({
+  listDiscordDirectoryGroupsFromConfig: vi.fn(async () => []),
+  listDiscordDirectoryPeersFromConfig: vi.fn(async () => []),
+  normalizeDiscordMessagingTarget: vi.fn(),
+  listTelegramDirectoryGroupsFromConfig: vi.fn(async () => []),
+  listTelegramDirectoryPeersFromConfig: vi.fn(async () => []),
+  normalizeTelegramMessagingTarget: vi.fn(),
+  normalizeWhatsAppMessagingTarget: vi.fn(),
 }));
 
 vi.mock('@electron/services/channel-conversation-bindings', () => ({
@@ -558,7 +570,7 @@ describe('channel sync workbench routes', () => {
     expect(gatewayRpc).toHaveBeenCalledWith('chat.send', expect.objectContaining({
       sessionKey: 'agent:main:feishu:group:oc_bound_send',
       message: '你好',
-      deliver: false,
+      idempotencyKey: expect.any(String),
     }));
     expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
       success: true,
@@ -824,10 +836,10 @@ describe('WeChat workbench routes', () => {
       if (method === 'channels.status') {
         return {
           channels: {
-            wechat: { configured: true, running: true },
+            'openclaw-weixin': { configured: true, running: true },
           },
           channelAccounts: {
-            wechat: [
+            'openclaw-weixin': [
               {
                 accountId: 'default',
                 configured: true,
@@ -837,7 +849,7 @@ describe('WeChat workbench routes', () => {
             ],
           },
           channelDefaultAccountId: {
-            wechat: 'default',
+            'openclaw-weixin': 'default',
           },
         };
       }

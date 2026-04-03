@@ -17,6 +17,7 @@
  */
 
 import 'zx/globals';
+import { getBundleRootPackages } from './bundle-openclaw-lib.mjs';
 
 const ROOT = path.resolve(__dirname, '..');
 const OUTPUT = path.join(ROOT, 'build', 'openclaw');
@@ -32,6 +33,7 @@ function normWin(p) {
 echo`📦 Bundling openclaw for electron-builder...`;
 
 // 1. Resolve the real path of node_modules/openclaw (follows pnpm symlink)
+const rootPackages = getBundleRootPackages();
 const openclawLink = path.join(NODE_MODULES, 'openclaw');
 if (!fs.existsSync(openclawLink)) {
   echo`❌ node_modules/openclaw not found. Run pnpm install first.`;
@@ -40,6 +42,7 @@ if (!fs.existsSync(openclawLink)) {
 
 const openclawReal = fs.realpathSync(openclawLink);
 echo`   openclaw resolved: ${openclawReal}`;
+echo`   Bundle roots: ${rootPackages.join(', ')}`;
 
 // 2. Clean and create output directory
 if (fs.existsSync(OUTPUT)) {
@@ -120,7 +123,27 @@ function listPackages(nodeModulesDir) {
   return result;
 }
 
-// Start BFS from openclaw's virtual store node_modules
+function enqueueBundleRoot(packageName) {
+  const packageLink = path.join(NODE_MODULES, ...packageName.split('/'));
+  if (!fs.existsSync(packageLink)) {
+    echo`❌ node_modules/${packageName} not found. Run pnpm install first.`;
+    process.exit(1);
+  }
+
+  const packageReal = fs.realpathSync(packageLink);
+  const virtualNM = getVirtualStoreNodeModules(packageReal);
+  if (!virtualNM) {
+    echo`❌ Could not determine pnpm virtual store for ${packageName}`;
+    process.exit(1);
+  }
+
+  if (packageName !== 'openclaw' && !collected.has(packageReal)) {
+    collected.set(packageReal, packageName);
+  }
+
+  queue.push({ nodeModulesDir: virtualNM, skipPkg: packageName });
+}
+
 const openclawVirtualNM = getVirtualStoreNodeModules(openclawReal);
 if (!openclawVirtualNM) {
   echo`❌ Could not determine pnpm virtual store for openclaw`;
@@ -128,7 +151,9 @@ if (!openclawVirtualNM) {
 }
 
 echo`   Virtual store root: ${openclawVirtualNM}`;
-queue.push({ nodeModulesDir: openclawVirtualNM, skipPkg: 'openclaw' });
+for (const packageName of rootPackages) {
+  enqueueBundleRoot(packageName);
+}
 
 const SKIP_PACKAGES = new Set([
   'typescript',

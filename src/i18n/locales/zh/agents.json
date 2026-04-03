@@ -33,6 +33,32 @@
         "addChannel": "添加频道",
         "noChannels": "这个 Agent 还没有分配任何频道。"
     },
+    "square": {
+        "title": "员工广场",
+        "subtitle": "在同一个广场里浏览、创建，并进入每个 Agent 的专属入口。",
+        "stats": {
+            "all": "全部 Agent",
+            "leaders": "Leader",
+            "workers": "Worker"
+        },
+        "filters": {
+            "all": "全部",
+            "leader": "Leader",
+            "worker": "Worker",
+            "direct": "可直聊",
+            "leader_only": "仅 Leader 转达",
+            "with_team": "已有团队"
+        },
+        "actions": {
+            "chat": "Chat",
+            "memory": "Memory",
+            "details": "Details"
+        },
+        "empty": {
+            "title": "没有匹配的 Agent",
+            "description": "调整当前筛选条件，或创建一个新的 Agent。"
+        }
+    },
     "detail": {
         "title": "Agent 详情",
         "linkLabel": "详情",

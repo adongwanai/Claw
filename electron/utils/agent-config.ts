@@ -12,6 +12,7 @@ const DEFAULT_ACCOUNT_ID = 'default';
 const DEFAULT_WORKSPACE_PATH = '~/.openclaw/workspace';
 const AGENT_BOOTSTRAP_FILES = [
   'AGENTS.md',
+  'MEMORY.md',
   'SOUL.md',
   'TOOLS.md',
   'USER.md',
@@ -556,11 +557,16 @@ export async function listConfiguredAgentIds(): Promise<string[]> {
   return ids.length > 0 ? ids : [MAIN_AGENT_ID];
 }
 
-export async function createAgent(name: string, persona?: string): Promise<AgentsSnapshot> {
+export async function createAgent(input: {
+  name: string;
+  persona?: string;
+  teamRole?: AgentTeamRole;
+  model?: string;
+}): Promise<{ snapshot: AgentsSnapshot; createdAgentId: string }> {
   return withConfigLock(async () => {
     const config = await readOpenClawConfig() as AgentConfigDocument;
     const { agentsConfig, entries, syntheticMain } = normalizeAgentsConfig(config);
-    const normalizedName = normalizeAgentName(name);
+    const normalizedName = normalizeAgentName(input.name);
     const existingIds = new Set(entries.map((entry) => entry.id));
     const diskIds = await listExistingAgentIdsOnDisk();
     let nextId = slugifyAgentId(normalizedName);
@@ -575,10 +581,15 @@ export async function createAgent(name: string, persona?: string): Promise<Agent
     const newAgent: AgentListEntry = {
       id: nextId,
       name: normalizedName,
-      persona: normalizeAgentPersona(persona),
+      persona: normalizeAgentPersona(input.persona),
       workspace: `~/.openclaw/workspace-${nextId}`,
       agentDir: getDefaultAgentDirPath(nextId),
+      teamRole: normalizeAgentTeamRole(input.teamRole, false),
     };
+
+    if (typeof input.model === 'string' && input.model.trim()) {
+      newAgent.model = input.model.trim();
+    }
 
     if (!nextEntries.some((entry) => entry.id === MAIN_AGENT_ID) && syntheticMain) {
       nextEntries.unshift(createImplicitMainEntry(config));
@@ -593,7 +604,10 @@ export async function createAgent(name: string, persona?: string): Promise<Agent
     await provisionAgentFilesystem(config, newAgent);
     await writeOpenClawConfig(config);
     logger.info('Created agent config entry', { agentId: nextId });
-    return buildSnapshotFromConfig(config);
+    return {
+      snapshot: await buildSnapshotFromConfig(config),
+      createdAgentId: nextId,
+    };
   });
 }
 
@@ -746,6 +760,28 @@ export async function assignChannelToAgent(agentId: string, channelType: string)
     config.bindings = upsertBindingsForChannel(config.bindings, channelType, agentId, accountId);
     await writeOpenClawConfig(config);
     logger.info('Assigned channel to agent', { agentId, channelType, accountId });
+    return buildSnapshotFromConfig(config);
+  });
+}
+
+export async function assignChannelAccountToAgent(
+  agentId: string,
+  channelType: string,
+  accountId: string,
+): Promise<AgentsSnapshot> {
+  return withConfigLock(async () => {
+    const config = await readOpenClawConfig() as AgentConfigDocument;
+    const { entries } = normalizeAgentsConfig(config);
+    if (!entries.some((entry) => entry.id === agentId)) {
+      throw new Error(`Agent "${agentId}" not found`);
+    }
+    if (!accountId.trim()) {
+      throw new Error('accountId is required');
+    }
+
+    config.bindings = upsertBindingsForChannel(config.bindings, channelType, agentId, accountId.trim());
+    await writeOpenClawConfig(config);
+    logger.info('Assigned channel account to agent', { agentId, channelType, accountId: accountId.trim() });
     return buildSnapshotFromConfig(config);
   });
 }

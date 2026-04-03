@@ -5,13 +5,17 @@ const mocks = vi.hoisted(() => ({
   sendJson: vi.fn(),
   parseJsonBody: vi.fn(),
   listConfiguredChannels: vi.fn(async () => ['feishu']),
+  listConfiguredChannelAccounts: vi.fn(async () => ({})),
   listConfiguredAgentIds: vi.fn(async () => ['main', 'agent-a']),
+  listAgentsSnapshot: vi.fn(async () => ({ agents: [], channelOwners: {}, configuredChannelTypes: [], defaultAgentId: 'main' })),
+  assignChannelAccountToAgent: vi.fn(),
   deleteChannelConfig: vi.fn(),
   deleteChannelAccountConfig: vi.fn(),
   clearAllBindingsForChannel: vi.fn(),
   clearChannelBinding: vi.fn(),
   getChannelFormValues: vi.fn(),
   saveChannelConfig: vi.fn(),
+  setChannelDefaultAccount: vi.fn(),
   whatsAppStart: vi.fn(),
 }));
 
@@ -22,10 +26,12 @@ vi.mock('@electron/api/route-utils', () => ({
 
 vi.mock('@electron/utils/channel-config', () => ({
   listConfiguredChannels: mocks.listConfiguredChannels,
+  listConfiguredChannelAccounts: mocks.listConfiguredChannelAccounts,
   deleteChannelConfig: mocks.deleteChannelConfig,
   deleteChannelAccountConfig: mocks.deleteChannelAccountConfig,
   getChannelFormValues: mocks.getChannelFormValues,
   saveChannelConfig: mocks.saveChannelConfig,
+  setChannelDefaultAccount: mocks.setChannelDefaultAccount,
   setChannelEnabled: vi.fn(),
   validateChannelConfig: vi.fn(),
   validateChannelCredentials: vi.fn(),
@@ -33,8 +39,10 @@ vi.mock('@electron/utils/channel-config', () => ({
 
 vi.mock('@electron/utils/agent-config', () => ({
   assignChannelToAgent: vi.fn(),
+  assignChannelAccountToAgent: mocks.assignChannelAccountToAgent,
   clearAllBindingsForChannel: mocks.clearAllBindingsForChannel,
   clearChannelBinding: mocks.clearChannelBinding,
+  listAgentsSnapshot: mocks.listAgentsSnapshot,
   listConfiguredAgentIds: mocks.listConfiguredAgentIds,
 }));
 
@@ -45,10 +53,21 @@ vi.mock('@electron/utils/whatsapp-login', () => ({
   },
 }));
 
+vi.mock('@electron/utils/openclaw-sdk', () => ({
+  listDiscordDirectoryGroupsFromConfig: vi.fn(async () => []),
+  listDiscordDirectoryPeersFromConfig: vi.fn(async () => []),
+  normalizeDiscordMessagingTarget: vi.fn(),
+  listTelegramDirectoryGroupsFromConfig: vi.fn(async () => []),
+  listTelegramDirectoryPeersFromConfig: vi.fn(async () => []),
+  normalizeTelegramMessagingTarget: vi.fn(),
+  normalizeWhatsAppMessagingTarget: vi.fn(),
+}));
+
 vi.mock('electron', () => ({
   app: {
     isPackaged: false,
     getAppPath: () => 'C:/test-app',
+    getPath: () => 'C:/test-user-data',
   },
 }));
 
@@ -56,6 +75,9 @@ vi.mock('node:http', async () => {
   const { EventEmitter } = await vi.importActual<typeof import('node:events')>('node:events');
   const request = vi.fn((options: unknown, cb: (r: unknown) => void) => {
     const res = new EventEmitter();
+    Object.assign(res, {
+      resume: vi.fn(),
+    });
     process.nextTick(() => {
       res.emit('data', Buffer.alloc(0));
       res.emit('end');
@@ -139,6 +161,180 @@ describe('channels routes', () => {
         }),
       ],
     });
+  });
+
+  it('returns channel accounts view merged from config and runtime state', async () => {
+    mocks.listConfiguredChannels.mockResolvedValueOnce(['feishu', 'wechat']);
+    mocks.listConfiguredChannelAccounts.mockResolvedValueOnce({
+      feishu: {
+        defaultAccountId: 'default',
+        accountIds: ['default', 'agent-a'],
+      },
+      'openclaw-weixin': {
+        defaultAccountId: 'default',
+        accountIds: ['default'],
+      },
+    });
+    mocks.listAgentsSnapshot.mockResolvedValueOnce({
+      agents: [],
+      defaultAgentId: 'main',
+      configuredChannelTypes: ['feishu', 'wechat'],
+      channelOwners: {
+        'feishu:default': 'main',
+        'feishu:agent-a': 'agent-a',
+        'openclaw-weixin:default': 'main',
+      },
+    });
+
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(async (method: string) => {
+          if (method === 'channels.status') {
+            return {
+              channels: {
+                feishu: { configured: true, running: true },
+                'openclaw-weixin': { configured: true, running: true },
+              },
+              channelAccounts: {
+                feishu: [
+                  { accountId: 'default', configured: true, connected: true, name: 'Feishu Main' },
+                  { accountId: 'agent-a', configured: true, connected: false, running: true, name: 'Feishu Agent A' },
+                ],
+                'openclaw-weixin': [
+                  { accountId: 'default', configured: true, connected: true, name: 'WeChat Main' },
+                ],
+              },
+              channelDefaultAccountId: {
+                feishu: 'default',
+                'openclaw-weixin': 'default',
+              },
+            };
+          }
+          throw new Error(`Unexpected RPC method: ${method}`);
+        }),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('GET'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/accounts'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
+      success: true,
+      channels: expect.arrayContaining([
+        expect.objectContaining({
+          channelType: 'feishu',
+          defaultAccountId: 'default',
+          accounts: expect.arrayContaining([
+            expect.objectContaining({ accountId: 'default', name: 'Feishu Main', isDefault: true }),
+            expect.objectContaining({ accountId: 'agent-a', agentId: 'agent-a' }),
+          ]),
+        }),
+        expect.objectContaining({
+          channelType: 'wechat',
+          defaultAccountId: 'default',
+          accounts: expect.arrayContaining([
+            expect.objectContaining({ accountId: 'default', name: 'WeChat Main' }),
+          ]),
+        }),
+      ]),
+    }));
+  });
+
+  it('sets the default channel account through the dedicated route', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.parseJsonBody.mockResolvedValueOnce({
+      channelType: 'feishu',
+      accountId: 'agent-a',
+    });
+
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('PUT'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/default-account'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.setChannelDefaultAccount).toHaveBeenCalledWith('feishu', 'agent-a');
+    expect(ctx.gatewayManager.debouncedReload).toHaveBeenCalled();
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, { success: true });
+  });
+
+  it('binds a scoped channel account to an agent through the binding route', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.parseJsonBody.mockResolvedValueOnce({
+      channelType: 'wechat',
+      accountId: 'default',
+      agentId: 'main',
+    });
+
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('PUT'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/binding'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.assignChannelAccountToAgent).toHaveBeenCalledWith('main', 'openclaw-weixin', 'default');
+    expect(ctx.gatewayManager.debouncedReload).toHaveBeenCalled();
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, { success: true });
+  });
+
+  it('clears a scoped channel binding through the binding delete route', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.parseJsonBody.mockResolvedValueOnce({
+      channelType: 'wechat',
+      accountId: 'default',
+    });
+
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('DELETE'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/binding'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.clearChannelBinding).toHaveBeenCalledWith('openclaw-weixin', 'default');
+    expect(ctx.gatewayManager.debouncedReload).toHaveBeenCalled();
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, { success: true });
   });
 
   it('rate limits channel test requests per channel/account', async () => {

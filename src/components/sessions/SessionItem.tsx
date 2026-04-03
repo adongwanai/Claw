@@ -4,7 +4,7 @@
  * Optimized layout following D-15 to D-21 design decisions.
  */
 
-import { Pin, Trash2 } from 'lucide-react';
+import { Crown, Pin, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +52,7 @@ export function SessionItem({
     <div className="group relative">
       <button
         type="button"
+        aria-label={`Open session ${label}`}
         className={cn(
           'flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
           isActive
@@ -84,6 +85,12 @@ export function SessionItem({
               <span className="truncate text-sm font-medium text-[#000000]">
                 {displayName}
               </span>
+              {session.isPrivateChat && session.isLeaderChat && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                  <Crown className="h-3 w-3" />
+                  Leader Chat
+                </span>
+              )}
               {isPinned && (
                 <Pin
                   className="h-3 w-3 shrink-0 text-[#007aff]"

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { TeamCard } from '@/components/team/TeamCard';
 import type { TeamSummary } from '@/types/team';
@@ -9,13 +9,14 @@ const mockTeam: TeamSummary = {
   name: 'Engineering Team',
   leaderId: 'leader-1',
   memberIds: ['member-1', 'member-2', 'member-3'],
-  description: 'This is a test team description that should be truncated to two lines when it exceeds the maximum length allowed for display in the card component.',
+  description:
+    'This is a test team description that should be truncated to two lines when it exceeds the maximum length allowed for display in the card component.',
   status: 'active',
-  createdAt: Date.now() - 86400000,
+  createdAt: Date.now() - 86_400_000,
   updatedAt: Date.now(),
   memberCount: 4,
   activeTaskCount: 5,
-  lastActiveTime: Date.now() - 300000,
+  lastActiveTime: Date.now() - 300_000,
   leaderName: 'Alice',
   memberAvatars: [
     { id: 'leader-1', name: 'Alice', avatar: undefined },
@@ -29,57 +30,58 @@ function renderTeamCard(team: TeamSummary = mockTeam, onDelete = vi.fn()) {
   return render(
     <BrowserRouter>
       <TeamCard team={team} onDelete={onDelete} />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 }
 
 describe('TeamCard', () => {
-  it('renders team name as title', () => {
-    renderTeamCard();
-    expect(screen.getByText('Engineering Team')).toBeInTheDocument();
+  beforeEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('renders leader information', () => {
+  it('renders the team name and leader information', () => {
     renderTeamCard();
+
+    expect(screen.getByText('Engineering Team')).toBeInTheDocument();
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
-  it('renders member count', () => {
+  it('renders member count, status, and task count', () => {
     renderTeamCard();
+
     expect(screen.getByText(/4.*成员/)).toBeInTheDocument();
-  });
-
-  it('renders status badge with correct variant', () => {
-    renderTeamCard();
     expect(screen.getByText('活跃')).toBeInTheDocument();
+    expect(
+      screen.getByText((content) => content.includes('5') && content.includes('任务')),
+    ).toBeInTheDocument();
   });
 
-  it('renders active task count', () => {
+  it('renders description with line clamp when provided', () => {
     renderTeamCard();
-    expect(screen.getByText(/5.*个任务/)).toBeInTheDocument();
-  });
 
-  it('renders description truncated to 2 lines', () => {
-    renderTeamCard();
     const description = screen.getByText(/This is a test team description/);
     expect(description).toHaveClass('line-clamp-2');
   });
 
-  it('renders placeholder when description is empty', () => {
-    const teamWithoutDesc = { ...mockTeam, description: '' };
-    renderTeamCard(teamWithoutDesc);
-    expect(screen.getByText('暂无职责描述')).toBeInTheDocument();
+  it('omits the description block when no description is provided', () => {
+    renderTeamCard({ ...mockTeam, description: '' });
+
+    expect(screen.queryByText(/This is a test team description/)).not.toBeInTheDocument();
   });
 
-  it('displays first 3 member avatars', () => {
-    renderTeamCard();
-    // Should show 3 avatars (excluding leader who is shown separately)
-    const avatars = screen.getAllByRole('img', { hidden: true });
-    expect(avatars.length).toBeGreaterThanOrEqual(3);
+  it('shows the first three avatars and an overflow badge for remaining members', () => {
+    const { container } = renderTeamCard();
+
+    const avatarNodes = Array.from(container.querySelectorAll('[title]')).map((node) =>
+      node.getAttribute('title'),
+    );
+
+    expect(avatarNodes).toEqual(['Alice', 'Bob', 'Charlie']);
+    expect(screen.getByText('+1')).toBeInTheDocument();
   });
 
-  it('displays +N overflow when more than 4 members', () => {
-    const teamWithManyMembers = {
+  it('computes overflow against the displayed avatar budget', () => {
+    renderTeamCard({
       ...mockTeam,
       memberCount: 8,
       memberAvatars: [
@@ -87,53 +89,92 @@ describe('TeamCard', () => {
         { id: 'member-4', name: 'Eve', avatar: undefined },
         { id: 'member-5', name: 'Frank', avatar: undefined },
       ],
-    };
-    renderTeamCard(teamWithManyMembers);
-    expect(screen.getByText(/\+4/)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('+5')).toBeInTheDocument();
   });
 
-  it('navigates to team map when card is clicked', () => {
-    renderTeamCard();
-    const link = screen.getByRole('link');
-    expect(link).toHaveAttribute('href', '/team-map/team-1');
-  });
-
-  it('shows delete button on hover', () => {
+  it('navigates to the team map when the card body is clicked', () => {
     renderTeamCard();
 
-    const card = screen.getByRole('link').parentElement;
-    expect(card).toBeInTheDocument();
-
-    // Delete button should exist but be hidden initially
-    const deleteButton = screen.getByRole('button', { name: /删除/ });
-    expect(deleteButton).toHaveClass('opacity-0');
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/team-map/team-1');
   });
 
-  it('calls onDelete when delete button is clicked', () => {
+  it('reveals delete actions through the overflow menu', () => {
+    renderTeamCard();
+
+    expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
+
+    expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument();
+  });
+
+  it('puts the team name into edit mode when the overflow menu edit action is chosen', () => {
+    renderTeamCard();
+
+    fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '编辑' }));
+
+    expect(screen.getByDisplayValue('Engineering Team')).toBeInTheDocument();
+  });
+
+  it('opens an in-app confirm dialog before deleting', () => {
     const onDelete = vi.fn();
-    renderTeamCard(mockTeam, onDelete);
 
-    const deleteButton = screen.getByRole('button', { name: /删除/ });
-    fireEvent.click(deleteButton);
+    renderTeamCard(mockTeam, onDelete);
+    fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('calls onDelete after the user confirms deletion in the dialog', async () => {
+    const onDelete = vi.fn();
+
+    renderTeamCard(mockTeam, onDelete);
+    fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    const dialog = screen.getByRole('dialog');
+    await act(async () => {
+      fireEvent.click(within(dialog).getAllByRole('button')[1]);
+    });
 
     expect(onDelete).toHaveBeenCalledWith('team-1');
   });
 
-  it('renders idle status with correct styling', () => {
-    const idleTeam = { ...mockTeam, status: 'idle' as const };
-    renderTeamCard(idleTeam);
+  it('does not delete when the confirmation dialog is cancelled', async () => {
+    const onDelete = vi.fn();
+
+    renderTeamCard(mockTeam, onDelete);
+    fireEvent.click(screen.getByRole('button', { name: '更多操作' }));
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+
+    const dialog = screen.getByRole('dialog');
+    await act(async () => {
+      fireEvent.click(within(dialog).getAllByRole('button')[0]);
+    });
+
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+
+  it('renders idle status styling', () => {
+    renderTeamCard({ ...mockTeam, status: 'idle' });
+
     expect(screen.getByText('空闲')).toBeInTheDocument();
   });
 
-  it('renders blocked status with correct styling', () => {
-    const blockedTeam = { ...mockTeam, status: 'blocked' as const };
-    renderTeamCard(blockedTeam);
+  it('renders blocked status styling', () => {
+    renderTeamCard({ ...mockTeam, status: 'blocked' });
+
     expect(screen.getByText('阻塞')).toBeInTheDocument();
   });
 
-  it('formats last active time correctly', () => {
+  it('formats last active time as a relative label', () => {
     renderTeamCard();
-    // Should show "5 分钟前" or similar
+
     expect(screen.getByText(/分钟前/)).toBeInTheDocument();
   });
 });

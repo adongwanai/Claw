@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { X } from 'lucide-react';
 import { useAgentsStore } from '@/stores/agents';
@@ -68,7 +68,13 @@ export function AgentPanel({ onClose }: AgentPanelProps) {
   );
 }
 
-function DraggableAgentCard({ agent, teamCount }: { agent: AgentSummary; teamCount: number }) {
+const DraggableAgentCard = memo(function DraggableAgentCard({
+  agent,
+  teamCount,
+}: {
+  agent: AgentSummary;
+  teamCount: number;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: agent.id,
     data: { agent },
@@ -122,4 +128,6 @@ function DraggableAgentCard({ agent, teamCount }: { agent: AgentSummary; teamCou
       )}
     </div>
   );
-}
+});
+
+DraggableAgentCard.displayName = 'DraggableAgentCard';

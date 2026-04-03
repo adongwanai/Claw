@@ -2,40 +2,42 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 07.1-PLAN.md
-last_updated: "2026-04-01T04:54:49.687Z"
-last_activity: 2026-04-01
+status: executing
+stopped_at: Phase 04 plans 01-03 backfilled; final closeout checkpoint remains
+last_updated: "2026-04-03T16:20:49.130Z"
+last_activity: 2026-04-03 -- Phase 08 execution started
 progress:
   total_phases: 11
-  completed_phases: 4
-  total_plans: 25
-  completed_plans: 20
-  percent: 20
+  completed_phases: 5
+  total_plans: 40
+  completed_plans: 27
+  percent: 75
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-31)
+See: `.planning/PROJECT.md` (updated 2026-03-31)
 
-**Core value:** 前台更简、中台更清、团队更强、Agent 更可培养、任务更可看、接入更明确、设置更聚焦
-**Current focus:** Phase 6 — channel-redesign
+**Core value:** Simpler frontend, clearer control plane, stronger teams, more trainable agents, more visible task flow, clearer integrations, and a more focused settings surface.
+**Current focus:** Phase 08 — settings-convergence
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-01
+Phase: 08 (settings-convergence) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 08
+Last activity: 2026-04-03 -- Phase 08 execution started
 
-Progress: [████░░░░░░░░░░░░░░░░░] 20%
+Progress: [███████████████░░░░░] 75%
 
-- Phase 03 (团队总览重构): 2/4 complete
-- Phase 10 (飞书同步): 2/4 in progress
-- Phase 11 (微信同步): 1/3 in progress
-- Phase 1-2, 4-9 (重构): Not started
+- Phase 03 (team overview rebuild): 4/4 complete
+- Phase 04 (team map evolution): 3/4 backfilled, final closeout checkpoint pending
+- Phase 05 (employee square): 0/3 planned, waiting on Phase 04 closeout
+- Phase 10 (channel feishu sync workbench): 2/4 in progress
+- Phase 11 (channel wechat sync workbench): 1/3 in progress
+- Phase 08-09: not started
 
 ## Performance Metrics
 
@@ -45,48 +47,26 @@ Progress: [████░░░░░░░░░░░░░░░░░] 20%
 |-------|-------|--------|
 | 10. Channel Feishu Sync | 2/4 | In progress |
 | 11. Channel WeChat Sync | 1/3 | In progress |
-| 1-9. Product Restructure | TBD | Not started |
-| Phase 02 P01 | 775 | 3 tasks | 7 files |
-| Phase 02 P02 | 866 | 3 tasks | 9 files |
-| Phase 02 P03 | 479 | 3 tasks | 7 files |
-| Phase 02 P04 | 521 | 3 tasks | 8 files |
-| Phase 03 P01 | 420 | 3 tasks | 7 files |
-| Phase 03 P02 | 379 | 3 tasks | 6 files |
-| Phase 03 P03 | 471 | 4 tasks | 6 files |
-| Phase 07 P02 | 782 | 3 tasks | 3 files |
-| Phase 07 P01 | 1653 | 3 tasks | 5 files |
-| Phase 06 P01 | 300 | 3 tasks | 3 files |
-| Phase 06-channel-redesign P02 | 300000 | 4 tasks | 5 files |
-| Phase 06-channel-redesign P03 | 360 | 2 tasks | 2 files |
-| Phase 07 P01 | 342 | 3 tasks | 2 files |
+| 04. Team Map Evolution | 3/4 | In progress |
+| 05. Employee Square | 0/3 | Planned |
 
 ## Key Decisions
 
-### 产品形态（2026-03-31 讨论确认）
+### Product Restructure Baseline
 
-- 侧边栏：ChatGPT 网页版，3固定 + 频道折叠 + 会话默认打开
-- 初始化：main 模型对话
-- 右上角：文件/Agent → 右侧滑出 panel，不跳转
-- 任务看板：双视图，Agent 分组，团队前缀，颜色区分
-- 团队：拖拽创建，多团队，Leader 自动分配
-- 频道：独立同步工作台，机器人一对一绑定
-- 会话：团队/个人身份区分，搜索/置顶/分组/导出
-- 设置：9 项平铺（费用用量第一）
-- 删除：/activity, ClawX→KTClaw, 冗余项
+- Sidebar follows a ChatGPT-style layout with fixed primary navigation and collapsible secondary sections.
+- Team creation stays in Phase 03; Team Map owns team-scoped management after entry.
+- Channels remain dedicated sync workbenches, separate from the main chat session list.
+- Settings convergence stays downstream of Employee Square.
 
-### 讨论文件
+### Phase 04 Closeout
 
-- `.planning/PRODUCT-RESTRUCTURE.md` — 完整规格文档
-- `.planning/PRODUCT-RESTRUCTURE-DISCUSSION.md` — 逐轮讨论记录
-
-### Phase 07 (Session Redesign)
-
-- Made agentId optional in ChatSession to support gradual Gateway migration
-- Default both session groups to expanded state for better UX
-- Use teamId != null as fallback for isTeamSession detection
+- Keep Phase 04 on the four-plan structure already present on disk.
+- Backfill `04-01` to `04-03` from the current implementation and focused tests.
+- Preserve `04-04` as the remaining closeout plan because the final manual verification checkpoint has not been run yet.
 
 ## Session Continuity
 
-Last session: 2026-04-01T04:54:49.681Z
-Stopped at: Completed 07.1-PLAN.md
-Resume file: None
+Last session: 2026-04-03T23:10:00+08:00
+Stopped at: Phase 04 plans 01-03 backfilled; final closeout checkpoint remains
+Resume file: `.planning/phases/04-team-map-evolution/04-04-PLAN.md`

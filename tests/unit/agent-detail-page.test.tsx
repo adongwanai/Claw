@@ -147,7 +147,7 @@ describe('AgentDetail page', () => {
     expect(screen.getByRole('heading', { name: 'Researcher' })).toBeInTheDocument();
     expect(screen.getByText('Finds supporting evidence')).toBeInTheDocument();
     expect(screen.getByText('researcher')).toBeInTheDocument();
-    expect(screen.getByText('Claude Sonnet 4')).toBeInTheDocument();
+    expect(screen.getAllByText('Claude Sonnet 4').length).toBeGreaterThan(0);
     expect(screen.getAllByText('main').length).toBeGreaterThan(0);
     expect(screen.getByText('Researcher reports to Main')).toBeInTheDocument();
     expect(screen.getByText('telegram')).toBeInTheDocument();
@@ -158,6 +158,8 @@ describe('AgentDetail page', () => {
     expect(
       screen.getByText('This agent is blocked from normal direct chat and should be contacted through its leader.'),
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Activity' }));
 
     await waitFor(() => {
       expect(hostApiFetchMock).toHaveBeenCalledWith('/api/agents/researcher/cron-relations');
@@ -234,6 +236,8 @@ describe('AgentDetail page', () => {
       expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
     });
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Skills' }));
+
     // 'code-review' is only in the skills panel, so use it as anchor
     expect(await screen.findByText('code-review')).toBeInTheDocument();
     // 'researcher' appears as skill chip button (role="button")
@@ -259,6 +263,8 @@ describe('AgentDetail page', () => {
     await waitFor(() => {
       expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
     });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Skills' }));
 
     expect(await screen.findByText('No skills configured.')).toBeInTheDocument();
   });

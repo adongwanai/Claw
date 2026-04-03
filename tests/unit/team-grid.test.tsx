@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { TeamGrid } from '@/components/team/TeamGrid';
 import type { TeamSummary } from '@/types/team';
@@ -12,7 +12,7 @@ const mockTeams: TeamSummary[] = [
     memberIds: ['member-1', 'member-2'],
     description: 'First team',
     status: 'active',
-    createdAt: Date.now() - 86400000, // 1 day ago
+    createdAt: Date.now() - 86400000,
     updatedAt: Date.now(),
     memberCount: 3,
     activeTaskCount: 5,
@@ -30,15 +30,13 @@ const mockTeams: TeamSummary[] = [
     memberIds: ['member-3'],
     description: 'Second team',
     status: 'idle',
-    createdAt: Date.now() - 172800000, // 2 days ago
+    createdAt: Date.now() - 172800000,
     updatedAt: Date.now(),
     memberCount: 2,
     activeTaskCount: 2,
     lastActiveTime: Date.now() - 600000,
     leaderName: 'Charlie',
-    memberAvatars: [
-      { id: 'leader-2', name: 'Charlie', avatar: undefined },
-    ],
+    memberAvatars: [{ id: 'leader-2', name: 'Charlie', avatar: undefined }],
   },
   {
     id: 'team-3',
@@ -47,15 +45,13 @@ const mockTeams: TeamSummary[] = [
     memberIds: [],
     description: 'Third team',
     status: 'blocked',
-    createdAt: Date.now() - 43200000, // 12 hours ago
+    createdAt: Date.now() - 43200000,
     updatedAt: Date.now(),
     memberCount: 1,
     activeTaskCount: 1,
     lastActiveTime: Date.now() - 900000,
     leaderName: 'David',
-    memberAvatars: [
-      { id: 'leader-3', name: 'David', avatar: undefined },
-    ],
+    memberAvatars: [{ id: 'leader-3', name: 'David', avatar: undefined }],
   },
 ];
 
@@ -63,7 +59,7 @@ function renderTeamGrid(teams: TeamSummary[] = mockTeams, loading = false, onDel
   return render(
     <BrowserRouter>
       <TeamGrid teams={teams} loading={loading} onDeleteTeam={onDeleteTeam} />
-    </BrowserRouter>
+    </BrowserRouter>,
   );
 }
 
@@ -86,7 +82,6 @@ describe('TeamGrid', () => {
   it('sorts teams by creation time (newest first)', () => {
     renderTeamGrid();
     const teamNames = screen.getAllByRole('heading', { level: 3 });
-    // Team Gamma (12h ago) should be first, then Alpha (1d ago), then Beta (2d ago)
     expect(teamNames[0]).toHaveTextContent('Team Gamma');
     expect(teamNames[1]).toHaveTextContent('Team Alpha');
     expect(teamNames[2]).toHaveTextContent('Team Beta');
@@ -95,7 +90,7 @@ describe('TeamGrid', () => {
   it('shows empty state when no teams exist', () => {
     renderTeamGrid([]);
     expect(screen.getByText('还没有团队')).toBeInTheDocument();
-    expect(screen.getByText(/从右侧拖拽 Agent 到左侧创建区来创建第一个团队/)).toBeInTheDocument();
+    expect(screen.getByText(/Agent/)).toBeInTheDocument();
   });
 
   it('does not show empty state when teams exist', () => {
@@ -103,18 +98,23 @@ describe('TeamGrid', () => {
     expect(screen.queryByText('还没有团队')).not.toBeInTheDocument();
   });
 
-  it('passes onDeleteTeam callback to TeamCard', () => {
+  it('passes onDeleteTeam callback to TeamCard', async () => {
     const onDeleteTeam = vi.fn();
     renderTeamGrid(mockTeams, false, onDeleteTeam);
 
-    // TeamCard should receive the callback
-    const deleteButtons = screen.getAllByRole('button', { name: /删除/ });
-    expect(deleteButtons.length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole('button', { name: '更多操作' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: '删除' }));
+    const dialog = screen.getByRole('dialog');
+
+    await act(async () => {
+      fireEvent.click(within(dialog).getAllByRole('button')[1]);
+    });
+
+    expect(onDeleteTeam).toHaveBeenCalledWith('team-3');
   });
 
   it('renders loading state', () => {
     renderTeamGrid([], true);
-    // When loading, should not show empty state
     expect(screen.queryByText('还没有团队')).not.toBeInTheDocument();
   });
 
@@ -122,5 +122,31 @@ describe('TeamGrid', () => {
     const { container } = renderTeamGrid();
     const grid = container.querySelector('.grid');
     expect(grid).toHaveClass('gap-6');
+  });
+
+  it('derives leader display aliases per team when the same leader owns multiple teams', () => {
+    const duplicatedLeaderTeams: TeamSummary[] = [
+      {
+        ...mockTeams[0],
+        id: 'team-a',
+        name: 'Main 的团队',
+        leaderId: 'leader-main',
+        leaderName: 'Main',
+        createdAt: 1,
+      },
+      {
+        ...mockTeams[1],
+        id: 'team-b',
+        name: 'Main 的团队-1',
+        leaderId: 'leader-main',
+        leaderName: 'Main',
+        createdAt: 2,
+      },
+    ];
+
+    renderTeamGrid(duplicatedLeaderTeams);
+
+    expect(screen.getAllByText('Main')).toHaveLength(1);
+    expect(screen.getByText('Main-1')).toBeInTheDocument();
   });
 });

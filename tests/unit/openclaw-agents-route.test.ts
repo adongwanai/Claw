@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
+  mockCreateAgent,
   mockDeleteAgentConfig,
   mockFinalizeAgentDeletion,
   mockDeleteAgentChannelAccounts,
@@ -11,7 +12,11 @@ const {
   mockExec,
   mockListAgentsSnapshot,
   mockUpdateAgentProfile,
+  mockAssignInstalledSkillToAgentWorkspace,
+  mockUpdateAgentWorkspaceSkill,
+  mockRemoveAgentWorkspaceSkill,
 } = vi.hoisted(() => ({
+  mockCreateAgent: vi.fn(),
   mockDeleteAgentConfig: vi.fn(),
   mockFinalizeAgentDeletion: vi.fn(),
   mockDeleteAgentChannelAccounts: vi.fn(),
@@ -21,6 +26,9 @@ const {
   mockExec: vi.fn(),
   mockListAgentsSnapshot: vi.fn(),
   mockUpdateAgentProfile: vi.fn(),
+  mockAssignInstalledSkillToAgentWorkspace: vi.fn(),
+  mockUpdateAgentWorkspaceSkill: vi.fn(),
+  mockRemoveAgentWorkspaceSkill: vi.fn(),
 }));
 
 vi.mock('@electron/api/route-utils', async () => {
@@ -34,7 +42,7 @@ vi.mock('@electron/api/route-utils', async () => {
 vi.mock('@electron/utils/agent-config', () => ({
   assignChannelToAgent: vi.fn(),
   clearChannelBinding: vi.fn(),
-  createAgent: vi.fn(),
+  createAgent: mockCreateAgent,
   deleteAgentConfig: mockDeleteAgentConfig,
   finalizeAgentDeletion: mockFinalizeAgentDeletion,
   listAgentsSnapshot: mockListAgentsSnapshot,
@@ -51,8 +59,14 @@ vi.mock('@electron/utils/channel-config', () => ({
   writeOpenClawConfig: mockWriteOpenClawConfig,
 }));
 
+vi.mock('@electron/utils/agent-workspace-skills', () => ({
+  assignInstalledSkillToAgentWorkspace: mockAssignInstalledSkillToAgentWorkspace,
+  updateAgentWorkspaceSkill: mockUpdateAgentWorkspaceSkill,
+  removeAgentWorkspaceSkill: mockRemoveAgentWorkspaceSkill,
+}));
+
 vi.mock('@electron/services/providers/provider-runtime-sync', () => ({
-  syncAllProviderAuthToRuntime: vi.fn(),
+  syncAllProviderAuthToRuntime: vi.fn(async () => undefined),
 }));
 
 vi.mock('child_process', () => ({
@@ -112,6 +126,15 @@ describe('agents route deletion restart safety', () => {
     mockDeleteAgentConfig.mockResolvedValue({
       snapshot: { agents: [{ id: 'main', name: 'Main' }], channelOwners: {} },
       removedEntry: { id: 'agent-a', workspace: '~/.openclaw/workspace-a' },
+    });
+    mockCreateAgent.mockResolvedValue({
+      createdAgentId: 'researcher',
+      snapshot: {
+        agents: [{ id: 'researcher', name: 'Researcher' }],
+        defaultAgentId: 'main',
+        configuredChannelTypes: [],
+        channelOwners: {},
+      },
     });
     mockDeleteAgentChannelAccounts.mockResolvedValue(undefined);
     mockFinalizeAgentDeletion.mockResolvedValue(undefined);
@@ -311,5 +334,99 @@ describe('agents route deletion restart safety', () => {
         responsibility: 'Research and evidence synthesis',
       }),
     ]);
+  });
+
+  it('forwards the rich create payload and returns createdAgentId', async () => {
+    const { handleAgentRoutes } = await import('@electron/api/routes/agents');
+
+    const req = createRequest('POST', {
+      name: 'Researcher',
+      persona: 'Finds supporting evidence',
+      teamRole: 'worker',
+      model: 'openai/gpt-5.4',
+    });
+    const res = createMockResponse();
+    const url = new URL('http://localhost/api/agents');
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', pid: 24561, port: 18789 }),
+        debouncedReload: vi.fn(),
+      },
+    } as unknown;
+
+    await handleAgentRoutes(req, res, url, ctx as never);
+
+    expect(mockCreateAgent).toHaveBeenCalledWith({
+      name: 'Researcher',
+      persona: 'Finds supporting evidence',
+      teamRole: 'worker',
+      model: 'openai/gpt-5.4',
+    });
+
+    const body = parseBody(res);
+    expect(res.statusCode).toBe(200);
+    expect(body.createdAgentId).toBe('researcher');
+    expect(body.agents).toEqual([
+      expect.objectContaining({
+        id: 'researcher',
+      }),
+    ]);
+  });
+
+  it('assigns an installed skill into the agent workspace', async () => {
+    const { handleAgentRoutes } = await import('@electron/api/routes/agents');
+
+    const req = createRequest('POST', { slug: 'skill-a' });
+    const res = createMockResponse();
+    const url = new URL('http://localhost/api/agents/researcher/workspace/skills');
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', pid: 24561, port: 18789 }),
+        debouncedReload: vi.fn(),
+      },
+    } as unknown;
+
+    await handleAgentRoutes(req, res, url, ctx as never);
+
+    expect(mockAssignInstalledSkillToAgentWorkspace).toHaveBeenCalledWith('researcher', 'skill-a');
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('updates an assigned workspace skill file', async () => {
+    const { handleAgentRoutes } = await import('@electron/api/routes/agents');
+
+    const req = createRequest('PUT', { content: '# Updated Skill' });
+    const res = createMockResponse();
+    const url = new URL('http://localhost/api/agents/researcher/workspace/skills/skill-a');
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', pid: 24561, port: 18789 }),
+        debouncedReload: vi.fn(),
+      },
+    } as unknown;
+
+    await handleAgentRoutes(req, res, url, ctx as never);
+
+    expect(mockUpdateAgentWorkspaceSkill).toHaveBeenCalledWith('researcher', 'skill-a', '# Updated Skill');
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('removes an assigned workspace skill directory', async () => {
+    const { handleAgentRoutes } = await import('@electron/api/routes/agents');
+
+    const req = createRequest('DELETE');
+    const res = createMockResponse();
+    const url = new URL('http://localhost/api/agents/researcher/workspace/skills/skill-a');
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', pid: 24561, port: 18789 }),
+        debouncedReload: vi.fn(),
+      },
+    } as unknown;
+
+    await handleAgentRoutes(req, res, url, ctx as never);
+
+    expect(mockRemoveAgentWorkspaceSkill).toHaveBeenCalledWith('researcher', 'skill-a');
+    expect(res.statusCode).toBe(200);
   });
 });

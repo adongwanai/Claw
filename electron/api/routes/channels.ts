@@ -1,22 +1,27 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { app } from 'electron';
 import { existsSync, cpSync, mkdirSync, rmSync, readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import {
+  cleanupDanglingWeChatPluginState,
   deleteChannelConfig,
   deleteChannelAccountConfig,
   getChannelFormValues,
+  listConfiguredChannelAccounts,
   listConfiguredChannels,
+  readOpenClawConfig,
   saveChannelConfig,
+  setChannelDefaultAccount,
   setChannelEnabled,
   validateChannelConfig,
   validateChannelCredentials,
 } from '../../utils/channel-config';
 import {
+  assignChannelAccountToAgent,
   assignChannelToAgent,
   clearAllBindingsForChannel,
   clearChannelBinding,
@@ -30,6 +35,17 @@ import { createChannelConversationBindingStore } from '../../services/channel-co
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 import { getOpenClawConfigDir } from '../../utils/paths';
+import { OPENCLAW_WECHAT_CHANNEL_TYPE, toOpenClawChannelType, toUiChannelType } from '../../utils/channel-alias';
+import { proxyAwareFetch } from '../../utils/proxy-fetch';
+import {
+  listDiscordDirectoryGroupsFromConfig,
+  listDiscordDirectoryPeersFromConfig,
+  normalizeDiscordMessagingTarget,
+  listTelegramDirectoryGroupsFromConfig,
+  listTelegramDirectoryPeersFromConfig,
+  normalizeTelegramMessagingTarget,
+  normalizeWhatsAppMessagingTarget,
+} from '../../utils/openclaw-sdk';
 
 const CHANNEL_RATE_LIMITS = {
   test: { max: 2, windowMs: 30_000 },
@@ -187,7 +203,7 @@ function ensureFeishuPluginInstalled(): { installed: boolean; warning?: string }
 }
 
 function ensureWeChatPluginInstalled(): { installed: boolean; warning?: string } {
-  return ensurePluginInstalled('wechat', buildCandidateSources('wechat'), 'WeChat');
+  return ensurePluginInstalled('openclaw-weixin', buildCandidateSources('openclaw-weixin'), 'WeChat');
 }
 
 function ensureQQBotPluginInstalled(): { installed: boolean; warning?: string } {
@@ -292,7 +308,7 @@ type WorkbenchConversationMessage = {
 };
 
 const FEISHU_PLUGIN_ROOT = join(homedir(), '.openclaw', 'extensions', 'feishu-openclaw-plugin');
-const WECHAT_PLUGIN_ROOT = join(homedir(), '.openclaw', 'extensions', 'wechat');
+const WECHAT_PLUGIN_ROOT = join(homedir(), '.openclaw', 'extensions', 'openclaw-weixin');
 const channelConversationBindings = createChannelConversationBindingStore();
 const TEST_FEISHU_SNAPSHOT_KEY = '__clawxTestFeishuWorkbenchSnapshot';
 
@@ -327,6 +343,32 @@ type NormalizedChannelCapability = {
     sensitiveFieldCount: number;
     fieldKeys: string[];
   };
+};
+
+type ChannelAccountView = {
+  accountId: string;
+  name: string;
+  configured: boolean;
+  connected: boolean;
+  running: boolean;
+  linked: boolean;
+  lastError?: string;
+  status: NormalizedChannelStatus;
+  isDefault: boolean;
+  agentId?: string;
+};
+
+type ChannelAccountsView = {
+  channelType: string;
+  defaultAccountId: string;
+  status: NormalizedChannelStatus;
+  accounts: ChannelAccountView[];
+};
+
+type ChannelTargetOptionView = {
+  value: string;
+  label: string;
+  kind: 'user' | 'group' | 'channel';
 };
 
 const CHANNEL_SCHEMA_SUMMARY_HINTS: Record<string, { required: string[]; optional: string[]; sensitive: string[] }> = {
@@ -421,6 +463,27 @@ function buildCapability(
   };
 }
 
+function resolveAggregateStatus(
+  summary: { running?: boolean; error?: string; lastError?: string } | undefined,
+  accounts: Array<{
+    connected?: boolean;
+    linked?: boolean;
+    running?: boolean;
+    lastError?: string;
+  }>,
+): NormalizedChannelStatus {
+  if (accounts.some((account) => resolveNormalizedStatus(summary, account) === 'connected')) {
+    return 'connected';
+  }
+  if (accounts.some((account) => resolveNormalizedStatus(summary, account) === 'error')) {
+    return 'error';
+  }
+  if (accounts.some((account) => resolveNormalizedStatus(summary, account) === 'connecting')) {
+    return 'connecting';
+  }
+  return resolveNormalizedStatus(summary, undefined);
+}
+
 function normalizeWorkbenchSyncState(status: NormalizedChannelStatus): WorkbenchSession['syncState'] {
   if (status === 'connected') return 'synced';
   if (status === 'connecting') return 'connecting';
@@ -465,9 +528,10 @@ function buildWorkbenchSessions(
   channelType: string,
   statusSnapshot: ChannelsStatusSnapshot | null,
 ): WorkbenchSession[] {
-  const summary = statusSnapshot?.channels?.[channelType];
-  const accounts = statusSnapshot?.channelAccounts?.[channelType] ?? [];
-  const defaultAccountId = statusSnapshot?.channelDefaultAccountId?.[channelType] ?? 'default';
+  const rawChannelType = toOpenClawChannelType(channelType);
+  const summary = statusSnapshot?.channels?.[rawChannelType];
+  const accounts = statusSnapshot?.channelAccounts?.[rawChannelType] ?? [];
+  const defaultAccountId = statusSnapshot?.channelDefaultAccountId?.[rawChannelType] ?? 'default';
 
   const sessions = accounts
     .filter((account) => account.configured !== false)
@@ -1214,14 +1278,15 @@ async function listNormalizedCapabilities(ctx: HostApiContext): Promise<Normaliz
 
   const capabilities: NormalizedChannelCapability[] = [];
   for (const channelType of configuredChannelTypes) {
-    const accounts = statusSnapshot?.channelAccounts?.[channelType] ?? [];
-    const summary = statusSnapshot?.channels?.[channelType];
+    const rawChannelType = toOpenClawChannelType(channelType);
+    const accounts = statusSnapshot?.channelAccounts?.[rawChannelType] ?? [];
+    const summary = statusSnapshot?.channels?.[rawChannelType];
     if (accounts.length > 0) {
       let pushedAnyAccount = false;
       for (const account of accounts) {
         if (account.configured === false) continue;
         pushedAnyAccount = true;
-        const accountId = account.accountId || statusSnapshot?.channelDefaultAccountId?.[channelType] || 'default';
+        const accountId = account.accountId || statusSnapshot?.channelDefaultAccountId?.[rawChannelType] || 'default';
         const status = resolveNormalizedStatus(summary, account);
         capabilities.push(buildCapability(channelType, accountId, status));
       }
@@ -1230,10 +1295,521 @@ async function listNormalizedCapabilities(ctx: HostApiContext): Promise<Normaliz
       }
     }
     const status = resolveNormalizedStatus(summary, undefined);
-    capabilities.push(buildCapability(channelType, statusSnapshot?.channelDefaultAccountId?.[channelType], status));
+    capabilities.push(buildCapability(channelType, statusSnapshot?.channelDefaultAccountId?.[rawChannelType], status));
   }
 
   return capabilities;
+}
+
+async function buildChannelAccountsView(ctx: HostApiContext): Promise<ChannelAccountsView[]> {
+  const [configuredChannelTypes, configuredAccounts, agentsSnapshot] = await Promise.all([
+    listConfiguredChannels(),
+    listConfiguredChannelAccounts(),
+    listAgentsSnapshot(),
+  ]);
+
+  let statusSnapshot: ChannelsStatusSnapshot | null = null;
+  try {
+    statusSnapshot = await ctx.gatewayManager.rpc<ChannelsStatusSnapshot>('channels.status', { probe: true });
+  } catch {
+    // Fall back to config-only account view when runtime status is unavailable.
+  }
+
+  const rawChannelTypes = new Set<string>([
+    ...configuredChannelTypes.map((channelType) => toOpenClawChannelType(channelType)),
+    ...Object.keys(configuredAccounts),
+    ...Object.keys(statusSnapshot?.channelAccounts || {}),
+  ]);
+
+  const channels: ChannelAccountsView[] = [];
+  for (const rawChannelType of rawChannelTypes) {
+    const uiChannelType = toUiChannelType(rawChannelType);
+    const configuredAccountIds = configuredAccounts[rawChannelType]?.accountIds ?? [];
+    const runtimeAccounts = statusSnapshot?.channelAccounts?.[rawChannelType] ?? [];
+    const summary = statusSnapshot?.channels?.[rawChannelType];
+    const hasLocalConfig = configuredChannelTypes.includes(uiChannelType) || Boolean(configuredAccounts[rawChannelType]);
+    const hasRuntimeConfigured = runtimeAccounts.some((account) => account.configured === true);
+    if (!hasLocalConfig && !hasRuntimeConfigured) {
+      continue;
+    }
+
+    const defaultAccountId = configuredAccounts[rawChannelType]?.defaultAccountId
+      ?? statusSnapshot?.channelDefaultAccountId?.[rawChannelType]
+      ?? configuredAccountIds[0]
+      ?? 'default';
+    const runtimeAccountIds = runtimeAccounts
+      .map((account) => account.accountId)
+      .filter((accountId): accountId is string => typeof accountId === 'string' && accountId.trim().length > 0);
+    const accountIds = Array.from(new Set([...configuredAccountIds, ...runtimeAccountIds, defaultAccountId])).sort((left, right) => {
+      if (left === defaultAccountId) return -1;
+      if (right === defaultAccountId) return 1;
+      return left.localeCompare(right);
+    });
+
+    const accounts: ChannelAccountView[] = accountIds.map((accountId) => {
+      const runtime = runtimeAccounts.find((account) => account.accountId === accountId);
+      return {
+        accountId,
+        name: runtime?.name || accountId,
+        configured: configuredAccountIds.includes(accountId) || runtime?.configured === true,
+        connected: runtime?.connected === true,
+        running: runtime?.running === true,
+        linked: runtime?.linked === true,
+        ...(typeof runtime?.lastError === 'string' ? { lastError: runtime.lastError } : {}),
+        status: resolveNormalizedStatus(summary, runtime),
+        isDefault: accountId === defaultAccountId,
+        ...(agentsSnapshot.channelOwners?.[`${rawChannelType}:${accountId}`]
+          ? { agentId: agentsSnapshot.channelOwners[`${rawChannelType}:${accountId}`] }
+          : {}),
+      };
+    });
+
+    channels.push({
+      channelType: uiChannelType,
+      defaultAccountId,
+      status: resolveAggregateStatus(summary, runtimeAccounts),
+      accounts,
+    });
+  }
+
+  return channels.sort((left, right) => left.channelType.localeCompare(right.channelType));
+}
+
+function buildChannelTargetLabel(baseLabel: string, value: string): string {
+  const trimmed = baseLabel.trim();
+  return trimmed && trimmed !== value ? `${trimmed} (${value})` : value;
+}
+
+function normalizeFeishuTargetValue(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed === '*') return null;
+  if (trimmed.startsWith('chat:') || trimmed.startsWith('user:')) return trimmed;
+  if (trimmed.startsWith('open_id:')) return `user:${trimmed.slice('open_id:'.length)}`;
+  if (trimmed.startsWith('feishu:')) return normalizeFeishuTargetValue(trimmed.slice('feishu:'.length));
+  if (trimmed.startsWith('oc_')) return `chat:${trimmed}`;
+  if (trimmed.startsWith('ou_')) return `user:${trimmed}`;
+  if (/^[a-zA-Z0-9]+$/.test(trimmed)) return `user:${trimmed}`;
+  return null;
+}
+
+function inferFeishuTargetKind(target: string): ChannelTargetOptionView['kind'] {
+  return target.startsWith('chat:') ? 'group' : 'user';
+}
+
+function buildFeishuTargetOption(
+  value: string,
+  label?: string,
+  kind?: ChannelTargetOptionView['kind'],
+): ChannelTargetOptionView {
+  const normalizedLabel = typeof label === 'string' && label.trim() ? label.trim() : value;
+  return {
+    value,
+    label: buildChannelTargetLabel(normalizedLabel, value),
+    kind: kind ?? inferFeishuTargetKind(value),
+  };
+}
+
+function mergeTargetOptions(...groups: ChannelTargetOptionView[][]): ChannelTargetOptionView[] {
+  const seen = new Set<string>();
+  const results: ChannelTargetOptionView[] = [];
+  for (const group of groups) {
+    for (const option of group) {
+      if (!option.value || seen.has(option.value)) continue;
+      seen.add(option.value);
+      results.push(option);
+    }
+  }
+  return results;
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function inferTargetKindFromValue(
+  channelType: string,
+  target: string,
+  chatType?: string,
+): ChannelTargetOptionView['kind'] {
+  const normalizedChatType = chatType?.trim().toLowerCase();
+  if (normalizedChatType === 'group') return 'group';
+  if (normalizedChatType === 'channel') return 'channel';
+  if (target.startsWith('chat:') || target.includes(':group:')) return 'group';
+  if (target.includes(':channel:')) return 'channel';
+  if (channelType === 'dingtalk' && target.startsWith('cid')) return 'group';
+  return 'user';
+}
+
+type JsonRecord = Record<string, unknown>;
+
+function extractSessionRecords(store: JsonRecord): JsonRecord[] {
+  const directEntries = Object.entries(store)
+    .filter(([key, value]) => key !== 'sessions' && value && typeof value === 'object')
+    .map(([, value]) => value as JsonRecord);
+  const arrayEntries = Array.isArray(store.sessions)
+    ? store.sessions.filter((entry): entry is JsonRecord => Boolean(entry && typeof entry === 'object'))
+    : [];
+  return [...directEntries, ...arrayEntries];
+}
+
+async function listSessionDerivedTargetOptions(params: {
+  channelType: string;
+  accountId?: string;
+  query?: string;
+}): Promise<ChannelTargetOptionView[]> {
+  const storedChannelType = toOpenClawChannelType(params.channelType);
+  const agentsDir = join(getOpenClawConfigDir(), 'agents');
+  const agentDirs = await readdir(agentsDir, { withFileTypes: true }).catch(() => []);
+  const q = params.query?.trim().toLowerCase() || '';
+  const candidates: Array<ChannelTargetOptionView & { updatedAt: number }> = [];
+  const seen = new Set<string>();
+
+  for (const entry of agentDirs) {
+    if (!entry.isDirectory()) continue;
+    const sessionsPath = join(agentsDir, entry.name, 'sessions', 'sessions.json');
+    const raw = await readFile(sessionsPath, 'utf8').catch(() => '');
+    if (!raw.trim()) continue;
+
+    let parsed: JsonRecord;
+    try {
+      parsed = JSON.parse(raw) as JsonRecord;
+    } catch {
+      continue;
+    }
+
+    for (const session of extractSessionRecords(parsed)) {
+      const deliveryContext = session.deliveryContext && typeof session.deliveryContext === 'object'
+        ? session.deliveryContext as JsonRecord
+        : undefined;
+      const origin = session.origin && typeof session.origin === 'object'
+        ? session.origin as JsonRecord
+        : undefined;
+      const sessionChannelType = readNonEmptyString(deliveryContext?.channel)
+        || readNonEmptyString(session.lastChannel)
+        || readNonEmptyString(session.channel)
+        || readNonEmptyString(origin?.provider)
+        || readNonEmptyString(origin?.surface);
+      if (!sessionChannelType || toOpenClawChannelType(sessionChannelType) !== storedChannelType) {
+        continue;
+      }
+
+      const sessionAccountId = readNonEmptyString(deliveryContext?.accountId)
+        || readNonEmptyString(session.lastAccountId)
+        || readNonEmptyString(origin?.accountId);
+      if (params.accountId && sessionAccountId && sessionAccountId !== params.accountId) {
+        continue;
+      }
+      if (params.accountId && !sessionAccountId) {
+        continue;
+      }
+
+      const value = readNonEmptyString(deliveryContext?.to)
+        || readNonEmptyString(session.lastTo)
+        || readNonEmptyString(origin?.to);
+      if (!value || seen.has(value)) continue;
+
+      const labelBase = readNonEmptyString(session.displayName)
+        || readNonEmptyString(session.subject)
+        || readNonEmptyString(origin?.label)
+        || value;
+      const label = buildChannelTargetLabel(labelBase, value);
+      if (q && !label.toLowerCase().includes(q) && !value.toLowerCase().includes(q)) {
+        continue;
+      }
+
+      seen.add(value);
+      candidates.push({
+        value,
+        label,
+        kind: inferTargetKindFromValue(
+          storedChannelType,
+          value,
+          readNonEmptyString(session.chatType) || readNonEmptyString(origin?.chatType),
+        ),
+        updatedAt: typeof session.updatedAt === 'number' ? session.updatedAt : 0,
+      });
+    }
+  }
+
+  return candidates
+    .sort((left, right) => right.updatedAt - left.updatedAt || left.label.localeCompare(right.label))
+    .map(({ updatedAt: _updatedAt, ...option }) => option);
+}
+
+async function listWeComReqIdTargetOptions(accountId?: string, query?: string): Promise<ChannelTargetOptionView[]> {
+  const wecomDir = join(getOpenClawConfigDir(), 'wecom');
+  const files = await readdir(wecomDir, { withFileTypes: true }).catch(() => []);
+  const q = query?.trim().toLowerCase() || '';
+  const options: ChannelTargetOptionView[] = [];
+  const seen = new Set<string>();
+
+  for (const file of files) {
+    if (!file.isFile() || !file.name.startsWith('reqid-map-') || !file.name.endsWith('.json')) {
+      continue;
+    }
+
+    const resolvedAccountId = file.name.slice('reqid-map-'.length, -'.json'.length);
+    if (accountId && resolvedAccountId !== accountId) {
+      continue;
+    }
+
+    const raw = await readFile(join(wecomDir, file.name), 'utf8').catch(() => '');
+    if (!raw.trim()) continue;
+
+    let records: Record<string, unknown>;
+    try {
+      records = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    for (const chatId of Object.keys(records)) {
+      const trimmedChatId = chatId.trim();
+      if (!trimmedChatId) continue;
+      const value = `wecom:${trimmedChatId}`;
+      const label = buildChannelTargetLabel('WeCom chat', value);
+      if (q && !label.toLowerCase().includes(q) && !value.toLowerCase().includes(q)) {
+        continue;
+      }
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({ value, label, kind: 'channel' });
+    }
+  }
+
+  return options;
+}
+
+async function listWeComTargetOptions(accountId?: string, query?: string): Promise<ChannelTargetOptionView[]> {
+  const [reqIdTargets, sessionTargets] = await Promise.all([
+    listWeComReqIdTargetOptions(accountId, query),
+    listSessionDerivedTargetOptions({ channelType: 'wecom', accountId, query }),
+  ]);
+  return mergeTargetOptions(sessionTargets, reqIdTargets);
+}
+
+async function listDingTalkTargetOptions(accountId?: string, query?: string): Promise<ChannelTargetOptionView[]> {
+  return await listSessionDerivedTargetOptions({ channelType: 'dingtalk', accountId, query });
+}
+
+async function listWeChatTargetOptions(accountId?: string, query?: string): Promise<ChannelTargetOptionView[]> {
+  return await listSessionDerivedTargetOptions({ channelType: OPENCLAW_WECHAT_CHANNEL_TYPE, accountId, query });
+}
+
+type DirectoryEntry = {
+  kind: 'user' | 'group' | 'channel';
+  id: string;
+  name?: string;
+  handle?: string;
+};
+
+function buildDirectoryTargetOptions(
+  entries: DirectoryEntry[],
+  normalizeTarget: (target: string) => string | undefined,
+): ChannelTargetOptionView[] {
+  const results: ChannelTargetOptionView[] = [];
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    const normalized = normalizeTarget(entry.id) ?? entry.id;
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    results.push({
+      value: normalized,
+      label: buildChannelTargetLabel(entry.name || entry.handle || entry.id, normalized),
+      kind: entry.kind,
+    });
+  }
+  return results;
+}
+
+async function listConfigDirectoryTargetOptions(params: {
+  channelType: 'discord' | 'telegram' | 'whatsapp';
+  accountId?: string;
+  query?: string;
+}): Promise<ChannelTargetOptionView[]> {
+  const cfg = await readOpenClawConfig();
+  const commonParams = {
+    cfg,
+    accountId: params.accountId ?? null,
+    query: params.query ?? null,
+    limit: 100,
+  };
+
+  if (params.channelType === 'discord') {
+    const [users, groups] = await Promise.all([
+      listDiscordDirectoryPeersFromConfig(commonParams),
+      listDiscordDirectoryGroupsFromConfig(commonParams),
+    ]);
+    return buildDirectoryTargetOptions(
+      [...users, ...groups] as DirectoryEntry[],
+      normalizeDiscordMessagingTarget,
+    );
+  }
+
+  if (params.channelType === 'telegram') {
+    const [users, groups] = await Promise.all([
+      listTelegramDirectoryPeersFromConfig(commonParams),
+      listTelegramDirectoryGroupsFromConfig(commonParams),
+    ]);
+    return buildDirectoryTargetOptions(
+      [...users, ...groups] as DirectoryEntry[],
+      normalizeTelegramMessagingTarget,
+    );
+  }
+
+  return buildDirectoryTargetOptions([], normalizeWhatsAppMessagingTarget);
+}
+
+async function listQQBotKnownTargetOptions(accountId?: string, query?: string): Promise<ChannelTargetOptionView[]> {
+  const knownUsersPath = join(getOpenClawConfigDir(), 'qqbot', 'data', 'known-users.json');
+  const raw = await readFile(knownUsersPath, 'utf8').catch(() => '');
+  if (!raw.trim()) return [];
+
+  let records: Array<{
+    openid?: string;
+    type?: 'c2c' | 'group';
+    nickname?: string;
+    groupOpenid?: string;
+    accountId?: string;
+    lastSeenAt?: number;
+  }>;
+  try {
+    records = JSON.parse(raw) as typeof records;
+  } catch {
+    return [];
+  }
+
+  const q = query?.trim().toLowerCase() || '';
+  const options: ChannelTargetOptionView[] = [];
+  const seen = new Set<string>();
+  const filtered = records
+    .filter((record) => !accountId || record.accountId === accountId)
+    .sort((left, right) => (right.lastSeenAt ?? 0) - (left.lastSeenAt ?? 0));
+
+  for (const record of filtered) {
+    if (record.type === 'group') {
+      const groupId = (record.groupOpenid || record.openid || '').trim();
+      if (!groupId) continue;
+      const value = `qqbot:group:${groupId}`;
+      const label = buildChannelTargetLabel(record.nickname || groupId, value);
+      if (q && !label.toLowerCase().includes(q) && !value.toLowerCase().includes(q)) continue;
+      if (seen.has(value)) continue;
+      seen.add(value);
+      options.push({ value, label, kind: 'group' });
+      continue;
+    }
+
+    const userId = (record.openid || '').trim();
+    if (!userId) continue;
+    const value = `qqbot:c2c:${userId}`;
+    const label = buildChannelTargetLabel(record.nickname || userId, value);
+    if (q && !label.toLowerCase().includes(q) && !value.toLowerCase().includes(q)) continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    options.push({ value, label, kind: 'user' });
+  }
+
+  return options;
+}
+
+async function fetchFeishuTargetOptions(accountId?: string, query?: string): Promise<ChannelTargetOptionView[]> {
+  const cfg = await readOpenClawConfig();
+  const channels = cfg.channels && typeof cfg.channels === 'object'
+    ? cfg.channels as Record<string, Record<string, unknown>>
+    : {};
+  const section = channels.feishu;
+  if (!section) return [];
+
+  const accountConfig = section.accounts && typeof section.accounts === 'object' && accountId
+    ? (section.accounts as Record<string, Record<string, unknown>>)[accountId] ?? {}
+    : {};
+  const mergedConfig = { ...section, ...accountConfig };
+
+  const appId = typeof mergedConfig.appId === 'string' ? mergedConfig.appId.trim() : '';
+  const appSecret = typeof mergedConfig.appSecret === 'string' ? mergedConfig.appSecret.trim() : '';
+  if (!appId || !appSecret) return [];
+
+  const q = query?.trim().toLowerCase() || '';
+  const headers = { 'Content-Type': 'application/json' };
+  const tenantTokenResponse = await proxyAwareFetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+  });
+  const tenantTokenPayload = await tenantTokenResponse.json() as { code?: number; tenant_access_token?: string };
+  if (!tenantTokenResponse.ok || tenantTokenPayload.code !== 0 || !tenantTokenPayload.tenant_access_token) {
+    return [];
+  }
+
+  const authHeaders = {
+    Authorization: `Bearer ${tenantTokenPayload.tenant_access_token}`,
+    'Content-Type': 'application/json',
+  };
+
+  const liveTargets: ChannelTargetOptionView[] = [];
+  const userResponse = await proxyAwareFetch('https://open.feishu.cn/open-apis/contact/v3/users?page_size=100', { headers: authHeaders });
+  const userPayload = await userResponse.json() as { code?: number; data?: { items?: Array<{ open_id?: string; name?: string }> } };
+  if (userResponse.ok && userPayload.code === 0) {
+    for (const item of userPayload.data?.items ?? []) {
+      const value = normalizeFeishuTargetValue(item.open_id);
+      if (!value) continue;
+      const option = buildFeishuTargetOption(value, item.name, 'user');
+      if (q && !option.label.toLowerCase().includes(q) && !option.value.toLowerCase().includes(q)) continue;
+      liveTargets.push(option);
+    }
+  }
+
+  const chatResponse = await proxyAwareFetch('https://open.feishu.cn/open-apis/im/v1/chats?page_size=100', { headers: authHeaders });
+  const chatPayload = await chatResponse.json() as { code?: number; data?: { items?: Array<{ chat_id?: string; name?: string }> } };
+  if (chatResponse.ok && chatPayload.code === 0) {
+    for (const item of chatPayload.data?.items ?? []) {
+      const value = normalizeFeishuTargetValue(item.chat_id);
+      if (!value) continue;
+      const option = buildFeishuTargetOption(value, item.name, 'group');
+      if (q && !option.label.toLowerCase().includes(q) && !option.value.toLowerCase().includes(q)) continue;
+      liveTargets.push(option);
+    }
+  }
+
+  return mergeTargetOptions(liveTargets);
+}
+
+async function listChannelTargetOptions(params: {
+  channelType: string;
+  accountId?: string;
+  query?: string;
+}): Promise<ChannelTargetOptionView[]> {
+  const storedChannelType = toOpenClawChannelType(params.channelType);
+  if (storedChannelType === 'qqbot') {
+    return await listQQBotKnownTargetOptions(params.accountId, params.query);
+  }
+  if (storedChannelType === 'feishu') {
+    return await fetchFeishuTargetOptions(params.accountId, params.query);
+  }
+  if (storedChannelType === 'wecom') {
+    return await listWeComTargetOptions(params.accountId, params.query);
+  }
+  if (storedChannelType === 'dingtalk') {
+    return await listDingTalkTargetOptions(params.accountId, params.query);
+  }
+  if (storedChannelType === OPENCLAW_WECHAT_CHANNEL_TYPE) {
+    return await listWeChatTargetOptions(params.accountId, params.query);
+  }
+  if (
+    storedChannelType === 'discord'
+    || storedChannelType === 'telegram'
+    || storedChannelType === 'whatsapp'
+  ) {
+    return await listConfigDirectoryTargetOptions({
+      channelType: storedChannelType,
+      accountId: params.accountId,
+      query: params.query,
+    });
+  }
+  return [];
 }
 
 export async function handleChannelRoutes(
@@ -1242,6 +1818,70 @@ export async function handleChannelRoutes(
   url: URL,
   ctx: HostApiContext,
 ): Promise<boolean> {
+  if (url.pathname === '/api/channels/accounts' && req.method === 'GET') {
+    try {
+      const channels = await buildChannelAccountsView(ctx);
+      sendJson(res, 200, { success: true, channels });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/targets' && req.method === 'GET') {
+    try {
+      const channelType = url.searchParams.get('channelType')?.trim() || '';
+      const accountId = url.searchParams.get('accountId')?.trim() || undefined;
+      const query = url.searchParams.get('query')?.trim() || undefined;
+      if (!channelType) {
+        sendJson(res, 400, { success: false, error: 'channelType is required' });
+        return true;
+      }
+
+      const targets = await listChannelTargetOptions({ channelType, accountId, query });
+      sendJson(res, 200, { success: true, channelType, accountId, targets });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/default-account' && req.method === 'PUT') {
+    try {
+      const body = await parseJsonBody<{ channelType: string; accountId: string }>(req);
+      await setChannelDefaultAccount(body.channelType, body.accountId);
+      scheduleGatewayChannelSaveRefresh(ctx, body.channelType, `channel:setDefaultAccount:${body.channelType}`);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/binding' && req.method === 'PUT') {
+    try {
+      const body = await parseJsonBody<{ channelType: string; accountId: string; agentId: string }>(req);
+      await assignChannelAccountToAgent(body.agentId, toOpenClawChannelType(body.channelType), body.accountId);
+      scheduleGatewayChannelSaveRefresh(ctx, body.channelType, `channel:setBinding:${body.channelType}`);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/channels/binding' && req.method === 'DELETE') {
+    try {
+      const body = await parseJsonBody<{ channelType: string; accountId: string }>(req);
+      await clearChannelBinding(toOpenClawChannelType(body.channelType), body.accountId);
+      scheduleGatewayChannelSaveRefresh(ctx, body.channelType, `channel:clearBinding:${body.channelType}`);
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
   if (url.pathname === '/api/channels/capabilities' && req.method === 'GET') {
     try {
       const allCapabilities = await listNormalizedCapabilities(ctx);
@@ -1725,6 +2365,7 @@ export async function handleChannelRoutes(
 
   if (url.pathname === '/api/channels/wechat/qr' && req.method === 'GET') {
     try {
+      await cleanupDanglingWeChatPluginState();
       await weChatLoginManager.start();
       const state = weChatLoginManager.getState();
       if (!state) {
@@ -1994,7 +2635,6 @@ export async function handleChannelRoutes(
           const result = await ctx.gatewayManager.rpc<Record<string, unknown>>('chat.send', {
             sessionKey: sendSessionKey,
             message: body.text.trim(),
-            deliver: false,
             idempotencyKey: randomUUID(),
           });
           sendJson(res, 200, {
@@ -2025,7 +2665,6 @@ export async function handleChannelRoutes(
         await ctx.gatewayManager.rpc('chat.send', {
           sessionKey: wechatSessionKey,
           message: body.text.trim(),
-          deliver: false,
         });
         sendJson(res, 200, { success: true, message: '消息已发送' });
         return true;

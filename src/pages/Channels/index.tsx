@@ -5,26 +5,25 @@ import { cn } from '@/lib/utils';
 import { hostApiFetch } from '@/lib/host-api';
 import { subscribeHostEvent } from '@/lib/host-events';
 import { useChannelsStore } from '@/stores/channels';
-import { useSettingsStore } from '@/stores/settings';
 import { useRightPanelStore } from '@/stores/rightPanelStore';
 import { FeishuOnboardingWizard } from '@/components/channels/FeishuOnboardingWizard';
 import { WeChatOnboardingWizard } from '@/components/channels/WeChatOnboardingWizard';
 import { BotBindingModal } from '@/components/channels/BotBindingModal';
+import { ChannelConfigModal } from '@/components/channels/ChannelConfigModal';
 import { DingTalkConfigPage } from '@/components/channels/DingTalkConfigPage';
 import { WeComConfigPage } from '@/components/channels/WeComConfigPage';
 import { QQConfigPage } from '@/components/channels/QQConfigPage';
 import MarkdownContent from '@/pages/Chat/MarkdownContent';
 import {
   CHANNEL_ICONS,
-  CHANNEL_META,
   CHANNEL_NAMES,
-  CHANNEL_WORKBENCH_TYPES,
+  getPrimaryChannels,
   type ChannelRuntimeCapability,
   type ChannelType,
 } from '@/types/channel';
 import type { ChannelSyncConversation, ChannelSyncFileInfo, ChannelSyncMessage, ChannelSyncSession } from '@/types/channel-sync';
 
-const DOMESTIC_CHANNEL_TYPES: ChannelType[] = CHANNEL_WORKBENCH_TYPES;
+const DOMESTIC_CHANNEL_TYPES: ChannelType[] = getPrimaryChannels();
 
 function resolveRequestedChannel(search: string): ChannelType {
   const params = new URLSearchParams(search);
@@ -55,6 +54,26 @@ const CHANNEL_FAMILY_UI: Record<ChannelType, { railLabel: string; panelTitle: st
 const SESSION_TYPE_LABEL: Record<'group' | 'private', string> = {
   group: '群聊',
   private: '私聊',
+};
+
+type SettingsChannelAccount = {
+  accountId: string;
+  name: string;
+  configured: boolean;
+  connected: boolean;
+  running: boolean;
+  linked: boolean;
+  lastError?: string;
+  status: 'connected' | 'connecting' | 'disconnected' | 'error';
+  isDefault: boolean;
+  agentId?: string;
+};
+
+type SettingsChannelGroup = {
+  channelType: string;
+  defaultAccountId: string;
+  status: 'connected' | 'connecting' | 'disconnected' | 'error';
+  accounts: SettingsChannelAccount[];
 };
 
 function formatRelativeTimestamp(value?: string): string {
@@ -178,15 +197,10 @@ export function Channels() {
   const setPendingBotSettings = useRightPanelStore((state) => state.setPendingBotSettings);
   const pendingAddChannel = useRightPanelStore((state) => state.pendingAddChannel);
   const setPendingAddChannel = useRightPanelStore((state) => state.setPendingAddChannel);
-  // Derived from activeChannelId for Phase 10/11 API calls
-  const activeChannelType: ChannelType = activeChannelId
-    ? (activeChannelId.split('-').slice(0, -1).join('-') as ChannelType)
-    : requestedChannel;
   const [composerValue, setComposerValue] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [addType, setAddType] = useState<ChannelType>('feishu');
   const [addName, setAddName] = useState('');
-  const [addLoading, setAddLoading] = useState(false);
   const [feishuWizardOpen, setFeishuWizardOpen] = useState(false);
   const [feishuWizardInitialName, setFeishuWizardInitialName] = useState('');
   const [wechatWizardOpen, setWechatWizardOpen] = useState(false);
@@ -195,6 +209,12 @@ export function Channels() {
   const [configPageOpen, setConfigPageOpen] = useState(false);
   const [configPageType, setConfigPageType] = useState<'dingtalk' | 'wecom' | 'qqbot'>('dingtalk');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [channelConfigOpen, setChannelConfigOpen] = useState(false);
+  const [channelConfigInitialType, setChannelConfigInitialType] = useState<ChannelType | null>(null);
+  const [channelConfigAccountId, setChannelConfigAccountId] = useState<string | undefined>(undefined);
+  const [settingsConfigValues, setSettingsConfigValues] = useState<Record<string, string> | null>(null);
+  const [settingsChannelGroup, setSettingsChannelGroup] = useState<SettingsChannelGroup | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [runtimeCapabilities, setRuntimeCapabilities] = useState<Record<string, ChannelRuntimeCapability>>({});
   const [sessions, setSessions] = useState<ChannelSyncSession[]>([]);
@@ -207,7 +227,6 @@ export function Channels() {
   const [oldestMessageTs, setOldestMessageTs] = useState<string | null>(null);
   const messageScrollRef = useRef<HTMLDivElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const defaultModel = useSettingsStore((s) => s.defaultModel);
   // identity toggle: 'bot' | 'self'
   const [identityMode, setIdentityMode] = useState<'bot' | 'self'>('bot');
   // feishu user auth status for showing identity toggle
@@ -228,7 +247,6 @@ export function Channels() {
     fetchChannels,
     connectChannel,
     disconnectChannel,
-    deleteChannel,
     addChannel,
   } = useChannelsStore();
 
@@ -236,20 +254,26 @@ export function Channels() {
     void fetchChannels();
   }, [fetchChannels]);
 
+  const selectedChannel =
+    (activeChannelId ? channels.find((channel) => channel.id === activeChannelId) : undefined)
+    ?? channels.find((channel) => channel.type === requestedChannel)
+    ?? channels[0]
+    ?? null;
+  const resolvedActiveChannelId = selectedChannel?.id ?? null;
+  const activeChannelType: ChannelType = selectedChannel?.type ?? requestedChannel;
+
   useEffect(() => {
-    if (!activeChannelId) {
-      // Map requestedChannel to a bot id from the store
-      const bot = channels.find((c) => c.type === requestedChannel);
-      if (bot) setActiveChannelId(bot.id);
+    if (resolvedActiveChannelId !== activeChannelId) {
+      setActiveChannelId(resolvedActiveChannelId);
     }
-  }, [requestedChannel, activeChannelId, channels, setActiveChannelId]);
+  }, [resolvedActiveChannelId, activeChannelId, setActiveChannelId]);
 
   // Clear sessions and messages when activeChannelId changes
   useEffect(() => {
     setSelectedConversationId(null);
     setConversation(null);
     setMessages([]);
-  }, [activeChannelId]);
+  }, [resolvedActiveChannelId]);
 
   // Fetch feishu user auth status to decide whether to show identity toggle
   useEffect(() => {
@@ -307,14 +331,29 @@ export function Channels() {
     };
   }, [channels]);
 
-  const filteredChannels = activeChannelId
-    ? channels.filter((channel) => channel.id === activeChannelId)
-    : [];
-  const selectedChannel = filteredChannels[0] ?? null;
-  const selectedMeta = CHANNEL_META[activeChannelType];
   const selectedRuntimeCapability = selectedChannel
     ? runtimeCapabilities[selectedChannel.id] ?? runtimeCapabilities[`${selectedChannel.type}-${selectedChannel.accountId || 'default'}`] ?? null
     : null;
+  const selectedFieldKeys = selectedRuntimeCapability?.configSchemaSummary.fieldKeys ?? [];
+  const configuredChannelTypes = Array.from(new Set(channels.map((channel) => channel.type)));
+  const selectedTypeAccountIds = channelConfigInitialType
+    ? channels
+      .filter((channel) => channel.type === channelConfigInitialType)
+      .map((channel) => channel.accountId)
+      .filter((accountId): accountId is string => typeof accountId === 'string' && accountId.length > 0)
+    : [];
+  const allowEditAccountIdInModal = Boolean(
+    channelConfigInitialType
+    && !channelConfigAccountId
+    && channelConfigInitialType !== 'wechat'
+    && selectedTypeAccountIds.length > 0,
+  );
+
+  const openChannelConfig = (channelType: ChannelType | null, accountId?: string) => {
+    setChannelConfigInitialType(channelType);
+    setChannelConfigAccountId(accountId);
+    setChannelConfigOpen(true);
+  };
 
   const loadConversation = async (conversationId: string, preserveOptimistic = false) => {
     const response = await hostApiFetch<{
@@ -331,9 +370,14 @@ export function Channels() {
       // Preserve optimistic messages when updating
       setMessages((prev) => {
         const optimisticMsgs = prev.filter((m) => m.optimistic);
-        // Remove duplicates based on content and timestamp proximity
         const serverMsgIds = new Set(msgs.map((m) => m.id));
-        const uniqueOptimistic = optimisticMsgs.filter((opt) => !serverMsgIds.has(opt.id));
+        // Drop an optimistic message if the server already has a self-message
+        // with the same content (server confirmation), or if the ID matches.
+        const uniqueOptimistic = optimisticMsgs.filter(
+          (opt) =>
+            !serverMsgIds.has(opt.id) &&
+            !msgs.some((m) => m.isSelf && m.content === opt.content),
+        );
         return [...msgs, ...uniqueOptimistic];
       });
     } else {
@@ -377,7 +421,7 @@ export function Channels() {
   };
 
   useEffect(() => {
-    if (!activeChannelId) return;
+    if (!resolvedActiveChannelId) return;
     let active = true;
     setSessions([]);
     setConversation(null);
@@ -410,7 +454,7 @@ export function Channels() {
     return () => {
       active = false;
     };
-  }, [activeChannelId, activeChannelType]);
+  }, [resolvedActiveChannelId, activeChannelType]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -504,20 +548,15 @@ export function Channels() {
       setConfigPageOpen(true);
       return;
     }
-    setAddLoading(true);
-    try {
-      await addChannel({ type: addType, name: addName.trim() });
-      setAddOpen(false);
-      setAddName('');
-    } finally {
-      setAddLoading(false);
-    }
+    setAddOpen(false);
+    setAddName('');
+    openChannelConfig(addType);
   };
 
   const handleQuickAddCurrentType = () => {
     // Quick add for current channel type - skip type selection modal
     if (activeChannelType === 'feishu') {
-      setFeishuWizardOpen(true);
+      openChannelConfig('feishu', selectedChannel?.accountId);
       return;
     }
     if (activeChannelType === 'wechat') {
@@ -539,8 +578,8 @@ export function Channels() {
       setConfigPageOpen(true);
       return;
     }
-    // Fallback: open type selection modal
-    setAddOpen(true);
+    // Fallback: open the generic configuration modal
+    openChannelConfig(activeChannelType, selectedChannel?.accountId);
   };
 
   const handleSend = async (retryText?: string) => {
@@ -570,15 +609,8 @@ export function Channels() {
         method: 'POST',
         body: JSON.stringify({ text, conversationId: convId, identity: sendIdentity }),
       });
-      // Mark optimistic message as sent (remove optimistic flag)
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === optimisticId
-            ? { ...m, optimistic: false }
-            : m,
-        ),
-      );
-      // Poll for new messages in background to get server-side message
+      // Poll for new messages — loadConversation will drop the optimistic message
+      // once it sees a server-side self-message with matching content.
       window.setTimeout(() => { void loadConversation(convId, true); }, 1000);
       window.setTimeout(() => { void loadConversation(convId, true); }, 2500);
       window.setTimeout(() => { void loadConversation(convId, true); }, 5000);
@@ -629,10 +661,50 @@ export function Channels() {
   // Handle pendingAddChannel from Sidebar
   useEffect(() => {
     if (pendingAddChannel) {
-      setAddOpen(true);
+      openChannelConfig(null);
       setPendingAddChannel(false);
     }
   }, [pendingAddChannel, setPendingAddChannel]);
+
+  useEffect(() => {
+    if (!settingsOpen || !selectedChannel) {
+      setSettingsConfigValues(null);
+      setSettingsChannelGroup(null);
+      setSettingsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSettingsLoading(true);
+    const accountParam = selectedChannel.accountId
+      ? `?accountId=${encodeURIComponent(selectedChannel.accountId)}`
+      : '';
+
+    void Promise.all([
+      hostApiFetch<{ success?: boolean; values?: Record<string, string> }>(
+        `/api/channels/config/${encodeURIComponent(selectedChannel.type)}${accountParam}`,
+      ).catch(() => ({ success: false, values: {} })),
+      hostApiFetch<{ success?: boolean; channels?: SettingsChannelGroup[] }>(
+        '/api/channels/accounts',
+      ).catch(() => ({ success: false, channels: [] })),
+    ])
+      .then(([configResult, accountsResult]) => {
+        if (cancelled) return;
+        setSettingsConfigValues(configResult.values ?? {});
+        setSettingsChannelGroup(
+          accountsResult.channels?.find((group) => group.channelType === selectedChannel.type) ?? null,
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSettingsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsOpen, selectedChannel]);
 
   return (
     <div className="flex h-full flex-row overflow-hidden bg-[#f2f2f7]">
@@ -763,12 +835,7 @@ export function Channels() {
                 <span className="text-[12px] text-[#64748b]">{conversation.participantSummary}</span>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (selectedChannel) {
-                      setBindingBotId(selectedChannel.id);
-                      setBindingModalOpen(true);
-                    }
-                  }}
+                  onClick={() => setSettingsOpen(true)}
                   className="rounded-xl border border-black/10 px-3 py-1.5 text-[13px] text-[#3c3c43] hover:bg-[#f8fafc]"
                 >
                   设置
@@ -1108,6 +1175,159 @@ export function Channels() {
         </div>
       )}
 
+      {settingsOpen && selectedChannel && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/30"
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="频道设置"
+            className="w-full max-w-[520px] rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[18px] font-semibold text-[#111827]">频道设置</h2>
+                <p className="mt-1 text-[13px] text-[#64748b]">
+                  {selectedChannel.name || CHANNEL_NAMES[selectedChannel.type]}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-full px-3 py-1 text-[13px] text-[#64748b] hover:bg-[#f3f4f6] hover:text-[#111827]"
+                onClick={() => setSettingsOpen(false)}
+              >
+                关闭
+              </button>
+            </div>
+
+            <div className="mb-5 grid gap-3 rounded-2xl border border-black/[0.06] bg-[#f8fafc] p-4">
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-[#64748b]">渠道类型</span>
+                <span className="font-medium text-[#111827]">{CHANNEL_NAMES[selectedChannel.type]}</span>
+              </div>
+              <div className="flex items-center justify-between text-[13px]">
+                <span className="text-[#64748b]">连接状态</span>
+                <span className="font-medium text-[#111827]">{selectedChannel.status}</span>
+              </div>
+              {selectedFieldKeys.length > 0 ? (
+                selectedFieldKeys.map((fieldKey) => (
+                  <div key={fieldKey} className="flex items-center justify-between gap-4 text-[13px]">
+                    <span className="text-[#64748b]">{getDrawerFieldLabel(fieldKey, fieldKey)}</span>
+                    <span className="truncate text-right font-medium text-[#111827]">
+                      {settingsLoading ? '加载中…' : settingsConfigValues?.[fieldKey] || '未设置'}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[13px] text-[#64748b]">暂无可显示的配置字段</div>
+              )}
+            </div>
+
+            {settingsChannelGroup && settingsChannelGroup.accounts.length > 0 && (
+              <div className="mb-5 rounded-2xl border border-black/[0.06] bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-[14px] font-medium text-[#111827]">账号列表</h3>
+                  <span className="text-[12px] text-[#64748b]">{settingsChannelGroup.accounts.length} 个账号</span>
+                </div>
+                <div className="space-y-2">
+                  {settingsChannelGroup.accounts.map((account) => (
+                    <div
+                      key={account.accountId}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-[#f8fafc] px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate text-[13px] font-medium text-[#111827]">{account.name}</span>
+                          {account.isDefault && (
+                            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] text-[#0284c7]">默认账号</span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-[11px] text-[#64748b]">
+                          {account.accountId}
+                          {account.agentId ? ` · ${account.agentId}` : ''}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!account.isDefault && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await hostApiFetch('/api/channels/default-account', {
+                                method: 'PUT',
+                                body: JSON.stringify({ channelType: selectedChannel.type, accountId: account.accountId }),
+                              });
+                              const nextId = `${selectedChannel.type}-${account.accountId}`;
+                              const nextChannel = channels.find((channel) => channel.id === nextId);
+                              if (nextChannel) {
+                                setActiveChannelId(nextChannel.id);
+                              }
+                              setSettingsOpen(false);
+                            }}
+                            className="rounded-lg border border-black/10 px-2.5 py-1.5 text-[12px] text-[#3c3c43] hover:bg-[#f1f5f9]"
+                          >
+                            设为默认
+                          </button>
+                        )}
+                        {selectedChannel.type !== 'wechat' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSettingsOpen(false);
+                              openChannelConfig(selectedChannel.type, account.accountId);
+                            }}
+                            className="rounded-lg border border-black/10 px-2.5 py-1.5 text-[12px] text-[#3c3c43] hover:bg-[#f1f5f9]"
+                          >
+                            编辑
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleTest()}
+                className="rounded-xl border border-black/10 px-3 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f8fafc]"
+              >
+                发送测试
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedChannel.status === 'connected' || selectedChannel.status === 'connecting') {
+                    void disconnectChannel(selectedChannel.id);
+                  } else {
+                    void connectChannel(selectedChannel.id);
+                  }
+                }}
+                className="rounded-xl border border-black/10 px-3 py-2 text-[13px] text-[#3c3c43] hover:bg-[#f8fafc]"
+              >
+                {selectedChannel.status === 'connected' || selectedChannel.status === 'connecting' ? '断开连接' : '连接渠道'}
+              </button>
+              {selectedChannel.type !== 'wechat' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    openChannelConfig(selectedChannel.type, selectedChannel.accountId);
+                  }}
+                  className="rounded-xl bg-[#0f172a] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#111827]"
+                >
+                  编辑配置
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {bindingModalOpen && bindingBotId && (
         <BotBindingModal
           botId={bindingBotId}
@@ -1175,16 +1395,16 @@ export function Channels() {
               <button type="button" onClick={() => setAddOpen(false)} className="flex-1 rounded-xl border border-black/10 py-2 text-[13px] text-[#3c3c43]">
                 {t('common:actions.cancel')}
               </button>
-              <button
-                type="button"
-                onClick={() => void handleAdd()}
-                disabled={addLoading || !addName.trim()}
-                className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white disabled:opacity-50"
-              >
-                {addLoading ? t('common:channels.adding') : t('common:channels.confirmAdd')}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => void handleAdd()}
+                  disabled={!addName.trim()}
+                  className="flex-1 rounded-xl bg-clawx-ac py-2 text-[13px] font-medium text-white disabled:opacity-50"
+                >
+                  {t('common:channels.confirmAdd')}
+                </button>
+              </div>
             </div>
-          </div>
         </div>
       )}
 
@@ -1225,6 +1445,34 @@ export function Channels() {
             const { channels: freshChannels } = useChannelsStore.getState();
             const wechatChannel = freshChannels.find((c) => c.type === 'wechat');
             setActiveChannelId(wechatChannel?.id ?? 'wechat-default');
+          }}
+        />
+      )}
+
+      {channelConfigOpen && (
+        <ChannelConfigModal
+          initialSelectedType={channelConfigInitialType}
+          configuredTypes={configuredChannelTypes}
+          accountId={channelConfigAccountId}
+          allowEditAccountId={allowEditAccountIdInModal}
+          existingAccountIds={selectedTypeAccountIds}
+          onClose={() => {
+            setChannelConfigOpen(false);
+            setChannelConfigInitialType(null);
+            setChannelConfigAccountId(undefined);
+          }}
+          onChannelSaved={async (channelType) => {
+            await fetchChannels();
+            const { channels: freshChannels } = useChannelsStore.getState();
+            const matchingChannel = freshChannels.find((channel) =>
+              channel.type === channelType && (!channelConfigAccountId || channel.accountId === channelConfigAccountId),
+            ) ?? freshChannels.find((channel) => channel.type === channelType);
+            if (matchingChannel) {
+              setActiveChannelId(matchingChannel.id);
+            }
+            setChannelConfigOpen(false);
+            setChannelConfigInitialType(null);
+            setChannelConfigAccountId(undefined);
           }}
         />
       )}

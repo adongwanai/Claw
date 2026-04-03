@@ -1,209 +1,153 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
-import type { AgentSummary } from '@/types/agent';
-import { TeamOverview } from '@/pages/TeamOverview';
+import type { TeamSummary } from '@/types/team';
 
-const { agentsStoreState, chatStoreState, gatewayStoreState } = vi.hoisted(() => ({
-  agentsStoreState: {
-    agents: [] as AgentSummary[],
-    configuredChannelTypes: [] as string[],
-    channelOwners: {} as Record<string, string>,
+const { teamsStoreState, agentsStoreState } = vi.hoisted(() => ({
+  teamsStoreState: {
+    teams: [] as TeamSummary[],
     loading: false,
     error: null as string | null,
+    fetchTeams: vi.fn(async () => {}),
+    createTeam: vi.fn(async () => {}),
+    updateTeam: vi.fn(async () => {}),
+    deleteTeam: vi.fn(async () => {}),
+  },
+  agentsStoreState: {
+    agents: [] as Array<{ id: string; name: string }>,
     fetchAgents: vi.fn(async () => {}),
-    createAgent: vi.fn(async () => {}),
-    deleteAgent: vi.fn(async () => {}),
+    loading: false,
+    error: null as string | null,
   },
-  chatStoreState: {
-    sessionLastActivity: {} as Record<string, number>,
-  },
-  gatewayStoreState: {
-    status: {
-      state: 'stopped',
-      port: 18789,
-    },
-  },
+}));
+
+vi.mock('@/stores/teams', () => ({
+  useTeamsStore: (selector?: (state: typeof teamsStoreState) => unknown) =>
+    selector ? selector(teamsStoreState) : teamsStoreState,
 }));
 
 vi.mock('@/stores/agents', () => ({
-  useAgentsStore: () => agentsStoreState,
+  useAgentsStore: (selector?: (state: typeof agentsStoreState) => unknown) =>
+    selector ? selector(agentsStoreState) : agentsStoreState,
 }));
 
-vi.mock('@/stores/chat', () => ({
-  useChatStore: (selector: (state: typeof chatStoreState) => unknown) => selector(chatStoreState),
-}));
-
-vi.mock('@/stores/gateway', () => ({
-  useGatewayStore: (selector: (state: typeof gatewayStoreState) => unknown) => selector(gatewayStoreState),
-}));
-
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) => options?.defaultValue as string ?? key,
-  }),
-}));
-
-vi.mock('@/hooks/use-team-runtime', () => ({
-  useTeamRuntime: () => ({ byAgent: {} }),
-}));
-
-vi.mock('@/lib/team-work-visibility', () => ({
-  deriveTeamWorkVisibility: () => ({}),
-}));
-
-vi.mock('@/lib/team-progress-brief', () => ({
-  buildLeaderProgressBrief: () => ({
-    summaryText: '',
-    nextSteps: [],
-    dashboard: {
-      totalMembers: 0,
-      activeMemberCount: 0,
-      blockedCount: 0,
-      waitingApprovalCount: 0,
-      activeWorkItems: [],
-      riskItems: [],
-      primaryNextAction: '',
-    },
-  }),
-}));
-
-const makeLeader = (id: string, name: string): AgentSummary => ({
-  id,
-  name,
-  teamRole: 'leader',
-  reportsTo: null,
-  isDefault: id === 'leader-a',
-  persona: '',
-  model: '',
-  modelDisplay: '',
-  inheritedModel: false,
-  workspace: '',
-  agentDir: '',
-  mainSessionKey: `agent:${id}:main`,
-  channelTypes: [],
-  chatAccess: 'direct',
-  responsibility: '',
+vi.mock('@/components/team/TeamGrid', async () => {
+  const React = await import('react');
+  return {
+    TeamGrid: ({
+      teams,
+      onDeleteTeam,
+    }: {
+      teams: TeamSummary[];
+      loading: boolean;
+      onDeleteTeam: (teamId: string) => Promise<void>;
+    }) => (
+      <div data-testid="team-grid">
+        <div>team-count:{teams.length}</div>
+        {teams.map((team) => (
+          <div key={team.id}>{team.name}</div>
+        ))}
+        <button type="button" onClick={() => void onDeleteTeam(teams[0]?.id ?? '')}>
+          delete-first-team
+        </button>
+      </div>
+    ),
+  };
 });
 
-const makeWorker = (id: string, name: string, reportsTo: string | null): AgentSummary => ({
-  id,
-  name,
-  teamRole: 'worker',
-  reportsTo,
-  isDefault: false,
-  persona: '',
-  model: '',
-  modelDisplay: '',
-  inheritedModel: false,
-  workspace: '',
-  agentDir: '',
-  mainSessionKey: `agent:${id}:main`,
-  channelTypes: [],
-  chatAccess: 'leader_only',
-  responsibility: '',
+vi.mock('@/components/team/AgentPanel', async () => {
+  const React = await import('react');
+  return {
+    AgentPanel: ({ onClose }: { onClose: () => void }) => (
+      <div data-testid="agent-panel">
+        <button type="button" aria-label="close-agent-panel" onClick={onClose}>
+          close-agent-panel
+        </button>
+      </div>
+    ),
+  };
 });
+
+vi.mock('@/components/team/CreateTeamZone', async () => {
+  const React = await import('react');
+  type CreateTeamZoneProps = {
+    onCancel?: () => void;
+    onSuccess?: () => void;
+    isDragging?: boolean;
+  };
+  const CreateTeamZone = React.forwardRef<
+    { handleLeaderDrop: (agentId: string) => void; handleMemberDrop: (agentId: string) => void },
+    CreateTeamZoneProps
+  >(({ onCancel, onSuccess, isDragging = false }, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      handleLeaderDrop: vi.fn(),
+      handleMemberDrop: vi.fn(),
+    }));
+
+    return (
+      <div data-testid="create-team-zone" data-dragging={isDragging ? 'yes' : 'no'}>
+        <button type="button" onClick={onCancel}>
+          cancel-create
+        </button>
+        <button type="button" onClick={onSuccess}>
+          success-create
+        </button>
+      </div>
+    );
+  });
+  CreateTeamZone.displayName = 'MockCreateTeamZone';
+  return { CreateTeamZone };
+});
+
+import { TeamOverview } from '@/pages/TeamOverview';
+
+const sampleTeam: TeamSummary = {
+  id: 'team-1',
+  name: 'Engineering Team',
+  leaderId: 'leader-1',
+  memberIds: ['member-1', 'member-2'],
+  description: 'Coordinate execution',
+  status: 'active',
+  createdAt: Date.now() - 86_400_000,
+  updatedAt: Date.now(),
+  memberCount: 3,
+  activeTaskCount: 2,
+  lastActiveTime: Date.now() - 60_000,
+  leaderName: 'Alice',
+  memberAvatars: [
+    { id: 'leader-1', name: 'Alice', avatar: undefined },
+    { id: 'member-1', name: 'Bob', avatar: undefined },
+  ],
+};
 
 describe('TeamOverview page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    agentsStoreState.loading = false;
-    agentsStoreState.error = null;
+    teamsStoreState.teams = [];
+    teamsStoreState.loading = false;
+    teamsStoreState.error = null;
     agentsStoreState.agents = [];
-    agentsStoreState.configuredChannelTypes = [];
-    agentsStoreState.channelOwners = {};
-    gatewayStoreState.status = { state: 'running', port: 18789 };
-    chatStoreState.sessionLastActivity = {};
-    window.localStorage.clear();
   });
 
-  it('shows header and empty state when no agents exist', async () => {
+  it('fetches teams on mount and shows the empty state when there are no teams', async () => {
     render(
       <MemoryRouter>
         <TeamOverview />
       </MemoryRouter>,
     );
+
     await waitFor(() => {
-      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByRole('heading', { name: 'teamOverview.title' })).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.summary')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.empty.title')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.empty.description')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '团队总览' })).toBeInTheDocument();
+    expect(screen.getByText('共 0 个团队')).toBeInTheDocument();
+    expect(screen.getByText('还没有团队')).toBeInTheDocument();
+    expect(screen.queryByTestId('team-grid')).not.toBeInTheDocument();
   });
 
-  it('renders a command-center dashboard before the secondary member section', async () => {
-    const agent: AgentSummary = {
-      id: 'main',
-      name: 'Navigator',
-      persona: 'Guides the ships',
-      isDefault: true,
-      model: 'gpt-5.4',
-      modelDisplay: 'GPT-5.4',
-      inheritedModel: true,
-      workspace: '~/workspace',
-      agentDir: '~/agents/main',
-      mainSessionKey: 'agent:main:main',
-      channelTypes: ['feishu'],
-      teamRole: 'leader',
-      chatAccess: 'leader_only',
-      responsibility: 'Coordinate team execution',
-    };
-
-    agentsStoreState.agents = [agent];
-    agentsStoreState.configuredChannelTypes = ['feishu', 'telegram'];
-    agentsStoreState.channelOwners = { feishu: 'main' };
-    chatStoreState.sessionLastActivity = { [agent.mainSessionKey]: Date.now() };
-    window.localStorage.setItem('clawport-kanban', JSON.stringify([
-      {
-        id: 'ticket-1',
-        title: 'Handle inbound work',
-        description: 'Blocked on external dependency',
-        status: 'in-progress',
-        priority: 'high',
-        assigneeId: 'main',
-        workState: 'blocked',
-        createdAt: '2026-03-27T09:00:00Z',
-        updatedAt: '2026-03-27T09:10:00Z',
-      },
-    ]));
-
-    render(
-      <MemoryRouter>
-        <TeamOverview />
-      </MemoryRouter>,
-    );
-    await waitFor(() => {
-      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
-    });
-
-    expect(screen.getByText('teamOverview.dashboard.progress')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.dashboard.activeWork')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.dashboard.risks')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.dashboard.nextStep')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.sections.members')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'teamOverview.brief.openKanban' })).toHaveAttribute('href', '/kanban');
-    expect(screen.getByRole('link', { name: 'teamOverview.brief.openMap' })).toHaveAttribute('href', '/team-map');
-    expect(screen.getByText('teamOverview.sections.entryOwnership')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.card.state')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.card.currentWork')).toBeInTheDocument();
-    expect(screen.getByText('teamOverview.card.entryOwnership')).toBeInTheDocument();
-    expect(screen.getByText('Coordinate team execution')).toBeInTheDocument();
-    expect(screen.getAllByText(agent.name).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('feishu').length).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole('button', { name: 'teamOverview.hireButton' }));
-    expect(screen.getByText('teamOverview.createModal.title')).toBeInTheDocument();
-  });
-
-  it('renders grouped layout when multiple leaders exist', async () => {
-    agentsStoreState.agents = [
-      makeLeader('leader-a', 'Leader Alpha'),
-      makeLeader('leader-b', 'Leader Beta'),
-      makeWorker('worker-1', 'Worker One', 'leader-a'),
-      makeWorker('worker-2', 'Worker Two', 'leader-b'),
-    ];
+  it('renders the team grid when teams already exist', async () => {
+    teamsStoreState.teams = [sampleTeam];
 
     render(
       <MemoryRouter>
@@ -212,22 +156,97 @@ describe('TeamOverview page', () => {
     );
 
     await waitFor(() => {
-      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getAllByText('Leader Alpha').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Leader Beta').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Worker One').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Worker Two').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('team-grid')).toBeInTheDocument();
+    expect(screen.getByText('Engineering Team')).toBeInTheDocument();
+    expect(screen.queryByText('还没有团队')).not.toBeInTheDocument();
   });
 
-  it('collapses a leader group on header click', async () => {
-    agentsStoreState.agents = [
-      makeLeader('leader-a', 'Leader Alpha'),
-      makeLeader('leader-b', 'Leader Beta'),
-      makeWorker('worker-1', 'Worker One', 'leader-a'),
-      makeWorker('worker-2', 'Worker Two', 'leader-b'),
-    ];
+  it('enters create mode and shows the create zone plus agent panel', async () => {
+    render(
+      <MemoryRouter>
+        <TeamOverview />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '新建团队' }));
+
+    expect(screen.getByTestId('create-team-zone')).toBeInTheDocument();
+    expect(screen.getByTestId('agent-panel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '新建团队' })).toBeDisabled();
+  });
+
+  it('leaves create mode when the create zone cancels', async () => {
+    render(
+      <MemoryRouter>
+        <TeamOverview />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '新建团队' }));
+    fireEvent.click(screen.getByRole('button', { name: 'cancel-create' }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('create-team-zone')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('agent-panel')).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: '新建团队' })).not.toBeDisabled();
+  });
+
+  it('leaves create mode when the agent panel closes', async () => {
+    render(
+      <MemoryRouter>
+        <TeamOverview />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '新建团队' }));
+    fireEvent.click(screen.getByRole('button', { name: 'close-agent-panel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('create-team-zone')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('agent-panel')).not.toBeInTheDocument();
+    });
+  });
+
+  it('refetches teams and exits create mode after a successful team creation', async () => {
+    render(
+      <MemoryRouter>
+        <TeamOverview />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '新建团队' }));
+    fireEvent.click(screen.getByRole('button', { name: 'success-create' }));
+
+    await waitFor(() => {
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(2);
+    });
+
+    expect(screen.queryByTestId('create-team-zone')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('agent-panel')).not.toBeInTheDocument();
+  });
+
+  it('wires the grid delete callback to the teams store', async () => {
+    teamsStoreState.teams = [sampleTeam];
 
     render(
       <MemoryRouter>
@@ -236,67 +255,11 @@ describe('TeamOverview page', () => {
     );
 
     await waitFor(() => {
-      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
+      expect(teamsStoreState.fetchTeams).toHaveBeenCalledTimes(1);
     });
 
-    // Worker One is visible before collapse
-    expect(screen.getAllByText('Worker One').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: 'delete-first-team' }));
 
-    // Click the Leader Alpha group header to collapse it
-    // The header has role="button" and contains Leader Alpha in the header span
-    const allButtons = screen.getAllByRole('button', { hidden: true });
-    const leaderAlphaHeader = allButtons.find(
-      (el) => el.getAttribute('role') === 'button' && el.querySelector('span.text-sm.font-semibold')?.textContent === 'Leader Alpha',
-    );
-    expect(leaderAlphaHeader).not.toBeUndefined();
-    fireEvent.click(leaderAlphaHeader!);
-
-    // Worker One should be hidden (collapsed group)
-    expect(screen.queryByText('Worker One')).toBeNull();
-    // Worker Two should still be visible (other group not collapsed)
-    expect(screen.getAllByText('Worker Two').length).toBeGreaterThan(0);
-  });
-
-  it('renders ungrouped agents in standalone section', async () => {
-    agentsStoreState.agents = [
-      makeLeader('leader-a', 'Leader Alpha'),
-      makeWorker('worker-1', 'Worker One', 'leader-a'),
-      makeWorker('worker-free', 'Worker Free', null),
-    ];
-
-    render(
-      <MemoryRouter>
-        <TeamOverview />
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
-    });
-
-    expect(screen.getByText('Independent')).toBeInTheDocument();
-  });
-
-  it('falls back to flat grid when only one leader with no ungrouped', async () => {
-    agentsStoreState.agents = [
-      makeLeader('leader-a', 'Leader Alpha'),
-      makeWorker('worker-1', 'Worker One', 'leader-a'),
-    ];
-
-    render(
-      <MemoryRouter>
-        <TeamOverview />
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(agentsStoreState.fetchAgents).toHaveBeenCalled();
-    });
-
-    // Standalone section should not appear
-    expect(screen.queryByText('Independent')).toBeNull();
-    // Agents should still appear in the flat grid
-    expect(screen.getByText('Leader Alpha')).toBeInTheDocument();
-    expect(screen.getByText('Worker One')).toBeInTheDocument();
+    expect(teamsStoreState.deleteTeam).toHaveBeenCalledWith('team-1');
   });
 });

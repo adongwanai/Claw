@@ -106,6 +106,9 @@ win:
   # Skip update signature verification: we ship via OSS + GitHub without a
   # code-signing certificate, so verifying would always fail on the updater.
   verifyUpdateCodeSignature: false
+  # Unsigned local/CI Windows builds must not invoke the winCodeSign/rcedit
+  # toolchain, which extracts symlinks and fails on hosts without that privilege.
+  signAndEditExecutable: false
   extraResources:
     - from: resources/bin/win32-${arch}
       to: bin

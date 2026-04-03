@@ -33,6 +33,32 @@
         "addChannel": "Add Channel",
         "noChannels": "No channels are assigned to this agent yet."
     },
+    "square": {
+        "title": "Employee Square",
+        "subtitle": "Browse, create, and route into every agent from one square.",
+        "stats": {
+            "all": "All Agents",
+            "leaders": "Leaders",
+            "workers": "Workers"
+        },
+        "filters": {
+            "all": "All",
+            "leader": "Leaders",
+            "worker": "Workers",
+            "direct": "Direct Chat",
+            "leader_only": "Leader Only",
+            "with_team": "With Team"
+        },
+        "actions": {
+            "chat": "Chat",
+            "memory": "Memory",
+            "details": "Details"
+        },
+        "empty": {
+            "title": "No matching agents",
+            "description": "Adjust the current filters or create a new agent."
+        }
+    },
     "detail": {
         "title": "Agent Detail",
         "linkLabel": "Details",

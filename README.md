@@ -109,6 +109,7 @@ Chat markdown now covers standard math rendering and KaTeX `mhchem` chemistry fo
 ### 📡 Multi-Channel Management
 Configure and monitor multiple AI channels simultaneously. Each channel operates independently, allowing you to run specialized agents for different tasks.
 Feishu onboarding now stays inside KTClaw with one integrated wizard for plugin checks, robot create/link handoff, credential save, app-scope recovery, and QR-based user authorization.
+The channel workbench also supports account-scoped management inside the current product shape: you can inspect multiple accounts per channel, switch the default account, maintain account bindings, and resolve delivery targets for channels such as Feishu, WeChat, WeCom, DingTalk, and QQ Bot through a shared backend path.
 
 ### ⏰ Cron-Based Automation
 Schedule AI tasks to run automatically. Define triggers, set intervals, and let your AI agents work around the clock without manual intervention.
@@ -117,7 +118,9 @@ Agent detail pages now expose backend-owned cron relations and deep-link directl
 
 ### 👥 Team Control Plane (MVP)
 KTClaw now treats team pages as role-aware control surfaces instead of static member lists.
+The `/agents` route now serves as an Employee Square: a hero-led card grid with lightweight filters, direct `Chat / Memory / Details` entry points, and a right-side create sheet for new agents.
 In `Agent Detail`, each member can be configured with `teamRole` (`leader` or `worker`), `chatAccess` (`direct` or `leader_only`), and `responsibility`.
+Agent dossiers now use `Overview / Memory / Skills / Activity` tabs so profile controls, shared memory access, read-only skills, and cron/activity context live in one route without turning the page back into a flat admin form.
 `leader_only` is now enforced for normal direct-chat entry paths in the workbench: users are expected to route requests through the reporting leader instead of opening a direct worker chat.
 Team pages also surface user-facing channel ownership and lightweight work visibility derived from the existing kanban/runtime model, so you can see who owns entry points and which members are blocked, waiting, or actively executing work.
 `Team Overview` and `Team Map` now surface these semantics alongside runtime activity cues, so you can quickly identify who coordinates, who executes, and which members should be reached through leaders.

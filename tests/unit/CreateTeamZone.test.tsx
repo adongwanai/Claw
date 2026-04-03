@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { CreateTeamZone } from '@/components/team/CreateTeamZone';
-import { useTeamsStore } from '@/stores/teams';
+import { createRef } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { CreateTeamZone, type CreateTeamZoneRef } from '@/components/team/CreateTeamZone';
 import { useAgentsStore } from '@/stores/agents';
+import { useTeamsStore } from '@/stores/teams';
 
 vi.mock('@dnd-kit/core', () => ({
   useDroppable: () => ({
@@ -21,152 +22,131 @@ vi.mock('@/stores/agents', () => ({
 
 describe('CreateTeamZone', () => {
   const mockCreateTeam = vi.fn();
-  const mockAgents = [
-    { id: 'agent-1', name: 'Alice', avatar: null },
-    { id: 'agent-2', name: 'Bob', avatar: null },
-    { id: 'agent-3', name: 'Charlie', avatar: null },
+  const mockTeams = [
+    {
+      id: 'team-1',
+      name: 'Main 的团队',
+      leaderId: 'agent-1',
+      memberIds: ['agent-2'],
+      description: '',
+      status: 'idle',
+      createdAt: 1,
+      updatedAt: 1,
+      memberCount: 2,
+      activeTaskCount: 0,
+      lastActiveTime: undefined,
+      leaderName: 'Main',
+      memberAvatars: [],
+    },
   ];
+  const mockAgents = [
+    { id: 'agent-1', name: 'Main', avatar: null },
+    { id: 'agent-2', name: 'Echo', avatar: null },
+  ];
+  type MockTeamsStore = {
+    teams: typeof mockTeams;
+    createTeam: typeof mockCreateTeam;
+  };
+  type MockAgentsStore = {
+    agents: typeof mockAgents;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useTeamsStore as any).mockReturnValue({
-      createTeam: mockCreateTeam,
+
+    vi.mocked(useTeamsStore).mockImplementation((selector?: (state: MockTeamsStore) => unknown) => {
+      const state: MockTeamsStore = {
+        teams: mockTeams,
+        createTeam: mockCreateTeam,
+      };
+      return selector ? selector(state) : state;
     });
-    (useAgentsStore as any).mockReturnValue({
-      agents: mockAgents,
+
+    vi.mocked(useAgentsStore).mockImplementation((selector?: (state: MockAgentsStore) => unknown) => {
+      const state: MockAgentsStore = {
+        agents: mockAgents,
+      };
+      return selector ? selector(state) : state;
     });
   });
 
-  it('shows empty state with prompt text', () => {
+  it('uses a full-width create zone container instead of a narrow centered wrapper', () => {
     render(<CreateTeamZone />);
-    expect(screen.getByText('创建新团队')).toBeInTheDocument();
-    expect(screen.getByText(/从右侧拖拽 Agent/)).toBeInTheDocument();
+
+    const zone = screen.getByTestId('create-team-zone');
+    expect(zone).toHaveClass('w-full');
+    expect(zone).not.toHaveClass('max-w-3xl');
   });
 
-  it('expands to show Leader and Member zones when agent added', () => {
-    render(<CreateTeamZone />);
+  it('applies the leader suffix before opening confirmation and uses it for the default team name', async () => {
+    const ref = createRef<CreateTeamZoneRef>();
+    render(<CreateTeamZone ref={ref} />);
 
-    // Initially empty state
-    expect(screen.getByText('创建新团队')).toBeInTheDocument();
+    await act(async () => {
+      ref.current?.handleLeaderDrop('agent-1');
+    });
 
-    // Simulate adding a leader (this would be done via drag-drop in real usage)
-    // For now, we'll test the component structure
+    expect(await screen.findByText('Main-1')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '下一步' }));
+    });
+
+    expect(screen.getByDisplayValue('Main 的团队-1')).toBeInTheDocument();
   });
 
-  it('shows hint when less than 3 members', () => {
-    render(<CreateTeamZone />);
-    // This test will be implemented when we add state management
+  it('submits the suffixed default team name when creating a second team for the same leader', async () => {
+    const ref = createRef<CreateTeamZoneRef>();
+    mockCreateTeam.mockResolvedValueOnce(undefined);
+
+    render(<CreateTeamZone ref={ref} />);
+
+    await act(async () => {
+      ref.current?.handleLeaderDrop('agent-1');
+      ref.current?.handleMemberDrop('agent-2');
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '下一步' }));
+    });
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: '确认创建' }));
+    });
+
+    expect(mockCreateTeam).toHaveBeenCalledWith({
+      leaderId: 'agent-1',
+      memberIds: ['agent-2'],
+      name: 'Main 的团队-1',
+      description: undefined,
+    });
   });
+  it('deduplicates member drops and ignores dropping the leader into the member zone', async () => {
+    const ref = createRef<CreateTeamZoneRef>();
+    mockCreateTeam.mockResolvedValueOnce(undefined);
 
-  it('allows removing agents from zones', () => {
-    render(<CreateTeamZone />);
-    // This test will be implemented when we add state management
-  });
+    render(<CreateTeamZone ref={ref} />);
 
-  describe('Confirmation Form', () => {
-    it('shows confirmation form when create button is clicked', () => {
-      const { rerender } = render(<CreateTeamZone />);
-
-      // Simulate having leader and members (would be set via drag-drop)
-      // For testing, we'll need to expose a way to set initial state
-      // This test will pass once we implement the form
-
-      const createButton = screen.queryByText('创建团队');
-      if (createButton && !createButton.hasAttribute('disabled')) {
-        fireEvent.click(createButton);
-        expect(screen.getByText('确认创建团队')).toBeInTheDocument();
-      }
+    await act(async () => {
+      ref.current?.handleLeaderDrop('agent-1');
+      ref.current?.handleMemberDrop('agent-1');
+      ref.current?.handleMemberDrop('agent-2');
+      ref.current?.handleMemberDrop('agent-2');
     });
 
-    it('auto-generates team name as "{LeaderName} 的团队"', async () => {
-      render(<CreateTeamZone />);
-
-      // After leader is set, team name should auto-generate
-      // This will be tested once we implement the useEffect
-      await waitFor(() => {
-        const nameInput = screen.queryByPlaceholderText('输入团队名称');
-        if (nameInput) {
-          expect((nameInput as HTMLInputElement).value).toMatch(/的团队$/);
-        }
-      });
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole('button').at(-1)!);
     });
 
-    it('allows editing team name and description', () => {
-      render(<CreateTeamZone />);
-
-      const nameInput = screen.queryByPlaceholderText('输入团队名称');
-      const descInput = screen.queryByPlaceholderText('描述团队的职责和目标');
-
-      if (nameInput && descInput) {
-        fireEvent.change(nameInput, { target: { value: '测试团队' } });
-        fireEvent.change(descInput, { target: { value: '测试描述' } });
-
-        expect((nameInput as HTMLInputElement).value).toBe('测试团队');
-        expect((descInput as HTMLTextAreaElement).value).toBe('测试描述');
-      }
+    await act(async () => {
+      fireEvent.click((await screen.findAllByRole('button')).at(-1)!);
     });
 
-    it('calls createTeam when confirm button is clicked', async () => {
-      render(<CreateTeamZone />);
-
-      const confirmButton = screen.queryByText('确认创建');
-      if (confirmButton && !confirmButton.hasAttribute('disabled')) {
-        fireEvent.click(confirmButton);
-
-        await waitFor(() => {
-          expect(mockCreateTeam).toHaveBeenCalled();
-        });
-      }
-    });
-
-    it('resets state after successful creation', async () => {
-      mockCreateTeam.mockResolvedValueOnce(undefined);
-      render(<CreateTeamZone />);
-
-      const confirmButton = screen.queryByText('确认创建');
-      if (confirmButton) {
-        fireEvent.click(confirmButton);
-
-        await waitFor(() => {
-          expect(screen.queryByText('确认创建团队')).not.toBeInTheDocument();
-        });
-      }
-    });
-
-    it('closes form when cancel button is clicked', () => {
-      render(<CreateTeamZone />);
-
-      const cancelButton = screen.queryByText('取消');
-      if (cancelButton) {
-        fireEvent.click(cancelButton);
-        expect(screen.queryByText('确认创建团队')).not.toBeInTheDocument();
-      }
-    });
-
-    it('disables confirm button when name is empty', () => {
-      render(<CreateTeamZone />);
-
-      const confirmButton = screen.queryByText('确认创建');
-      const nameInput = screen.queryByPlaceholderText('输入团队名称');
-
-      if (confirmButton && nameInput) {
-        fireEvent.change(nameInput, { target: { value: '' } });
-        expect(confirmButton).toBeDisabled();
-      }
-    });
-
-    it('shows loading state during creation', async () => {
-      mockCreateTeam.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)));
-      render(<CreateTeamZone />);
-
-      const confirmButton = screen.queryByText('确认创建');
-      if (confirmButton && !confirmButton.hasAttribute('disabled')) {
-        fireEvent.click(confirmButton);
-
-        await waitFor(() => {
-          expect(screen.queryByText('创建中...')).toBeInTheDocument();
-        });
-      }
-    });
+    expect(mockCreateTeam).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leaderId: 'agent-1',
+        memberIds: ['agent-2'],
+      }),
+    );
   });
 });

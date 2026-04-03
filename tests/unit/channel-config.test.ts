@@ -1,4 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -162,6 +163,68 @@ describe('channel credential normalization and duplicate checks', () => {
     const { listConfiguredChannels } = await import('@electron/utils/channel-config');
     await expect(listConfiguredChannels()).resolves.toContain('wechat');
   });
+
+  it('lists configured channel accounts with default account metadata', async () => {
+    await writeOpenClawJson({
+      channels: {
+        feishu: {
+          enabled: true,
+          defaultAccount: 'default',
+          accounts: {
+            default: { enabled: true, appId: 'default-app', appSecret: 'default-secret' },
+            'agent-a': { enabled: true, appId: 'agent-app', appSecret: 'agent-secret' },
+          },
+          appId: 'default-app',
+          appSecret: 'default-secret',
+        },
+        'openclaw-weixin': {
+          enabled: true,
+          defaultAccount: 'default',
+          accounts: {
+            default: { enabled: true },
+          },
+        },
+      },
+    });
+
+    const { listConfiguredChannelAccounts } = await import('@electron/utils/channel-config');
+    await expect(listConfiguredChannelAccounts()).resolves.toEqual(expect.objectContaining({
+      feishu: {
+        defaultAccountId: 'default',
+        accountIds: ['default', 'agent-a'],
+      },
+      'openclaw-weixin': {
+        defaultAccountId: 'default',
+        accountIds: ['default'],
+      },
+    }));
+  });
+
+  it('sets the default channel account and re-mirrors top-level credentials', async () => {
+    await writeOpenClawJson({
+      channels: {
+        feishu: {
+          enabled: true,
+          defaultAccount: 'default',
+          accounts: {
+            default: { enabled: true, appId: 'default-app', appSecret: 'default-secret' },
+            'agent-a': { enabled: true, appId: 'agent-app', appSecret: 'agent-secret' },
+          },
+          appId: 'default-app',
+          appSecret: 'default-secret',
+        },
+      },
+    });
+
+    const { setChannelDefaultAccount } = await import('@electron/utils/channel-config');
+    await setChannelDefaultAccount('feishu', 'agent-a');
+
+    const config = await readOpenClawJson();
+    const feishu = (config.channels as Record<string, Record<string, unknown>>).feishu;
+    expect(feishu.defaultAccount).toBe('agent-a');
+    expect(feishu.appId).toBe('agent-app');
+    expect(feishu.appSecret).toBe('agent-secret');
+  });
 });
 
 describe('parseDoctorValidationOutput', () => {
@@ -264,6 +327,41 @@ describe('default channel account deletion mirror cleanup', () => {
     expect((feishu.accounts as Record<string, unknown>).default).toBeUndefined();
     expect(feishu.appId).toBeUndefined();
     expect(feishu.appSecret).toBeUndefined();
+  });
+});
+
+describe('WeChat dangling plugin cleanup', () => {
+  beforeEach(async () => {
+    vi.resetAllMocks();
+    vi.resetModules();
+    await rm(testHome, { recursive: true, force: true });
+    await rm(testUserData, { recursive: true, force: true });
+  });
+
+  it('removes dangling openclaw-weixin plugin registration and state when no channel config exists', async () => {
+    const { cleanupDanglingWeChatPluginState, writeOpenClawConfig } = await import('@electron/utils/channel-config');
+
+    await writeOpenClawConfig({
+      plugins: {
+        enabled: true,
+        allow: ['openclaw-weixin'],
+        entries: {
+          'openclaw-weixin': { enabled: true },
+        },
+      },
+    });
+
+    const staleStateDir = join(testHome, '.openclaw', 'openclaw-weixin', 'accounts');
+    await mkdir(staleStateDir, { recursive: true });
+    await writeFile(join(staleStateDir, 'bot-im-bot.json'), JSON.stringify({ token: 'stale-token' }), 'utf8');
+    await writeFile(join(testHome, '.openclaw', 'openclaw-weixin', 'accounts.json'), JSON.stringify(['bot-im-bot']), 'utf8');
+
+    const result = await cleanupDanglingWeChatPluginState();
+    expect(result.cleanedDanglingState).toBe(true);
+
+    const config = await readOpenClawJson();
+    expect(config.plugins).toBeUndefined();
+    expect(existsSync(join(testHome, '.openclaw', 'openclaw-weixin'))).toBe(false);
   });
 });
 

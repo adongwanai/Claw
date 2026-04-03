@@ -41,6 +41,23 @@ function isIgnorablePostHogShutdownError(error: unknown): boolean {
         : false;
 }
 
+async function telemetryFetch(input: string, init?: RequestInit): Promise<Response> {
+    try {
+        return await fetch(input, init);
+    } catch (error) {
+        if (isIgnorablePostHogShutdownError(error)) {
+            logger.debug('Ignored telemetry network error:', error);
+            return new Response('{}', {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+        }
+        throw error;
+    }
+}
+
 /**
  * Initialize PostHog telemetry
  */
@@ -53,7 +70,7 @@ export async function initTelemetry(): Promise<void> {
         }
 
         // Initialize PostHog client
-        posthogClient = new PostHog(POSTHOG_API_KEY, { host: POSTHOG_HOST });
+        posthogClient = new PostHog(POSTHOG_API_KEY, { host: POSTHOG_HOST, fetch: telemetryFetch });
 
         // Get or generate machine ID
         distinctId = await getSetting('machineId');

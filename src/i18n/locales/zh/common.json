@@ -1,4 +1,4 @@
-{
+﻿{
     "sidebar": {
         "chat": "聊天",
         "newChat": "新对话",
@@ -536,6 +536,17 @@
         "broadcastButton": "群组会议"
     },
     "teamMap": {
+        "header": {
+            "leaderLabel": "团队 Leader",
+            "backToOverview": "返回团队总览",
+            "addMember": "添加团队成员",
+            "memberCount": "{{count}} 名成员"
+        },
+        "notFound": {
+            "title": "团队不存在",
+            "description": "请返回团队总览并选择一个有效的团队。",
+            "back": "返回团队总览"
+        },
         "status": {
             "active": "活跃",
             "idle": "待命",
@@ -550,6 +561,16 @@
         "empty": {
             "title": "暂无 Agent",
             "description": "在「员工总览」页面创建 Agent 后显示"
+        },
+        "emptyTeam": {
+            "title": "这个团队还没有成员",
+            "description": "从成员面板添加 Agent 来完善团队地图，Leader 会固定显示在根节点。"
+        },
+        "hover": {
+            "summary": "工作摘要",
+            "currentTask": "当前任务",
+            "blockingReason": "阻塞原因",
+            "nextStep": "建议下一步"
         },
         "zoom": {
             "in": "放大",

@@ -28,7 +28,7 @@ import { useChatStore } from '@/stores/chat';
 import { useGatewayStore } from '@/stores/gateway';
 import { useSettingsStore } from '@/stores/settings';
 import { useRightPanelStore } from '@/stores/rightPanelStore';
-import { CHANNEL_ICONS, CHANNEL_WORKBENCH_TYPES, type Channel } from '@/types/channel';
+import { CHANNEL_ICONS, type Channel } from '@/types/channel';
 
 const CHAT_REQUEST_FILE_UPLOAD_EVENT = 'chat:request-file-upload';
 const CHAT_UPLOAD_PENDING_KEY = 'ktclaw:pending-upload';
@@ -307,10 +307,7 @@ export function Sidebar() {
           {!sidebarCollapsed && channelsOpen ? (
             <div className="space-y-1 pl-4 pr-2 py-1">
               {(() => {
-                const workbenchChannels = channels.filter((c) =>
-                  CHANNEL_WORKBENCH_TYPES.includes(c.type),
-                );
-                const sortedBots = [...workbenchChannels].sort((a, b) => {
+                const sortedBots = [...channels].sort((a, b) => {
                   if (a.status === 'connected' && b.status !== 'connected') return -1;
                   if (a.status !== 'connected' && b.status === 'connected') return 1;
                   return a.name.localeCompare(b.name);
@@ -318,9 +315,22 @@ export function Sidebar() {
 
                 if (sortedBots.length === 0) {
                   return (
-                    <p className="px-3 py-2 text-[13px] text-muted-foreground">
-                      {tSidebar('noChannels', 'No channels configured')}
-                    </p>
+                    <>
+                      <p className="px-3 py-2 text-[13px] text-muted-foreground">
+                        {tSidebar('noChannels', 'No channels configured')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPendingAddChannel(true);
+                          navigate('/channels');
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-[#8e8e93] transition-colors hover:bg-[#e5e5ea] hover:text-[#3c3c43]"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>添加渠道</span>
+                      </button>
+                    </>
                   );
                 }
 

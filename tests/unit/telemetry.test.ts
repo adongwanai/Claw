@@ -7,6 +7,7 @@ const {
   setSettingMock,
   loggerDebugMock,
   loggerErrorMock,
+  posthogOptionsRef,
 } = vi.hoisted(() => ({
   shutdownMock: vi.fn(),
   captureMock: vi.fn(),
@@ -14,10 +15,12 @@ const {
   setSettingMock: vi.fn(),
   loggerDebugMock: vi.fn(),
   loggerErrorMock: vi.fn(),
+  posthogOptionsRef: { current: null as Record<string, unknown> | null },
 }));
 
 vi.mock('posthog-node', () => ({
-  PostHog: vi.fn(function PostHogMock() {
+  PostHog: vi.fn(function PostHogMock(_apiKey: string, options?: Record<string, unknown>) {
+    posthogOptionsRef.current = options ?? null;
     return {
       capture: captureMock,
       shutdown: shutdownMock,
@@ -88,5 +91,34 @@ describe('main telemetry shutdown', () => {
       'Ignored telemetry shutdown network error:',
       expect.objectContaining({ name: 'PostHogFetchNetworkError' }),
     );
+  });
+
+  it('wraps PostHog fetch to swallow ignorable network errors', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = vi.fn(async () => {
+      throw new TypeError('fetch failed');
+    });
+    global.fetch = fetchMock as typeof fetch;
+
+    try {
+      const { initTelemetry } = await import('@electron/utils/telemetry');
+      await initTelemetry();
+
+      const fetchOption = posthogOptionsRef.current?.fetch as ((url: string, options: Record<string, unknown>) => Promise<Response>) | undefined;
+      expect(fetchOption).toBeTypeOf('function');
+
+      const response = await fetchOption!(
+        'https://us.i.posthog.com/batch/',
+        { method: 'POST' },
+      );
+
+      expect(response.status).toBe(200);
+      expect(loggerDebugMock).toHaveBeenCalledWith(
+        'Ignored telemetry network error:',
+        expect.any(TypeError),
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

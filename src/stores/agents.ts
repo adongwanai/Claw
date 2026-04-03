@@ -12,7 +12,12 @@ interface AgentsState {
   loading: boolean;
   error: string | null;
   fetchAgents: () => Promise<void>;
-  createAgent: (name: string, persona?: string) => Promise<void>;
+  createAgent: (input: {
+    name: string;
+    persona?: string;
+    teamRole?: AgentTeamRole;
+    model?: string;
+  }) => Promise<{ createdAgentId: string }>;
   updateAgent: (
     agentId: string,
     updates: {
@@ -76,14 +81,15 @@ export const useAgentsStore = create<AgentsState>((set) => ({
     }
   },
 
-  createAgent: async (name: string, persona?: string) => {
+  createAgent: async (input) => {
     set({ error: null });
     try {
-      const snapshot = await hostApiFetch<AgentsSnapshot & { success?: boolean }>('/api/agents', {
+      const result = await hostApiFetch<AgentsSnapshot & { success?: boolean; createdAgentId: string }>('/api/agents', {
         method: 'POST',
-        body: JSON.stringify({ name, ...(persona !== undefined ? { persona } : {}) }),
+        body: JSON.stringify(input),
       });
-      set(applySnapshot(snapshot));
+      set(applySnapshot(result));
+      return { createdAgentId: result.createdAgentId };
     } catch (error) {
       set({ error: String(error) });
       throw error;

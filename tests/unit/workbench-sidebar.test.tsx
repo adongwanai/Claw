@@ -137,11 +137,10 @@ describe('workbench sidebar', () => {
     expect(screen.getByRole('button', { name: 'Employee square' })).toBeInTheDocument();
     expect(screen.getByText('Alpha Session')).toBeInTheDocument();
     expect(screen.queryByText('Feishu Bot')).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Search sessions...')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload file' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'common:sidebar.selectAvatar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search sessions...' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'common:sidebar.notifications' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'common:sidebar.settingsAria' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common:sidebar.selectAvatar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'common:sidebar.settingsAria' })).toBeInTheDocument();
     expect(screen.queryByText('Add clone')).not.toBeInTheDocument();
   });
 
@@ -152,6 +151,27 @@ describe('workbench sidebar', () => {
 
     expect(screen.getByText('Feishu Bot')).toBeInTheDocument();
     expect(screen.getByText('Alpha Session')).toBeInTheDocument();
+  });
+
+  it('shows configured non-workbench channels in the channels section', () => {
+    mockChannelsState.channels = [
+      { id: 'telegram-default', type: 'telegram', name: 'Ops Telegram', status: 'connected' as const },
+    ];
+
+    renderSidebar();
+    fireEvent.click(screen.getByRole('button', { name: 'Channels' }));
+
+    expect(screen.getByText('Ops Telegram')).toBeInTheDocument();
+  });
+
+  it('still offers an add-channel action when no workbench channels are configured', () => {
+    mockChannelsState.channels = [];
+    renderSidebar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Channels' }));
+
+    expect(screen.getByText('No channels configured')).toBeInTheDocument();
+    expect(screen.getByText('添加渠道')).toBeInTheDocument();
   });
 
   it('navigates from fixed nav items and switches sessions from the list', () => {
@@ -175,7 +195,7 @@ describe('workbench sidebar', () => {
     const aside = container.querySelector('aside');
     expect(aside).toHaveClass('w-16');
     expect(screen.queryByText('Task board')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload file' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Task board' })).toBeInTheDocument();
 
     const scrollRegion = container.querySelector('aside .overflow-y-auto');
     expect(scrollRegion).toBeInTheDocument();

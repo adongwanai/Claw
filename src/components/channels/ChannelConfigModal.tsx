@@ -33,6 +33,7 @@ import {
   type ChannelMeta,
   type ChannelConfigField,
 } from '@/types/channel';
+import { buildQrChannelEventName, usesPluginManagedQrAccounts } from '@/lib/channel-alias';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import telegramIcon from '@/assets/channels/telegram.svg';
@@ -48,7 +49,11 @@ interface ChannelConfigModalProps {
   configuredTypes?: string[];
   showChannelName?: boolean;
   allowExistingConfig?: boolean;
+  allowEditAccountId?: boolean;
+  existingAccountIds?: string[];
+  initialConfigValues?: Record<string, string>;
   agentId?: string;
+  accountId?: string;
   onClose: () => void;
   onChannelSaved?: (channelType: ChannelType) => void | Promise<void>;
 }
@@ -63,7 +68,11 @@ export function ChannelConfigModal({
   configuredTypes = [],
   showChannelName = true,
   allowExistingConfig = true,
+  allowEditAccountId = false,
+  existingAccountIds = [],
+  initialConfigValues,
   agentId,
+  accountId,
   onClose,
   onChannelSaved,
 }: ChannelConfigModalProps) {
@@ -72,6 +81,7 @@ export function ChannelConfigModal({
   const [selectedType, setSelectedType] = useState<ChannelType | null>(initialSelectedType);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [channelName, setChannelName] = useState('');
+  const [accountIdInput, setAccountIdInput] = useState(accountId || '');
   const [connecting, setConnecting] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -87,10 +97,21 @@ export function ChannelConfigModal({
 
   const meta: ChannelMeta | null = selectedType ? CHANNEL_META[selectedType] : null;
   const shouldUseCredentialValidation = selectedType !== 'feishu';
+  const usesManagedQrAccounts = usesPluginManagedQrAccounts(selectedType);
+  const showAccountIdEditor = allowEditAccountId && !usesManagedQrAccounts;
+  const resolvedAccountId = usesManagedQrAccounts
+    ? (accountId ?? undefined)
+    : showAccountIdEditor
+      ? accountIdInput.trim()
+      : (accountId ?? (agentId ? (agentId === 'main' ? 'default' : agentId) : undefined));
 
   useEffect(() => {
     setSelectedType(initialSelectedType);
   }, [initialSelectedType]);
+
+  useEffect(() => {
+    setAccountIdInput(accountId || '');
+  }, [accountId]);
 
   useEffect(() => {
     if (!selectedType) {
@@ -100,7 +121,6 @@ export function ChannelConfigModal({
       setValidationResult(null);
       setQrCode(null);
       setConnecting(false);
-      hostApiFetch('/api/channels/whatsapp/cancel', { method: 'POST' }).catch(() => { });
       return;
     }
 
@@ -113,13 +133,21 @@ export function ChannelConfigModal({
       return;
     }
 
+    if (initialConfigValues) {
+      setConfigValues(initialConfigValues);
+      setIsExistingConfig(Object.keys(initialConfigValues).length > 0);
+      setLoadingConfig(false);
+      setChannelName(showChannelName ? CHANNEL_NAMES[selectedType] : '');
+      return;
+    }
+
     let cancelled = false;
     setLoadingConfig(true);
     setChannelName(showChannelName ? CHANNEL_NAMES[selectedType] : '');
 
     (async () => {
       try {
-        const accountParam = agentId ? `?accountId=${encodeURIComponent(agentId === 'main' ? 'default' : agentId)}` : '';
+        const accountParam = resolvedAccountId ? `?accountId=${encodeURIComponent(resolvedAccountId)}` : '';
         const result = await hostApiFetch<{ success: boolean; values?: Record<string, string> }>(
           `/api/channels/config/${encodeURIComponent(selectedType)}${accountParam}`
         );
@@ -145,7 +173,7 @@ export function ChannelConfigModal({
     return () => {
       cancelled = true;
     };
-  }, [agentId, allowExistingConfig, configuredTypes, selectedType, showChannelName]);
+  }, [allowExistingConfig, configuredTypes, initialConfigValues, resolvedAccountId, selectedType, showChannelName]);
 
   useEffect(() => {
     if (selectedType && !loadingConfig && showChannelName && firstInputRef.current) {
@@ -171,59 +199,102 @@ export function ChannelConfigModal({
 
     await onChannelSaved?.(channelType);
   }, [addChannel, channelName, channels, configValues, fetchChannels, meta?.configFields, onChannelSaved, showChannelName]);
+  const finishSaveRef = useRef(finishSave);
+  const onCloseRef = useRef(onClose);
+  const translateRef = useRef(t);
 
   useEffect(() => {
-    if (selectedType !== 'whatsapp') return;
+    finishSaveRef.current = finishSave;
+  }, [finishSave]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    translateRef.current = t;
+  }, [t]);
+
+  function normalizeQrImageSource(data: { qr?: string; raw?: string }): string | null {
+    const qr = typeof data.qr === 'string' ? data.qr.trim() : '';
+    if (qr) {
+      if (qr.startsWith('data:image') || qr.startsWith('http://') || qr.startsWith('https://')) {
+        return qr;
+      }
+      return `data:image/png;base64,${qr}`;
+    }
+
+    const raw = typeof data.raw === 'string' ? data.raw.trim() : '';
+    if (!raw) return null;
+    if (raw.startsWith('data:image') || raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
+    }
+    return null;
+  }
+
+  useEffect(() => {
+    if (!selectedType || meta?.connectionType !== 'qr') return;
+    const channelType = selectedType;
 
     const onQr = (...args: unknown[]) => {
-      const data = args[0] as { qr: string; raw: string };
-      void data.raw;
-      setQrCode(`data:image/png;base64,${data.qr}`);
+      const data = args[0] as { qr?: string; raw?: string };
+      const nextQr = normalizeQrImageSource(data);
+      if (!nextQr) return;
+      setQrCode(nextQr);
+      setConnecting(false);
     };
 
     const onSuccess = async (...args: unknown[]) => {
       const data = args[0] as { accountId?: string } | undefined;
       void data?.accountId;
-      toast.success(t('toast.whatsappConnected'));
+      toast.success(translateRef.current('toast.qrConnected', { name: CHANNEL_NAMES[channelType] }));
       try {
-        const saveResult = await hostApiFetch<{ success?: boolean; error?: string }>('/api/channels/config', {
-          method: 'POST',
-          body: JSON.stringify({ channelType: 'whatsapp', config: { enabled: true } }),
-        });
-        if (!saveResult?.success) {
-          throw new Error(saveResult?.error || 'Failed to save WhatsApp config');
+        if (channelType === 'whatsapp') {
+          const saveResult = await hostApiFetch<{ success?: boolean; error?: string }>('/api/channels/config', {
+            method: 'POST',
+            body: JSON.stringify({ channelType: 'whatsapp', config: { enabled: true }, accountId: resolvedAccountId }),
+          });
+          if (!saveResult?.success) {
+            throw new Error(saveResult?.error || 'Failed to save WhatsApp config');
+          }
         }
 
-        await finishSave('whatsapp');
-        // Gateway restart is already triggered by scheduleGatewayChannelRestart
-        // in the POST /api/channels/config route handler (debounced).  Calling
-        // restart() here directly races with that debounced restart and the
-        // config write, which can cause openclaw.json overwrites.
-        onClose();
+        try {
+          await finishSaveRef.current(channelType);
+        } catch (postSaveError) {
+          toast.warning(translateRef.current('toast.savedButRefreshFailed'));
+          console.warn('Channel saved but post-save refresh failed:', postSaveError);
+        }
+        onCloseRef.current();
       } catch (error) {
-        toast.error(t('toast.configFailed', { error: String(error) }));
+        toast.error(translateRef.current('toast.configFailed', { error: String(error) }));
         setConnecting(false);
       }
     };
 
     const onError = (...args: unknown[]) => {
-      const err = args[0] as string;
-      toast.error(t('toast.whatsappFailed', { error: err }));
+      const err = typeof args[0] === 'string'
+        ? args[0]
+        : String((args[0] as { message?: string } | undefined)?.message || args[0]);
+      toast.error(translateRef.current('toast.qrFailed', { name: CHANNEL_NAMES[channelType], error: err }));
       setQrCode(null);
       setConnecting(false);
     };
 
-    const removeQrListener = subscribeHostEvent('channel:whatsapp-qr', onQr);
-    const removeSuccessListener = subscribeHostEvent('channel:whatsapp-success', onSuccess);
-    const removeErrorListener = subscribeHostEvent('channel:whatsapp-error', onError);
+    const removeQrListener = subscribeHostEvent(buildQrChannelEventName(channelType, 'qr'), onQr);
+    const removeSuccessListener = subscribeHostEvent(buildQrChannelEventName(channelType, 'success'), onSuccess);
+    const removeErrorListener = subscribeHostEvent(buildQrChannelEventName(channelType, 'error'), onError);
 
     return () => {
       removeQrListener();
       removeSuccessListener();
       removeErrorListener();
-      hostApiFetch('/api/channels/whatsapp/cancel', { method: 'POST' }).catch(() => { });
+      hostApiFetch(`/api/channels/${encodeURIComponent(channelType)}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify(resolvedAccountId ? { accountId: resolvedAccountId } : {}),
+      }).catch(() => { });
     };
-  }, [selectedType, finishSave, onClose, t]);
+  }, [meta?.connectionType, resolvedAccountId, selectedType]);
 
   const handleValidate = async () => {
     if (!selectedType || !shouldUseCredentialValidation) return;
@@ -274,10 +345,25 @@ export function ChannelConfigModal({
     setValidationResult(null);
 
     try {
+      if (showAccountIdEditor) {
+        const nextAccountId = accountIdInput.trim();
+        if (!nextAccountId) {
+          toast.error(t('account.invalidId'));
+          setConnecting(false);
+          return;
+        }
+        const duplicateExists = existingAccountIds.some((id) => id === nextAccountId && id !== (accountId || '').trim());
+        if (duplicateExists) {
+          toast.error(t('account.accountIdExists', { accountId: nextAccountId }));
+          setConnecting(false);
+          return;
+        }
+      }
+
       if (meta.connectionType === 'qr') {
-        await hostApiFetch('/api/channels/whatsapp/start', {
+        await hostApiFetch(`/api/channels/${encodeURIComponent(selectedType)}/start`, {
           method: 'POST',
-          body: JSON.stringify({ accountId: 'default' }),
+          body: JSON.stringify(resolvedAccountId ? { accountId: resolvedAccountId } : {}),
         });
         return;
       }
@@ -320,7 +406,6 @@ export function ChannelConfigModal({
       }
 
       const config: Record<string, unknown> = { ...configValues };
-      const resolvedAccountId = agentId ? (agentId === 'main' ? 'default' : agentId) : undefined;
       const saveResult = await hostApiFetch<{
         success?: boolean;
         error?: string;
@@ -336,7 +421,12 @@ export function ChannelConfigModal({
         toast.warning(saveResult.warning);
       }
 
-      await finishSave(selectedType);
+      try {
+        await finishSave(selectedType);
+      } catch (postSaveError) {
+        toast.warning(t('toast.savedButRefreshFailed'));
+        console.warn('Channel saved but post-save refresh failed:', postSaveError);
+      }
 
       toast.success(t('toast.channelSaved', { name: meta.name }));
       toast.success(t('toast.channelConnecting', { name: meta.name }));
@@ -529,6 +619,20 @@ export function ChannelConfigModal({
                 </div>
               )}
 
+              {showAccountIdEditor && (
+                <div className="space-y-2.5">
+                  <Label htmlFor="account-id" className={labelClasses}>{t('account.customIdLabel')}</Label>
+                  <Input
+                    id="account-id"
+                    value={accountIdInput}
+                    onChange={(event) => setAccountIdInput(event.target.value)}
+                    placeholder={t('account.customIdPlaceholder')}
+                    className={inputClasses}
+                  />
+                  <p className="text-[12px] text-muted-foreground">{t('account.customIdHint')}</p>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {meta?.configFields.map((field) => (
                   <ConfigField
@@ -618,7 +722,7 @@ export function ChannelConfigModal({
                     onClick={() => {
                       void handleConnect();
                     }}
-                    disabled={connecting || !isFormValid()}
+                    disabled={connecting || !isFormValid() || (showAccountIdEditor && !accountIdInput.trim())}
                     className={primaryButtonClasses}
                   >
                     {connecting ? (

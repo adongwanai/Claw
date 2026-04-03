@@ -1,131 +1,215 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Bot, Check, Plus, RefreshCw, Settings2, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { AlertCircle } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { AddAgentDialog } from '@/components/agents/AddAgentDialog';
 import { AgentSettingsModal } from '@/components/agents/AgentSettingsModal';
+import { CreateAgentSheet } from '@/components/agents/CreateAgentSheet';
+import {
+  EmployeeSquareHero,
+  type EmployeeSquareFilterKey,
+} from '@/components/agents/EmployeeSquareHero';
+import { EmployeeSquareCard } from '@/components/agents/EmployeeSquareCard';
 import { useAgentsStore } from '@/stores/agents';
 import { useChannelsStore } from '@/stores/channels';
+import { useTeamsStore } from '@/stores/teams';
 import { useGatewayStore } from '@/stores/gateway';
-import { CHANNEL_NAMES, type ChannelType } from '@/types/channel';
+import { useChatStore } from '@/stores/chat';
 import type { AgentSummary } from '@/types/agent';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { Link } from 'react-router-dom';
+import { buildEmployeeSquareCardModels } from '@/lib/agent-square-view-model';
 
 export function Agents() {
   const { t } = useTranslation('agents');
+  const navigate = useNavigate();
   const gatewayStatus = useGatewayStore((state) => state.status);
   const {
     agents,
-    loading,
-    error,
+    loading: agentsLoading,
+    error: agentsError,
     fetchAgents,
-    createAgent,
     deleteAgent,
   } = useAgentsStore();
   const { channels, fetchChannels } = useChannelsStore();
+  const {
+    teams,
+    loading: teamsLoading,
+    error: teamsError,
+    fetchTeams,
+  } = useTeamsStore();
+  const sessionLastActivity = useChatStore((state) => state.sessionLastActivity);
+  const openDirectAgentSession = useChatStore((state) => state.openDirectAgentSession);
 
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const [agentToDelete, setAgentToDelete] = useState<AgentSummary | null>(null);
+  const [activeFilter, setActiveFilter] = useState<EmployeeSquareFilterKey>('all');
+
+  const loading = agentsLoading || teamsLoading;
+  const error = agentsError ?? teamsError;
 
   useEffect(() => {
-    void Promise.all([fetchAgents(), fetchChannels()]);
-  }, [fetchAgents, fetchChannels]);
+    void Promise.all([fetchAgents(), fetchChannels(), fetchTeams()]);
+  }, [fetchAgents, fetchChannels, fetchTeams]);
+
   const activeAgent = useMemo(
     () => agents.find((agent) => agent.id === activeAgentId) ?? null,
     [activeAgentId, agents],
   );
+
+  const cards = useMemo(
+    () => buildEmployeeSquareCardModels({ agents, teams, sessionLastActivity }),
+    [agents, sessionLastActivity, teams],
+  );
+
+  const agentsById = useMemo(
+    () => new Map(agents.map((agent) => [agent.id, agent])),
+    [agents],
+  );
+
+  const filteredCards = useMemo(() => {
+    switch (activeFilter) {
+      case 'leader':
+        return cards.filter((card) => card.roleLabel === 'leader');
+      case 'worker':
+        return cards.filter((card) => card.roleLabel === 'worker');
+      case 'direct':
+        return cards.filter((card) => !card.isDirectChatBlocked);
+      case 'leader_only':
+        return cards.filter((card) => card.isDirectChatBlocked);
+      case 'with_team':
+        return cards.filter((card) => card.teamLabels.length > 0);
+      case 'all':
+      default:
+        return cards;
+    }
+  }, [activeFilter, cards]);
+
+  const statCounts = useMemo(() => ({
+    total: cards.length,
+    leaders: cards.filter((card) => card.roleLabel === 'leader').length,
+    workers: cards.filter((card) => card.roleLabel === 'worker').length,
+  }), [cards]);
+
+  const filterLabels = useMemo(() => ({
+    all: t('square.filters.all', { defaultValue: 'All' }),
+    leader: t('square.filters.leader', { defaultValue: 'Leaders' }),
+    worker: t('square.filters.worker', { defaultValue: 'Workers' }),
+    direct: t('square.filters.direct', { defaultValue: 'Direct Chat' }),
+    leader_only: t('square.filters.leader_only', { defaultValue: 'Leader Only' }),
+    with_team: t('square.filters.with_team', { defaultValue: 'With Team' }),
+  }), [t]);
+
+  const actionLabels = useMemo(() => ({
+    chat: t('square.actions.chat', { defaultValue: 'Chat' }),
+    memory: t('square.actions.memory', { defaultValue: 'Memory' }),
+    details: t('square.actions.details', { defaultValue: 'Details' }),
+    roleLeader: t('detail.teamRoleLeader', { defaultValue: 'leader' }),
+    roleWorker: t('detail.teamRoleWorker', { defaultValue: 'worker' }),
+    leaderOnly: t('detail.chatAccessLeaderOnly', { defaultValue: 'leader_only' }),
+    settings: t('settings', { defaultValue: 'Settings' }),
+    delete: t('deleteAgent', { defaultValue: 'Delete Agent' }),
+  }), [t]);
+
   const handleRefresh = () => {
-    void Promise.all([fetchAgents(), fetchChannels()]);
+    void Promise.all([fetchAgents(), fetchChannels(), fetchTeams()]);
   };
 
   if (loading) {
     return (
-      <div className="flex flex-col h-full dark:bg-background items-center justify-center">
+      <div className="flex h-full flex-col items-center justify-center dark:bg-background">
         <LoadingSpinner size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full dark:bg-background overflow-hidden">
-      <div className="w-full max-w-5xl mx-auto flex flex-col h-full p-10 pt-16">
-        <div className="flex flex-col md:flex-row md:items-start justify-between mb-12 shrink-0 gap-4">
-          <div>
-            <h1
-              className="text-5xl md:text-6xl font-serif text-foreground mb-3 font-normal tracking-tight"
-              style={{ fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif' }}
-            >
-              {t('title')}
-            </h1>
-            <p className="text-[17px] text-foreground/70 font-medium">{t('subtitle')}</p>
-          </div>
-          <div className="flex items-center gap-3 md:mt-2">
-            <Button
-              variant="outline"
-              onClick={handleRefresh}
-              className="h-9 text-[13px] font-medium rounded-full px-4 border-black/10 dark:border-white/10 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 shadow-none text-foreground/80 hover:text-foreground transition-colors"
-            >
-              <RefreshCw className="h-3.5 w-3.5 mr-2" />
-              {t('refresh')}
-            </Button>
-            <Button
-              onClick={() => setShowAddDialog(true)}
-              className="h-9 text-[13px] font-medium rounded-full px-4 shadow-none"
-            >
-              <Plus className="h-3.5 w-3.5 mr-2" />
-              {t('addAgent')}
-            </Button>
-          </div>
-        </div>
+    <div className="flex h-full flex-col overflow-hidden bg-slate-50">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
+        <EmployeeSquareHero
+          title={t('square.title', { defaultValue: t('title') })}
+          subtitle={t('square.subtitle', { defaultValue: t('subtitle') })}
+          totalCount={statCounts.total}
+          leaderCount={statCounts.leaders}
+          workerCount={statCounts.workers}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          onRefresh={handleRefresh}
+          onCreate={() => setShowCreateSheet(true)}
+          refreshLabel={t('refresh')}
+          createLabel={t('addAgent')}
+          statLabels={{
+            all: t('square.stats.all', { defaultValue: 'All Agents' }),
+            leaders: t('square.stats.leaders', { defaultValue: 'Leaders' }),
+            workers: t('square.stats.workers', { defaultValue: 'Workers' }),
+          }}
+          filterLabels={filterLabels}
+        />
 
-        <div className="flex-1 overflow-y-auto pr-2 pb-10 min-h-0 -mr-2">
+        <div className="min-h-0 flex-1 overflow-y-auto pb-10">
           {gatewayStatus.state !== 'running' && (
-            <div className="mb-8 p-4 rounded-xl border border-yellow-500/50 bg-yellow-500/10 flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400" />
-              <span className="text-yellow-700 dark:text-yellow-400 text-sm font-medium">
+            <div className="mb-6 flex items-center gap-3 rounded-2xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3">
+              <AlertCircle className="h-5 w-5 text-yellow-600" />
+              <span className="text-sm font-medium text-yellow-800">
                 {t('gatewayWarning')}
               </span>
             </div>
           )}
 
           {error && (
-            <div className="mb-8 p-4 rounded-xl border border-destructive/50 bg-destructive/10 flex items-center gap-3">
+            <div className="mb-6 flex items-center gap-3 rounded-2xl border border-destructive/40 bg-destructive/10 px-4 py-3">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              <span className="text-destructive text-sm font-medium">
+              <span className="text-sm font-medium text-destructive">
                 {error}
               </span>
             </div>
           )}
 
-          <div className="space-y-3">
-            {agents.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                onOpenSettings={() => setActiveAgentId(agent.id)}
-                onDelete={() => setAgentToDelete(agent)}
-              />
-            ))}
-          </div>
+          {filteredCards.length === 0 ? (
+            <div className="flex min-h-[280px] items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white/70 px-6 text-center shadow-sm">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">
+                  {t('square.empty.title', { defaultValue: 'No matching agents' })}
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  {t('square.empty.description', { defaultValue: 'Adjust the current filters or create a new agent.' })}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              {filteredCards.map((card) => {
+                const agent = agentsById.get(card.id);
+                if (!agent) return null;
+
+                return (
+                  <EmployeeSquareCard
+                    key={card.id}
+                    card={card}
+                    actionLabels={actionLabels}
+                    onChat={() => {
+                      try {
+                        openDirectAgentSession(agent.id);
+                        navigate('/');
+                      } catch (error) {
+                        toast.error(String(error));
+                      }
+                    }}
+                    onMemory={() => navigate(card.memoryHref)}
+                    onDetails={() => navigate(card.detailsHref)}
+                    onOpenSettings={() => setActiveAgentId(agent.id)}
+                    onDelete={() => setAgentToDelete(agent)}
+                    showDelete={!agent.isDefault}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {showAddDialog && (
-        <AddAgentDialog
-          onClose={() => setShowAddDialog(false)}
-          onCreate={async (name, persona) => {
-            await createAgent(name, persona);
-            setShowAddDialog(false);
-            toast.success(t('toast.agentCreated'));
-          }}
-        />
-      )}
+      <CreateAgentSheet open={showCreateSheet} onOpenChange={setShowCreateSheet} />
 
       {activeAgent && (
         <AgentSettingsModal
@@ -152,109 +236,12 @@ export function Agents() {
               setActiveAgentId(null);
             }
             toast.success(t('toast.agentDeleted'));
-          } catch (error) {
-            toast.error(t('toast.agentDeleteFailed', { error: String(error) }));
+          } catch (deleteError) {
+            toast.error(t('toast.agentDeleteFailed', { error: String(deleteError) }));
           }
         }}
         onCancel={() => setAgentToDelete(null)}
       />
-    </div>
-  );
-}
-
-function AgentCard({
-  agent,
-  onOpenSettings,
-  onDelete,
-}: {
-  agent: AgentSummary;
-  onOpenSettings: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useTranslation('agents');
-  const channelsText = agent.channelTypes.length > 0
-    ? agent.channelTypes.map((channelType) => CHANNEL_NAMES[channelType as ChannelType] || channelType).join(', ')
-    : t('none');
-
-  return (
-    <div
-      className={cn(
-        'group flex items-start gap-4 p-4 rounded-2xl transition-all text-left border relative overflow-hidden bg-transparent border-transparent hover:bg-black/5 dark:hover:bg-white/5',
-        agent.isDefault && 'bg-black/[0.04] dark:bg-white/[0.06]'
-      )}
-    >
-      <div className="h-[46px] w-[46px] shrink-0 flex items-center justify-center text-primary bg-primary/10 rounded-full shadow-sm mb-3">
-        <Bot className="h-[22px] w-[22px]" />
-      </div>
-      <div className="flex flex-col flex-1 min-w-0 py-0.5 mt-1">
-        <div className="flex items-center justify-between gap-3 mb-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-[16px] font-semibold text-foreground truncate">{agent.name}</h2>
-            {agent.isDefault && (
-              <Badge
-                variant="secondary"
-                className="flex items-center gap-1 font-mono text-[10px] font-medium px-2 py-0.5 rounded-full bg-black/[0.04] dark:bg-white/[0.08] border-0 shadow-none text-foreground/70"
-              >
-                <Check className="h-3 w-3" />
-                {t('defaultBadge')}
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {!agent.isDefault && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                onClick={onDelete}
-                title={t('deleteAgent')}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              className={cn(
-                'h-7 w-auto px-2 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all',
-                !agent.isDefault && 'opacity-0 group-hover:opacity-100',
-              )}
-              title={t('detail.title', { defaultValue: 'Agent detail' })}
-            >
-              <Link to={`/agents/${encodeURIComponent(agent.id)}`}>
-                {t('detail.linkLabel', { defaultValue: 'Details' })}
-              </Link>
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                'h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-black/5 dark:hover:bg-white/10 transition-all',
-                !agent.isDefault && 'opacity-0 group-hover:opacity-100',
-              )}
-              onClick={onOpenSettings}
-              title={t('settings')}
-            >
-              <Settings2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <p className="text-[13.5px] text-muted-foreground line-clamp-2 leading-[1.5]">
-          {t('modelLine', {
-            model: agent.modelDisplay,
-            suffix: agent.inheritedModel ? ` (${t('inherited')})` : '',
-          })}
-        </p>
-        {agent.persona ? (
-          <p className="text-[13.5px] text-muted-foreground line-clamp-2 leading-[1.5]">
-            {agent.persona}
-          </p>
-        ) : null}
-        <p className="text-[13.5px] text-muted-foreground line-clamp-2 leading-[1.5]">
-          {t('channelsLine', { channels: channelsText })}
-        </p>
-      </div>
     </div>
   );
 }

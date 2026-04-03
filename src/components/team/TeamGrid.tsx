@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TeamCard } from './TeamCard';
 import type { TeamSummary } from '@/types/team';
 import { Network, ArrowRight } from 'lucide-react';
+import { applyLeaderDisplayAliases } from './team-creation-utils';
 
 interface TeamGridProps {
   teams: TeamSummary[];
@@ -13,7 +14,8 @@ interface TeamGridProps {
 export function TeamGrid({ teams, loading, onDeleteTeam }: TeamGridProps) {
   // Sort teams by creation time, newest first (per D-07)
   const sortedTeams = useMemo(() => {
-    return [...teams].sort((a, b) => b.createdAt - a.createdAt);
+    const teamsWithLeaderAliases = applyLeaderDisplayAliases(teams);
+    return [...teamsWithLeaderAliases].sort((a, b) => b.createdAt - a.createdAt);
   }, [teams]);
 
   // Show empty state when no teams and not loading

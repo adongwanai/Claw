@@ -499,6 +499,17 @@
         }
     },
     "teamMap": {
+        "header": {
+            "leaderLabel": "Team Leader",
+            "backToOverview": "Back to Team Overview",
+            "addMember": "Add Team Member",
+            "memberCount": "{{count}} members"
+        },
+        "notFound": {
+            "title": "Team not found",
+            "description": "Return to Team Overview and choose a valid team.",
+            "back": "Back to Team Overview"
+        },
         "status": {
             "active": "Active",
             "idle": "Idle",
@@ -513,6 +524,16 @@
         "empty": {
             "title": "No Agents Yet",
             "description": "Agents created on the Team Overview page will appear here."
+        },
+        "emptyTeam": {
+            "title": "No members in this team yet",
+            "description": "Add agents from the member panel to build this team map. The leader stays pinned as the root node."
+        },
+        "hover": {
+            "summary": "Work Summary",
+            "currentTask": "Current task",
+            "blockingReason": "Blocking reason",
+            "nextStep": "Recommended next step"
         },
         "zoom": {
             "in": "Zoom in",

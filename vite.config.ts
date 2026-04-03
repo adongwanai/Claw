@@ -27,7 +27,9 @@ export default defineConfig({
               // Keep only Electron itself external. Runtime dependencies used by
               // the main process are bundled into dist-electron so packaging
               // does not need to traverse the workspace node_modules tree.
-              external: ['electron'],
+              // bufferutil and utf-8-validate are optional native addons for ws;
+              // ws falls back to pure-JS implementations when they are absent.
+              external: ['electron', 'bufferutil', 'utf-8-validate'],
             },
           },
         },
@@ -70,25 +72,6 @@ export default defineConfig({
           return;
         }
         warn(warning);
-      },
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react/') || id.includes('react-dom/') || id.includes('scheduler/')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@radix-ui/')) {
-              return 'vendor-radix';
-            }
-            if (id.includes('lucide-react')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('shiki') || id.includes('remark') || id.includes('rehype') || id.includes('katex')) {
-              return 'vendor-markdown';
-            }
-            return 'vendor';
-          }
-        },
       },
     },
   },

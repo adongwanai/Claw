@@ -1,4 +1,12 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { UserPlus, Users, X, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -6,6 +14,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { useTeamsStore } from '@/stores/teams';
 import { useAgentsStore } from '@/stores/agents';
+import {
+  buildLeaderTeamNaming,
+  getLeaderReuseCount,
+} from './team-creation-utils';
 
 interface DroppedAgent {
   id: string;
@@ -25,7 +37,13 @@ export interface CreateTeamZoneRef {
   handleMemberDrop: (agentId: string) => void;
 }
 
-function AgentChip({ agent, onRemove }: { agent: DroppedAgent; onRemove: () => void }) {
+const AgentChip = memo(function AgentChip({
+  agent,
+  onRemove,
+}: {
+  agent: DroppedAgent;
+  onRemove: () => void;
+}) {
   const initials = agent.name
     .split(' ')
     .map((part) => part[0])
@@ -55,7 +73,54 @@ function AgentChip({ agent, onRemove }: { agent: DroppedAgent; onRemove: () => v
       </button>
     </div>
   );
-}
+});
+
+AgentChip.displayName = 'AgentChip';
+
+const DropBucket = memo(function DropBucket({
+  title,
+  icon,
+  supplementalHint,
+  isActive,
+  isFilled,
+  setNodeRef,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  supplementalHint?: string;
+  isActive: boolean;
+  isFilled: boolean;
+  setNodeRef: (element: HTMLElement | null) => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex-1">
+      <div className="mb-2 flex items-center gap-2">
+        {icon}
+        <span className="text-sm font-medium text-slate-700">{title}</span>
+        {supplementalHint ? (
+          <span className="text-xs text-slate-400">{supplementalHint}</span>
+        ) : null}
+      </div>
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'min-h-[80px] rounded-xl border-2 p-3 transition-all',
+          isActive
+            ? 'border-solid border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
+            : isFilled
+              ? 'border-solid border-slate-200 bg-white'
+              : 'border-dashed border-slate-300 bg-white/50'
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+});
+
+DropBucket.displayName = 'DropBucket';
 
 export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>(
   ({ initialLeader, onCancel, onSuccess, isDragging = false }, ref) => {
@@ -67,19 +132,16 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
     const [creating, setCreating] = useState(false);
 
     const createTeam = useTeamsStore((state) => state.createTeam);
+    const teams = useTeamsStore((state) => state.teams);
     const agents = useAgentsStore((state) => state.agents);
+    const leaderStateRef = useRef<DroppedAgent | null>(initialLeader || null);
+    const memberStateRef = useRef<DroppedAgent[]>([]);
 
     useEffect(() => {
       if (!initialLeader) return;
       setLeader(initialLeader);
+      leaderStateRef.current = initialLeader;
     }, [initialLeader]);
-
-    // 自动生成团队名称（仅在打开确认表单时）
-    useEffect(() => {
-      if (showConfirmForm && leader && !teamName.trim()) {
-        setTeamName(`${leader.name} 的团队`);
-      }
-    }, [showConfirmForm, leader, teamName]);
 
     const { setNodeRef: setLeaderRef, isOver: isOverLeader } = useDroppable({
       id: 'leader-zone',
@@ -90,7 +152,6 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
       data: { type: 'member' },
     });
 
-    // 生成唯一名称（带后缀）
     const generateUniqueName = (baseName: string, existingNames: string[]): string => {
       if (!existingNames.includes(baseName)) return baseName;
 
@@ -107,33 +168,39 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
       const agent = agents.find((item) => item.id === agentId);
       if (!agent) return;
 
-      // 允许重复：如果已经是 Leader，也可以再次放入（会替换）
-      // 如果在成员区，移除该成员
-      setMembers((prev) => prev.filter((member) => member.id !== agentId));
+      const nextMembers = memberStateRef.current.filter((member) => member.id !== agentId);
+      memberStateRef.current = nextMembers;
+      setMembers(nextMembers);
+      const leaderReuseCount = getLeaderReuseCount(teams, agent.id);
+      const naming = buildLeaderTeamNaming(agent.name, leaderReuseCount);
 
-      // 生成唯一名称（考虑成员区的名称）
-      const existingNames = members.map((member) => member.name);
-      const uniqueName = generateUniqueName(agent.name, existingNames);
-
-      setLeader({ id: agent.id, name: uniqueName, avatar: agent.avatar });
-      // 不再自动弹窗！
+      const nextLeader = { id: agent.id, name: naming.leaderDisplayName, avatar: agent.avatar };
+      leaderStateRef.current = nextLeader;
+      setLeader(nextLeader);
+      setTeamName(naming.defaultTeamName);
+      setShowConfirmForm(false);
     };
 
     const handleMemberDrop = (agentId: string) => {
       const agent = agents.find((item) => item.id === agentId);
       if (!agent) return;
+      if (leaderStateRef.current?.id === agentId) return;
+      if (memberStateRef.current.some((member) => member.id === agentId)) return;
 
-      // 允许重复：同一个 Agent 可以多次加入成员区
-      // 生成唯一名称（考虑 Leader 和已有成员的名称）
       const existingNames = [
-        leader?.name,
-        ...members.map((member) => member.name)
+        leaderStateRef.current?.name,
+        ...memberStateRef.current.map((member) => member.name),
       ].filter(Boolean) as string[];
 
       const uniqueName = generateUniqueName(agent.name, existingNames);
 
       // 直接添加，不检查是否已存在
-      setMembers((prev) => [...prev, { id: agent.id, name: uniqueName, avatar: agent.avatar }]);
+      const nextMembers = [
+        ...memberStateRef.current,
+        { id: agent.id, name: uniqueName, avatar: agent.avatar },
+      ];
+      memberStateRef.current = nextMembers;
+      setMembers(nextMembers);
     };
 
     useImperativeHandle(
@@ -141,8 +208,7 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
       () => ({
         handleLeaderDrop,
         handleMemberDrop,
-      }),
-      [agents, leader, members]
+      })
     );
 
     const handleConfirm = async () => {
@@ -157,6 +223,8 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
           description: description.trim() || undefined,
         });
 
+        leaderStateRef.current = null;
+        memberStateRef.current = [];
         setLeader(null);
         setMembers([]);
         setTeamName('');
@@ -174,6 +242,8 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
       setShowConfirmForm(false);
       setTeamName('');
       setDescription('');
+      leaderStateRef.current = null;
+      memberStateRef.current = [];
       setLeader(null);
       setMembers([]);
       onCancel?.();
@@ -188,7 +258,7 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
     const shouldHighlight = isDragging && !leader && members.length === 0;
 
     return (
-      <div className="w-full max-w-3xl mx-auto">
+      <div data-testid="create-team-zone" className="w-full">
         {/* 轻量化拖拽接收区 - 拖拽时高亮 */}
         <motion.div
           animate={{
@@ -217,28 +287,23 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
           </AnimatePresence>
 
           <div className="flex items-start gap-6">
-            {/* Leader 区 */}
-            <div className="flex-1">
-              <div className="mb-2 flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-slate-500" />
-                <span className="text-sm font-medium text-slate-700">Leader</span>
-                <span className="text-xs text-slate-400">(限 1 人)</span>
-              </div>
-              <div
-                ref={setLeaderRef}
-                className={cn(
-                  'min-h-[80px] rounded-xl border-2 p-3 transition-all',
-                  isOverLeader
-                    ? 'border-solid border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
-                    : leader
-                      ? 'border-solid border-slate-200 bg-white'
-                      : isDragging
-                        ? 'border-dashed border-blue-400 bg-blue-50/30'
-                        : 'border-dashed border-slate-300 bg-white/50'
-                )}
-              >
+            <DropBucket
+              title="Leader"
+              icon={<UserPlus className="h-4 w-4 text-slate-500" />}
+              supplementalHint="(限 1 人)"
+              isActive={isOverLeader || (!!isDragging && !leader)}
+              isFilled={!!leader}
+              setNodeRef={setLeaderRef}
+            >
                 {leader ? (
-                  <AgentChip agent={leader} onRemove={() => setLeader(null)} />
+                  <AgentChip
+                    agent={leader}
+                    onRemove={() => {
+                      leaderStateRef.current = null;
+                      setLeader(null);
+                      setTeamName('');
+                    }}
+                  />
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-1.5 py-3">
                     <div
@@ -253,46 +318,35 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
                       className={cn(
                         'text-xs transition-colors',
                         isDragging ? 'text-blue-600 font-medium' : 'text-slate-400'
-                      )}
+                      )} 
                     >
                       拖拽 Agent 到这里
                     </span>
                   </div>
                 )}
-              </div>
-            </div>
+            </DropBucket>
 
-            {/* 成员区 */}
-            <div className="flex-1">
-              <div className="mb-2 flex items-center gap-2">
-                <Users className="h-4 w-4 text-slate-500" />
-                <span className="text-sm font-medium text-slate-700">成员</span>
-                {members.length > 0 && members.length < 3 && (
-                  <span className="text-xs font-medium text-amber-500">建议至少 2-3 人</span>
-                )}
-              </div>
-              <div
-                ref={setMemberRef}
-                className={cn(
-                  'min-h-[80px] rounded-xl border-2 p-3 transition-all',
-                  isOverMember
-                    ? 'border-solid border-blue-500 bg-blue-50 shadow-lg shadow-blue-100'
-                    : members.length > 0
-                      ? 'border-solid border-slate-200 bg-white'
-                      : isDragging
-                        ? 'border-dashed border-blue-400 bg-blue-50/30'
-                        : 'border-dashed border-slate-300 bg-white/50'
-                )}
-              >
+            <DropBucket
+              title="成员"
+              icon={<Users className="h-4 w-4 text-slate-500" />}
+              supplementalHint={
+                members.length > 0 && members.length < 3 ? '建议至少 2-3 人' : undefined
+              }
+              isActive={isOverMember || (!!isDragging && members.length === 0)}
+              isFilled={members.length > 0}
+              setNodeRef={setMemberRef}
+            >
                 {members.length > 0 ? (
                   <div className="space-y-2">
                     {members.map((member, index) => (
                       <AgentChip
                         key={`${member.id}-${member.name}-${index}`}
                         agent={member}
-                        onRemove={() =>
-                          setMembers((prev) => prev.filter((_, i) => i !== index))
-                        }
+                        onRemove={() => {
+                          const nextMembers = memberStateRef.current.filter((_, i) => i !== index);
+                          memberStateRef.current = nextMembers;
+                          setMembers(nextMembers);
+                        }}
                       />
                     ))}
                   </div>
@@ -310,14 +364,13 @@ export const CreateTeamZone = forwardRef<CreateTeamZoneRef, CreateTeamZoneProps>
                       className={cn(
                         'text-xs transition-colors',
                         isDragging ? 'text-blue-600 font-medium' : 'text-slate-400'
-                      )}
+                      )} 
                     >
                       拖拽多个 Agent
                     </span>
                   </div>
                 )}
-              </div>
-            </div>
+            </DropBucket>
           </div>
 
           {/* 操作按钮 */}

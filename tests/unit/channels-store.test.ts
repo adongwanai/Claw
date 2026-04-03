@@ -31,6 +31,7 @@ describe('channels store fetchChannels', () => {
 
   it('preserves an error state when initial fetch fails', async () => {
     gatewayRpcMock.mockRejectedValueOnce(new Error('gateway unavailable'));
+    vi.mocked(hostApiFetch).mockRejectedValueOnce(new Error('config unavailable'));
 
     await useChannelsStore.getState().fetchChannels();
 
@@ -129,5 +130,66 @@ describe('channels store fetchChannels', () => {
       id: 'feishu-agent-a',
       status: 'disconnected',
     }));
+  });
+
+  it('maps openclaw-weixin runtime ids back to the wechat UI channel type', async () => {
+    gatewayRpcMock.mockResolvedValueOnce({
+      channelOrder: ['openclaw-weixin'],
+      channels: {
+        'openclaw-weixin': { configured: true, running: true },
+      },
+      channelAccounts: {
+        'openclaw-weixin': [
+          {
+            accountId: 'default',
+            configured: true,
+            connected: true,
+            name: 'WeChat Bot',
+          },
+        ],
+      },
+      channelDefaultAccountId: {
+        'openclaw-weixin': 'default',
+      },
+    });
+
+    await useChannelsStore.getState().fetchChannels();
+
+    expect(useChannelsStore.getState().channels).toEqual([
+      expect.objectContaining({
+        id: 'wechat-default',
+        type: 'wechat',
+        name: 'WeChat Bot',
+        status: 'connected',
+        accountId: 'default',
+        metadata: expect.objectContaining({
+          gatewayChannelId: 'openclaw-weixin',
+        }),
+      }),
+    ]);
+  });
+
+  it('falls back to configured channel ids when runtime channel status is unavailable', async () => {
+    gatewayRpcMock.mockRejectedValueOnce(new Error('gateway unavailable'));
+    vi.mocked(hostApiFetch).mockResolvedValueOnce({
+      success: true,
+      channels: ['feishu', 'wechat'],
+    });
+
+    await useChannelsStore.getState().fetchChannels();
+
+    expect(hostApiFetch).toHaveBeenCalledWith('/api/channels/configured');
+    expect(useChannelsStore.getState().channels).toEqual([
+      expect.objectContaining({
+        id: 'feishu-default',
+        type: 'feishu',
+        status: 'disconnected',
+      }),
+      expect.objectContaining({
+        id: 'wechat-default',
+        type: 'wechat',
+        status: 'disconnected',
+      }),
+    ]);
   });
 });

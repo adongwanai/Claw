@@ -227,7 +227,7 @@ describe('agent config lifecycle', () => {
     infoSpy.mockRestore();
   });
 
-  it('persists persona when creating and updating an agent profile', async () => {
+  it('persists persona, team role, and model when creating an agent profile and returns createdAgentId', async () => {
     await writeOpenClawJson({
       agents: {
         list: [
@@ -248,7 +248,13 @@ describe('agent config lifecycle', () => {
 
     const { createAgent, listAgentsSnapshot, updateAgentProfile } = await import('@electron/utils/agent-config');
 
-    await createAgent('Research Helper', 'Review code with a skeptical senior-engineer mindset.');
+    const created = await createAgent({
+      name: 'Research Helper',
+      persona: 'Review code with a skeptical senior-engineer mindset.',
+      teamRole: 'worker',
+      model: 'openai/gpt-5.4',
+    });
+    expect(created.createdAgentId).toBe('research-helper');
     await updateAgentProfile('research-helper', {
       persona: 'Coordinate release readiness and keep reviews strict.',
       teamRole: 'worker',
@@ -263,6 +269,9 @@ describe('agent config lifecycle', () => {
           id: 'research-helper',
           name: 'Research Helper',
           persona: 'Coordinate release readiness and keep reviews strict.',
+          model: 'openai/gpt-5.4',
+          modelDisplay: 'gpt-5.4',
+          inheritedModel: false,
           teamRole: 'worker',
           chatAccess: 'leader_only',
           responsibility: 'Research and evidence synthesis',
@@ -276,9 +285,20 @@ describe('agent config lifecycle', () => {
         expect.objectContaining({
           id: 'research-helper',
           persona: 'Coordinate release readiness and keep reviews strict.',
+          model: 'openai/gpt-5.4',
           teamRole: 'worker',
           chatAccess: 'leader_only',
           responsibility: 'Research and evidence synthesis',
+        }),
+      ]),
+    );
+    expect(created.snapshot.agents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'research-helper',
+          persona: 'Review code with a skeptical senior-engineer mindset.',
+          model: 'openai/gpt-5.4',
+          teamRole: 'worker',
         }),
       ]),
     );

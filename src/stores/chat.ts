@@ -92,6 +92,9 @@ export interface ChatSession {
   teamId?: string;
   teamName?: string;
   agentId?: string;
+  targetAgentId?: string;
+  isPrivateChat?: boolean;
+  isLeaderChat?: boolean;
   agentStatus?: 'online' | 'offline' | 'busy';
   unreadCount?: number;
 }
@@ -143,6 +146,14 @@ interface ChatState {
   // Actions
   loadSessions: () => Promise<void>;
   switchSession: (key: string) => void;
+  openDirectAgentSession: (
+    agentId: string,
+    options?: {
+      teamId?: string;
+      teamName?: string;
+      isLeaderChat?: boolean;
+    },
+  ) => string;
   newSession: () => void;
   deleteSession: (key: string) => Promise<void>;
   cleanupEmptySession: () => void;
@@ -807,6 +818,24 @@ function buildFallbackMainSessionKey(agentId: string): string {
   return `agent:${normalizeAgentId(agentId)}:main`;
 }
 
+function isPrivateSessionKey(sessionKey: string): boolean {
+  return sessionKey.startsWith('agent:') && sessionKey.includes(':private-');
+}
+
+function buildPrivateSessionKey(agentId: string): string {
+  const normalizedAgentId = normalizeAgentId(agentId);
+  return `agent:${normalizedAgentId}:private-${normalizedAgentId}`;
+}
+
+function getEffectiveSessionKey(sessionKey: string): string {
+  if (!isPrivateSessionKey(sessionKey)) {
+    return sessionKey;
+  }
+
+  const agentId = getAgentIdFromSessionKey(sessionKey);
+  return resolveMainSessionKeyForAgent(agentId) ?? sessionKey;
+}
+
 function resolveMainSessionKeyForAgent(agentId: string | undefined | null): string | null {
   if (!agentId) return null;
   const normalizedAgentId = normalizeAgentId(agentId);
@@ -1316,6 +1345,58 @@ export const useChatStore = create<ChatState>((set, get) => ({
     get().loadHistory();
   },
 
+  openDirectAgentSession: (agentId: string, options) => {
+    const agents = useAgentsStore.getState().agents;
+    const normalizedAgentId = normalizeAgentId(agentId);
+    const agent = agents.find((entry) => normalizeAgentId(entry.id) === normalizedAgentId);
+
+    if (!agent) {
+      throw new Error(`Agent not found: ${agentId}`);
+    }
+
+    if (isLeaderOnlyAgent(agent) && !(options?.isLeaderChat)) {
+      const leader = resolveReportingLeader(agent, agents);
+      const message = buildLeaderOnlyBlockedMessage(agent, leader);
+      set({ error: message });
+      throw new Error(message);
+    }
+
+    const sessionKey = buildPrivateSessionKey(agent.id);
+
+    set((state) => {
+      const existing = state.sessions.find((session) => session.key === sessionKey);
+      const nextSession: ChatSession = {
+        ...(existing ?? { key: sessionKey }),
+        displayName: agent.name,
+        agentId: agent.id,
+        targetAgentId: agent.id,
+        isPrivateChat: true,
+        isLeaderChat: options?.isLeaderChat ?? agent.teamRole === 'leader',
+        isTeamSession: false,
+        teamId: options?.teamId,
+        teamName: options?.teamName,
+        updatedAt: existing?.updatedAt ?? Date.now(),
+      };
+
+      return {
+        sessions: existing
+          ? state.sessions.map((session) => (session.key === sessionKey ? nextSession : session))
+          : [...state.sessions, nextSession],
+        sessionLabels: {
+          ...state.sessionLabels,
+          [sessionKey]: agent.name,
+        },
+        sessionLastActivity: {
+          ...state.sessionLastActivity,
+          [sessionKey]: Date.now(),
+        },
+      };
+    });
+
+    get().switchSession(sessionKey);
+    return sessionKey;
+  },
+
   // ── Delete session ──
   //
   // NOTE: The OpenClaw Gateway does NOT expose a sessions.delete (or equivalent)
@@ -1442,6 +1523,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   loadHistory: async (quiet = false) => {
     const { currentSessionKey } = get();
+    const effectiveSessionKey = getEffectiveSessionKey(currentSessionKey);
     const existingLoad = _historyLoadInFlight.get(currentSessionKey);
     if (existingLoad) {
       await existingLoad;
@@ -1565,13 +1647,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       try {
         const data = await useGatewayStore.getState().rpc<Record<string, unknown>>(
           'chat.history',
-          { sessionKey: currentSessionKey, limit: 200 },
+          { sessionKey: effectiveSessionKey, limit: 200 },
         );
         if (data) {
           let rawMessages = Array.isArray(data.messages) ? data.messages as RawMessage[] : [];
           const thinkingLevel = data.thinkingLevel ? String(data.thinkingLevel) : null;
-          if (rawMessages.length === 0 && isCronSessionKey(currentSessionKey)) {
-            rawMessages = await loadCronFallbackMessages(currentSessionKey, 200);
+          if (rawMessages.length === 0 && isCronSessionKey(effectiveSessionKey)) {
+            rawMessages = await loadCronFallbackMessages(effectiveSessionKey, 200);
           }
 
           applyLoadedMessages(rawMessages, thinkingLevel);
@@ -1585,7 +1667,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       } catch (err) {
         console.warn('Failed to load chat history:', err);
-        const fallbackMessages = await loadCronFallbackMessages(currentSessionKey, 200);
+        const fallbackMessages = await loadCronFallbackMessages(effectiveSessionKey, 200);
         if (fallbackMessages.length > 0) {
           applyLoadedMessages(fallbackMessages, null);
         } else {
@@ -1623,9 +1705,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     }
 
-    const targetSessionKey = resolveMainSessionKeyForAgent(targetAgentId) ?? get().currentSessionKey;
-    const blockedSessionAgent = findAgentBySessionKey(useAgentsStore.getState().agents, targetSessionKey);
-    if (blockedSessionAgent && isDirectMainSessionBlocked(blockedSessionAgent, targetSessionKey)) {
+    const targetSessionKey = targetAgentId ? (resolveMainSessionKeyForAgent(targetAgentId) ?? get().currentSessionKey) : get().currentSessionKey;
+    const rpcSessionKey = getEffectiveSessionKey(targetSessionKey);
+    const blockedSessionAgent = findAgentBySessionKey(useAgentsStore.getState().agents, rpcSessionKey);
+    if (blockedSessionAgent && isDirectMainSessionBlocked(blockedSessionAgent, rpcSessionKey)) {
       throw buildLeaderOnlyDirectChatError(blockedSessionAgent.id);
     }
 
@@ -1755,7 +1838,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           {
             method: 'POST',
             body: JSON.stringify({
-              sessionKey: currentSessionKey,
+              sessionKey: rpcSessionKey,
               message: trimmed || 'Process the attached file(s).',
               deliver: false,
               idempotencyKey,
@@ -1772,8 +1855,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const rpcResult = await useGatewayStore.getState().rpc<{ runId?: string }>(
           'chat.send',
           {
-            sessionKey: currentSessionKey,
-            message: trimmed,
+              sessionKey: rpcSessionKey,
+              message: trimmed,
             deliver: false,
             idempotencyKey,
             ...(normalizedWorkingDir ? { cwd: normalizedWorkingDir } : {}),
@@ -2143,7 +2226,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const newCounts = { ...state.sessionUnreadCounts };
       delete newCounts[key];
-      const agentStatuses = useAgentsStore.getState().agentStatuses;
+      const agentStatuses = useAgentsStore.getState().agentStatuses ?? {};
       return {
         sessionUnreadCounts: newCounts,
         sessions: state.sessions.map((session) =>
@@ -2174,7 +2257,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // Save to localStorage
       saveUnreadCounts(newCounts);
 
-      const agentStatuses = useAgentsStore.getState().agentStatuses;
+      const agentStatuses = useAgentsStore.getState().agentStatuses ?? {};
 
       return {
         sessionUnreadCounts: newCounts,
@@ -2198,7 +2281,7 @@ if (typeof window !== 'undefined') {
     if (event.key === 'ktclaw-session-unread-counts' && event.newValue) {
       try {
         const newCounts = JSON.parse(event.newValue);
-        const agentStatuses = useAgentsStore.getState().agentStatuses;
+        const agentStatuses = useAgentsStore.getState().agentStatuses ?? {};
         useChatStore.setState((state) => ({
           sessionUnreadCounts: newCounts,
           sessions: state.sessions.map((session) => ({
