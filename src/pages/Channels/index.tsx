@@ -6,7 +6,7 @@ import { hostApiFetch } from '@/lib/host-api';
 import { subscribeHostEvent } from '@/lib/host-events';
 import { useChannelsStore } from '@/stores/channels';
 import { useRightPanelStore } from '@/stores/rightPanelStore';
-import { FeishuOnboardingWizard } from '@/components/channels/FeishuOnboardingWizard';
+import { FeishuOnboardingWizard, type FeishuWizardStep } from '@/components/channels/FeishuOnboardingWizard';
 import { WeChatOnboardingWizard } from '@/components/channels/WeChatOnboardingWizard';
 import { BotBindingModal } from '@/components/channels/BotBindingModal';
 import { ChannelConfigModal } from '@/components/channels/ChannelConfigModal';
@@ -203,6 +203,9 @@ export function Channels() {
   const [addName, setAddName] = useState('');
   const [feishuWizardOpen, setFeishuWizardOpen] = useState(false);
   const [feishuWizardInitialName, setFeishuWizardInitialName] = useState('');
+  const [feishuWizardAccountId, setFeishuWizardAccountId] = useState('default');
+  const [feishuWizardInitialConfigValues, setFeishuWizardInitialConfigValues] = useState<Record<string, string> | null>(null);
+  const [feishuWizardInitialStep, setFeishuWizardInitialStep] = useState<FeishuWizardStep>('choose');
   const [wechatWizardOpen, setWechatWizardOpen] = useState(false);
   const [bindingModalOpen, setBindingModalOpen] = useState(false);
   const [bindingBotId, setBindingBotId] = useState<string | null>(null);
@@ -227,10 +230,6 @@ export function Channels() {
   const [oldestMessageTs, setOldestMessageTs] = useState<string | null>(null);
   const messageScrollRef = useRef<HTMLDivElement>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  // identity toggle: 'bot' | 'self'
-  const [identityMode, setIdentityMode] = useState<'bot' | 'self'>('bot');
-  // feishu user auth status for showing identity toggle
-  const [userAuthStatus, setUserAuthStatus] = useState<'authorized' | 'unauthorized' | 'unknown'>('unknown');
   // mention popover
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -239,6 +238,8 @@ export function Channels() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingSessionTitle, setEditingSessionTitle] = useState('');
 
   const {
     channels,
@@ -261,6 +262,10 @@ export function Channels() {
     ?? null;
   const resolvedActiveChannelId = selectedChannel?.id ?? null;
   const activeChannelType: ChannelType = selectedChannel?.type ?? requestedChannel;
+  const activeChannelAccountId = selectedChannel?.accountId ?? undefined;
+  const scopedSessionAccountId = activeChannelType === 'wechat' && activeChannelAccountId && activeChannelAccountId !== 'default'
+    ? activeChannelAccountId
+    : undefined;
 
   useEffect(() => {
     if (resolvedActiveChannelId !== activeChannelId) {
@@ -274,26 +279,6 @@ export function Channels() {
     setConversation(null);
     setMessages([]);
   }, [resolvedActiveChannelId]);
-
-  // Fetch feishu user auth status to decide whether to show identity toggle
-  useEffect(() => {
-    if (activeChannelType !== 'feishu') {
-      setUserAuthStatus('unauthorized');
-      return;
-    }
-    hostApiFetch<{ status?: string; channel?: { configured?: boolean; pluginEnabled?: boolean } }>('/api/feishu/status')
-      .then((resp) => {
-        // 'authorized' = explicit status field; fallback: channel configured + plugin enabled
-        if (resp.status === 'authorized') {
-          setUserAuthStatus('authorized');
-        } else if (resp.channel?.configured && resp.channel?.pluginEnabled) {
-          setUserAuthStatus('authorized');
-        } else {
-          setUserAuthStatus('unauthorized');
-        }
-      })
-      .catch(() => setUserAuthStatus('unknown'));
-  }, [activeChannelType]);
 
   // Fetch group members when mention popover opens
   const fetchMembers = useCallback(() => {
@@ -349,7 +334,37 @@ export function Channels() {
     && selectedTypeAccountIds.length > 0,
   );
 
-  const openChannelConfig = (channelType: ChannelType | null, accountId?: string) => {
+  const openFeishuWizard = (options?: {
+    initialChannelName?: string;
+    accountId?: string;
+    initialConfigValues?: Record<string, string> | null;
+    initialStep?: FeishuWizardStep;
+  }) => {
+    setFeishuWizardInitialName(options?.initialChannelName?.trim() ?? '');
+    setFeishuWizardAccountId(options?.accountId?.trim() || 'default');
+    setFeishuWizardInitialConfigValues(options?.initialConfigValues ?? null);
+    setFeishuWizardInitialStep(options?.initialStep ?? 'choose');
+    setFeishuWizardOpen(true);
+  };
+
+  const openChannelConfig = (
+    channelType: ChannelType | null,
+    accountId?: string,
+    options?: {
+      initialConfigValues?: Record<string, string> | null;
+      initialStep?: FeishuWizardStep;
+      initialChannelName?: string;
+    },
+  ) => {
+    if (channelType === 'feishu') {
+      openFeishuWizard({
+        accountId,
+        initialConfigValues: options?.initialConfigValues ?? null,
+        initialStep: options?.initialStep ?? 'configure',
+        initialChannelName: options?.initialChannelName ?? selectedChannel?.name,
+      });
+      return;
+    }
     setChannelConfigInitialType(channelType);
     setChannelConfigAccountId(accountId);
     setChannelConfigOpen(true);
@@ -429,7 +444,7 @@ export function Channels() {
     setSelectedConversationId(null);
 
     void hostApiFetch<{ sessions?: ChannelSyncSession[] }>(
-      `/api/channels/workbench/sessions?channelType=${encodeURIComponent(activeChannelType)}`,
+      `/api/channels/workbench/sessions?channelType=${encodeURIComponent(activeChannelType)}${scopedSessionAccountId ? `&accountId=${encodeURIComponent(scopedSessionAccountId)}` : ''}`,
     )
       .then(async (response) => {
         if (!active) return;
@@ -454,7 +469,7 @@ export function Channels() {
     return () => {
       active = false;
     };
-  }, [resolvedActiveChannelId, activeChannelType]);
+  }, [resolvedActiveChannelId, activeChannelType, scopedSessionAccountId]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -478,7 +493,7 @@ export function Channels() {
     if (!selectedConversationId) return undefined;
     const timer = window.setInterval(() => {
       void hostApiFetch<{ sessions?: ChannelSyncSession[] }>(
-        `/api/channels/workbench/sessions?channelType=${encodeURIComponent(activeChannelType)}`,
+        `/api/channels/workbench/sessions?channelType=${encodeURIComponent(activeChannelType)}${scopedSessionAccountId ? `&accountId=${encodeURIComponent(scopedSessionAccountId)}` : ''}`,
       ).then((response) => {
         const sortedSessions = [...(response.sessions ?? [])].sort((left, right) => {
           if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
@@ -492,14 +507,14 @@ export function Channels() {
     return () => {
       window.clearInterval(timer);
     };
-  }, [activeChannelType, selectedConversationId]);
+  }, [activeChannelType, scopedSessionAccountId, selectedConversationId]);
 
   useEffect(() => {
     if (!selectedConversationId) return undefined;
 
     return subscribeHostEvent('gateway:notification', () => {
       void hostApiFetch<{ sessions?: ChannelSyncSession[] }>(
-        `/api/channels/workbench/sessions?channelType=${encodeURIComponent(activeChannelType)}`,
+        `/api/channels/workbench/sessions?channelType=${encodeURIComponent(activeChannelType)}${scopedSessionAccountId ? `&accountId=${encodeURIComponent(scopedSessionAccountId)}` : ''}`,
       ).then((response) => {
         const sortedSessions = [...(response.sessions ?? [])].sort((left, right) => {
           if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
@@ -510,14 +525,16 @@ export function Channels() {
 
       void loadConversation(selectedConversationId).catch(() => undefined);
     });
-  }, [activeChannelType, selectedConversationId]);
+  }, [activeChannelType, scopedSessionAccountId, selectedConversationId]);
 
   const handleAdd = async () => {
     if (!addName.trim()) return;
     if (addType === 'feishu') {
       setAddOpen(false);
-      setFeishuWizardInitialName(addName.trim());
-      setFeishuWizardOpen(true);
+      openFeishuWizard({
+        initialChannelName: addName.trim(),
+        initialStep: 'choose',
+      });
       setAddName('');
       return;
     }
@@ -556,7 +573,11 @@ export function Channels() {
   const handleQuickAddCurrentType = () => {
     // Quick add for current channel type - skip type selection modal
     if (activeChannelType === 'feishu') {
-      openChannelConfig('feishu', selectedChannel?.accountId);
+      openFeishuWizard({
+        accountId: selectedChannel?.accountId,
+        initialChannelName: selectedChannel?.name,
+        initialStep: 'choose',
+      });
       return;
     }
     if (activeChannelType === 'wechat') {
@@ -604,10 +625,9 @@ export function Channels() {
       return [...filtered, optimisticMsg];
     });
     try {
-      const sendIdentity = activeChannelType === 'feishu' ? identityMode : 'bot';
       await hostApiFetch(`/api/channels/${encodeURIComponent(selectedChannel.id)}/send`, {
         method: 'POST',
-        body: JSON.stringify({ text, conversationId: convId, identity: sendIdentity }),
+        body: JSON.stringify({ text, conversationId: convId, identity: 'bot' }),
       });
       // Poll for new messages — loadConversation will drop the optimistic message
       // once it sees a server-side self-message with matching content.
@@ -638,6 +658,55 @@ export function Channels() {
     return false;
   });
 
+  const beginRenameSession = (session: ChannelSyncSession) => {
+    setEditingSessionId(session.id);
+    setEditingSessionTitle(session.title);
+  };
+
+  const cancelRenameSession = () => {
+    setEditingSessionId(null);
+    setEditingSessionTitle('');
+  };
+
+  const saveRenamedSession = async () => {
+    if (!editingSessionId) return;
+    const nextTitle = editingSessionTitle.trim();
+    if (!nextTitle) return;
+    await hostApiFetch(`/api/channels/workbench/conversations/${encodeURIComponent(editingSessionId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title: nextTitle }),
+    });
+    setSessions((prev) => prev.map((session) => (
+      session.id === editingSessionId
+        ? { ...session, title: nextTitle }
+        : session
+    )));
+    setConversation((prev) => (
+      prev?.id === editingSessionId
+        ? { ...prev, title: nextTitle }
+        : prev
+    ));
+    cancelRenameSession();
+  };
+
+  const hideSessionFromWorkbench = async (sessionId: string) => {
+    await hostApiFetch(`/api/channels/workbench/conversations/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+    });
+    const nextSessions = sessions.filter((session) => session.id !== sessionId);
+    setSessions(nextSessions);
+    if (selectedConversationId === sessionId) {
+      const nextConversationId = nextSessions[0]?.id ?? null;
+      setSelectedConversationId(nextConversationId);
+      if (nextConversationId) {
+        void loadConversation(nextConversationId);
+      } else {
+        setConversation(null);
+        setMessages([]);
+      }
+    }
+  };
+
   const handleTest = async () => {
     if (!selectedChannel) return;
     try {
@@ -661,7 +730,7 @@ export function Channels() {
   // Handle pendingAddChannel from Sidebar
   useEffect(() => {
     if (pendingAddChannel) {
-      openChannelConfig(null);
+      setAddOpen(true);
       setPendingAddChannel(false);
     }
   }, [pendingAddChannel, setPendingAddChannel]);
@@ -753,15 +822,11 @@ export function Channels() {
                 const isError = session.syncState === 'error';
                 const lastActivity = session.latestActivityAt ? Date.parse(session.latestActivityAt) : null;
                 const isArchived = lastActivity != null && (now - lastActivity) > ARCHIVE_THRESHOLD_MS;
+                const isEditing = editingSessionId === session.id;
                 return (
-                  <button
+                  <div
                     key={session.id}
-                    type="button"
                     data-testid={`session-item-${session.id}`}
-                    onClick={() => {
-                      setSelectedConversationId(session.id);
-                      void loadConversation(session.id);
-                    }}
                     className={cn(
                       'rounded-2xl border px-3 py-3 text-left transition-colors',
                       isActive
@@ -770,6 +835,60 @@ export function Channels() {
                       isArchived && 'opacity-50',
                     )}
                   >
+                    <div className="mb-2 flex items-center justify-end gap-1.5">
+                      {isEditing ? (
+                        <>
+                          <input
+                            data-testid={`session-title-input-${session.id}`}
+                            value={editingSessionTitle}
+                            onChange={(event) => setEditingSessionTitle(event.target.value)}
+                            className="min-w-0 flex-1 rounded-xl border border-black/10 bg-white px-3 py-1.5 text-[13px] text-[#111827] outline-none"
+                          />
+                          <button
+                            type="button"
+                            data-testid={`save-session-title-${session.id}`}
+                            onClick={() => { void saveRenamedSession(); }}
+                            className="rounded-lg border border-black/10 px-2 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f8fafc]"
+                          >
+                            保存
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRenameSession}
+                            className="rounded-lg border border-black/10 px-2 py-1 text-[11px] text-[#64748b] hover:bg-[#f8fafc]"
+                          >
+                            取消
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            data-testid={`rename-session-${session.id}`}
+                            onClick={() => beginRenameSession(session)}
+                            className="rounded-lg border border-black/10 px-2 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f8fafc]"
+                          >
+                            编辑
+                          </button>
+                          <button
+                            type="button"
+                            data-testid={`hide-session-${session.id}`}
+                            onClick={() => { void hideSessionFromWorkbench(session.id); }}
+                            className="rounded-lg border border-[#fecaca] px-2 py-1 text-[11px] text-[#dc2626] hover:bg-[#fef2f2]"
+                          >
+                            移除
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedConversationId(session.id);
+                        void loadConversation(session.id);
+                      }}
+                      className="w-full text-left"
+                    >
                     <div className="mb-1 flex items-start justify-between gap-3">
                       <span className={cn('truncate text-[14px] font-medium text-[#111827]', isArchived && 'italic')} data-testid={isArchived ? `session-archived-${session.id}` : undefined}>
                         {isArchived ? `[归档] ${session.title}` : session.title}
@@ -802,6 +921,7 @@ export function Channels() {
                       <span>{formatRelativeTimestamp(session.latestActivityAt)}</span>
                     </div>
                   </button>
+                  </div>
                 );
               })}
             </div>
@@ -1106,36 +1226,6 @@ export function Channels() {
                   rows={1}
                   className="min-h-[24px] max-h-[120px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent text-[14px] text-[#111827] outline-none placeholder:text-[#8e8e93]"
                 />
-                {activeChannelType === 'feishu' && userAuthStatus === 'authorized' && (
-                  <div
-                    data-testid="identity-toggle"
-                    aria-label="切换发言身份"
-                    className="inline-flex shrink-0 items-center rounded-full border border-[#e2e8f0] bg-[#f8fafc] px-1 py-0.5 text-[12px] font-medium"
-                  >
-                    <button
-                      type="button"
-                      aria-label="机器人"
-                      onClick={() => setIdentityMode('bot')}
-                      className={cn(
-                        'rounded-full px-2 py-0.5 transition-colors',
-                        identityMode === 'bot' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
-                      )}
-                    >
-                      机器人
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="我"
-                      onClick={() => setIdentityMode('self')}
-                      className={cn(
-                        'rounded-full px-2 py-0.5 transition-colors',
-                        identityMode === 'self' ? 'bg-[#0f172a] text-white' : 'text-[#64748b]',
-                      )}
-                    >
-                      我
-                    </button>
-                  </div>
-                )}
                 <button
                   type="button"
                   onClick={() => void handleSend()}
@@ -1276,8 +1366,14 @@ export function Channels() {
                             type="button"
                             onClick={() => {
                               setSettingsOpen(false);
-                              openChannelConfig(selectedChannel.type, account.accountId);
+                              openChannelConfig(selectedChannel.type, account.accountId, {
+                                initialConfigValues: account.accountId === selectedChannel.accountId
+                                  ? settingsConfigValues
+                                  : null,
+                                initialStep: 'configure',
+                              });
                             }}
+                            data-testid={`settings-edit-account-${account.accountId}`}
                             className="rounded-lg border border-black/10 px-2.5 py-1.5 text-[12px] text-[#3c3c43] hover:bg-[#f1f5f9]"
                           >
                             编辑
@@ -1316,8 +1412,12 @@ export function Channels() {
                   type="button"
                   onClick={() => {
                     setSettingsOpen(false);
-                    openChannelConfig(selectedChannel.type, selectedChannel.accountId);
+                    openChannelConfig(selectedChannel.type, selectedChannel.accountId, {
+                      initialConfigValues: settingsConfigValues,
+                      initialStep: 'configure',
+                    });
                   }}
+                  data-testid="settings-edit-config"
                   className="rounded-xl bg-[#0f172a] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#111827]"
                 >
                   编辑配置
@@ -1410,10 +1510,16 @@ export function Channels() {
 
       {feishuWizardOpen && (
         <FeishuOnboardingWizard
+          accountId={feishuWizardAccountId}
+          initialConfigValues={feishuWizardInitialConfigValues ?? undefined}
           initialChannelName={feishuWizardInitialName}
+          initialStep={feishuWizardInitialStep}
           onClose={() => {
             setFeishuWizardOpen(false);
             setFeishuWizardInitialName('');
+            setFeishuWizardAccountId('default');
+            setFeishuWizardInitialConfigValues(null);
+            setFeishuWizardInitialStep('choose');
           }}
           onConfigured={async ({ channelName }) => {
             const hadFeishuChannel = channels.some((channel) => channel.type === 'feishu');

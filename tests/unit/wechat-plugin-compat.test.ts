@@ -36,4 +36,37 @@ describe('wechat plugin compatibility shim', () => {
     expect(patched).not.toContain("await import('./monitor.js')");
     expect(patched).toContain('return monitorFeishuProvider({});');
   });
+
+  it('rewrites feishu plugin-sdk named imports to namespace fallbacks', () => {
+    const source = [
+      "import { DEFAULT_ACCOUNT_ID, PAIRING_APPROVED_MESSAGE } from 'openclaw/plugin-sdk';",
+      'const accountId = DEFAULT_ACCOUNT_ID;',
+      'const text = PAIRING_APPROVED_MESSAGE;',
+    ].join('\n');
+
+    const patched = patchFeishuPluginCompatibilitySource(source);
+
+    expect(patched).toContain("import * as pluginSdk from 'openclaw/plugin-sdk';");
+    expect(patched).not.toContain("import { DEFAULT_ACCOUNT_ID, PAIRING_APPROVED_MESSAGE } from 'openclaw/plugin-sdk';");
+    expect(patched).toContain("const DEFAULT_ACCOUNT_ID = typeof pluginSdk.DEFAULT_ACCOUNT_ID === 'string'");
+    expect(patched).toContain("const PAIRING_APPROVED_MESSAGE = typeof pluginSdk.PAIRING_APPROVED_MESSAGE === 'string'");
+    expect(patched).toContain('const accountId = DEFAULT_ACCOUNT_ID;');
+    expect(patched).toContain('const text = PAIRING_APPROVED_MESSAGE;');
+  });
+
+  it('rewrites feishu onboarding helpers to local fallbacks', () => {
+    const source = [
+      "import { DEFAULT_ACCOUNT_ID, formatDocsLink } from 'openclaw/plugin-sdk';",
+      "const docs = formatDocsLink('/channels/feishu', 'feishu');",
+      'return DEFAULT_ACCOUNT_ID;',
+    ].join('\n');
+
+    const patched = patchFeishuPluginCompatibilitySource(source);
+
+    expect(patched).toContain("import * as pluginSdk from 'openclaw/plugin-sdk';");
+    expect(patched).toContain("const formatDocsLink = typeof pluginSdk.formatDocsLink === 'function'");
+    expect(patched).toContain("const DEFAULT_ACCOUNT_ID = typeof pluginSdk.DEFAULT_ACCOUNT_ID === 'string'");
+    expect(patched).toContain("const docs = formatDocsLink('/channels/feishu', 'feishu');");
+    expect(patched).toContain('return DEFAULT_ACCOUNT_ID;');
+  });
 });

@@ -126,6 +126,20 @@ function renderSidebar(initialRoute = '/') {
 describe('workbench sidebar', () => {
   beforeEach(() => {
     mockSettingsState.sidebarCollapsed = false;
+    mockChatState.sessions = [
+      { key: 'session-alpha', label: 'Alpha Session' },
+      { key: 'session-beta', label: 'Beta Session' },
+    ];
+    mockChatState.currentSessionKey = 'session-alpha';
+    mockChatState.sessionLabels = {
+      'session-alpha': 'Alpha Session',
+      'session-beta': 'Beta Session',
+    };
+    mockChatState.sessionLastActivity = {
+      'session-alpha': 200,
+      'session-beta': 100,
+    };
+    mockChannelsState.channels = [{ id: 'feishu-default', type: 'feishu', name: 'Feishu Bot', status: 'connected' as const }];
     vi.clearAllMocks();
   });
 
@@ -162,6 +176,27 @@ describe('workbench sidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Channels' }));
 
     expect(screen.getByText('Ops Telegram')).toBeInTheDocument();
+  });
+
+  it('prefixes channel-backed sessions in the global session list', () => {
+    mockChatState.sessions = [
+      { key: 'agent:main:feishu:group:oc_001', label: '渠道群聊' },
+      { key: 'agent:main:wechat:group:wx_001', label: '客户微信群' },
+    ];
+    mockChatState.sessionLabels = {
+      'agent:main:feishu:group:oc_001': '渠道群聊',
+      'agent:main:wechat:group:wx_001': '客户微信群',
+    };
+    mockChatState.sessionLastActivity = {
+      'agent:main:feishu:group:oc_001': 200,
+      'agent:main:wechat:group:wx_001': 100,
+    };
+    mockChatState.currentSessionKey = 'agent:main:feishu:group:oc_001';
+
+    renderSidebar();
+
+    expect(screen.getByText('[飞书] 渠道群聊')).toBeInTheDocument();
+    expect(screen.getByText('[微信] 客户微信群')).toBeInTheDocument();
   });
 
   it('still offers an add-channel action when no workbench channels are configured', () => {

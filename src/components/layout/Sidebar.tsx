@@ -39,6 +39,19 @@ type NavItemConfig = {
   icon: typeof LayoutDashboard;
 };
 
+function prefixChannelSessionLabel(sessionKey: string, label: string): string {
+  if (label.startsWith('[')) {
+    return label;
+  }
+  if (/^agent:[^:]+:feishu:/.test(sessionKey)) {
+    return `[飞书] ${label}`;
+  }
+  if (/^agent:[^:]+:wechat:/.test(sessionKey)) {
+    return `[微信] ${label}`;
+  }
+  return label;
+}
+
 function SectionHeader({
   icon: Icon,
   label,
@@ -417,10 +430,13 @@ export function Sidebar() {
                 <div className="space-y-2">
                   {sortedSessions.map((session) => {
                     const label =
-                      sessionLabels[session.key] ??
-                      session.label ??
-                      session.displayName ??
-                      session.key;
+                      prefixChannelSessionLabel(
+                        session.key,
+                        sessionLabels[session.key] ??
+                        session.label ??
+                        session.displayName ??
+                        session.key,
+                      );
                     const isPinned = pinnedSessionKeySet.has(session.key);
                     const isActive = currentSessionKey === session.key;
                     const messagePreview = getMessagePreview(session.key);

@@ -26,11 +26,13 @@ const mocks = vi.hoisted(() => ({
   weChatStart: vi.fn(),
   weChatStop: vi.fn(),
   weChatGetState: vi.fn(() => null),
+  sendFeishuViaPreferredPath: vi.fn(),
   bindingGet: vi.fn(),
   bindingUpsert: vi.fn(),
 }));
 
 const TEST_FEISHU_SNAPSHOT_KEY = '__clawxTestFeishuWorkbenchSnapshot';
+const TEST_DERIVED_WORKBENCH_RECORDS_KEY = '__clawxTestDerivedWorkbenchRecords';
 
 vi.mock('@electron/api/route-utils', () => ({
   sendJson: mocks.sendJson,
@@ -72,6 +74,10 @@ vi.mock('@electron/utils/wechat-login', () => ({
   },
 }));
 
+vi.mock('@electron/utils/feishu-send-path', () => ({
+  sendFeishuViaPreferredPath: mocks.sendFeishuViaPreferredPath,
+}));
+
 vi.mock('@electron/utils/openclaw-sdk', () => ({
   listDiscordDirectoryGroupsFromConfig: vi.fn(async () => []),
   listDiscordDirectoryPeersFromConfig: vi.fn(async () => []),
@@ -106,12 +112,21 @@ describe('channel sync workbench routes', () => {
     vi.resetModules();
     vi.clearAllMocks();
     delete (globalThis as Record<string, unknown>)[TEST_FEISHU_SNAPSHOT_KEY];
+    delete (globalThis as Record<string, unknown>)[TEST_DERIVED_WORKBENCH_RECORDS_KEY];
     mocks.weChatGetState.mockReturnValue(null);
     mocks.bindingGet.mockResolvedValue(null);
     mocks.bindingUpsert.mockImplementation(async (record: Record<string, unknown>) => ({
       ...record,
       updatedAt: Date.now(),
     }));
+    mocks.sendFeishuViaPreferredPath.mockImplementation(async (params: {
+      runtimeSend?: () => Promise<unknown>;
+      directSend?: () => Promise<unknown>;
+    }) => {
+      if (params.runtimeSend) return params.runtimeSend();
+      if (params.directSend) return params.directSend();
+      throw new Error('No Feishu send path is available');
+    });
   });
 
   it('returns feishu-first synchronized sessions derived from configured accounts', async () => {
@@ -191,7 +206,7 @@ describe('channel sync workbench routes', () => {
       accountId: 'default',
       externalConversationId: 'oc_123',
       agentId: 'main',
-      sessionKey: 'agent:main:main',
+      sessionKey: 'agent:main:feishu:group:oc_123',
       updatedAt: Date.now(),
     });
 
@@ -255,7 +270,7 @@ describe('channel sync workbench routes', () => {
 
     expect(handled).toBe(true);
     expect(gatewayRpc).toHaveBeenCalledWith('chat.history', {
-      sessionKey: 'agent:main:main',
+      sessionKey: 'agent:main:feishu:group:oc_123',
       limit: 200,
     });
     expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, {
@@ -329,10 +344,10 @@ describe('channel sync workbench routes', () => {
       accountId: 'default',
       externalConversationId: 'oc_unbound',
       agentId: 'main',
-      sessionKey: 'agent:main:main',
+      sessionKey: 'agent:main:feishu:group:oc_unbound',
     }));
     expect(gatewayRpc).toHaveBeenCalledWith('chat.history', {
-      sessionKey: 'agent:main:main',
+      sessionKey: 'agent:main:feishu:group:oc_unbound',
       limit: 200,
     });
     expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, {
@@ -433,10 +448,10 @@ describe('channel sync workbench routes', () => {
       accountId: 'default',
       externalConversationId: 'oc_create',
       agentId: 'agent-a',
-      sessionKey: 'agent:agent-a:desk-main',
+      sessionKey: 'agent:agent-a:feishu:group:oc_create',
     }));
     expect(gatewayRpc).toHaveBeenCalledWith('chat.history', {
-      sessionKey: 'agent:agent-a:desk-main',
+      sessionKey: 'agent:agent-a:feishu:group:oc_create',
       limit: 200,
     });
     expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, {
@@ -506,27 +521,27 @@ describe('channel sync workbench routes', () => {
     });
   });
 
-  it('routes bound feishu conversation sends through runtime chat.send', async () => {
+  it('prefers direct feishu send over runtime chat.send when the plugin path is available', async () => {
     const { handleChannelRoutes } = await import('@electron/api/routes/channels');
     mocks.bindingGet.mockResolvedValue({
       channelType: 'feishu',
       accountId: 'default',
       externalConversationId: 'oc_bound_send',
       agentId: 'main',
-      sessionKey: 'agent:main:main',
+      sessionKey: 'agent:main:feishu:group:oc_bound_send',
       updatedAt: Date.now(),
     });
     mocks.parseJsonBody.mockResolvedValue({
       text: '你好',
       conversationId: 'feishu:default:oc_bound_send',
     });
+    mocks.sendFeishuViaPreferredPath.mockResolvedValue({
+      transport: 'direct',
+      messageId: 'om_direct_1',
+      chatId: 'oc_bound_send',
+    });
 
     const gatewayRpc = vi.fn(async (method: string) => {
-      if (method === 'chat.send') {
-        return {
-          runId: 'run-feishu-send-1',
-        };
-      }
       if (method === 'channels.status') {
         return {
           channels: {
@@ -567,13 +582,168 @@ describe('channel sync workbench routes', () => {
     );
 
     expect(handled).toBe(true);
-    expect(gatewayRpc).toHaveBeenCalledWith('chat.send', expect.objectContaining({
-      sessionKey: 'agent:main:feishu:group:oc_bound_send',
-      message: '你好',
-      idempotencyKey: expect.any(String),
-    }));
+    expect(mocks.sendFeishuViaPreferredPath).toHaveBeenCalledTimes(1);
+    expect(gatewayRpc).not.toHaveBeenCalledWith('chat.send', expect.anything());
     expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
       success: true,
+      messageId: 'om_direct_1',
+      chatId: 'oc_bound_send',
+    }));
+  });
+
+  it('falls back to runtime-derived feishu sessions when live snapshot is empty', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    (globalThis as Record<string, unknown>)[TEST_DERIVED_WORKBENCH_RECORDS_KEY] = [
+      {
+        sessionKey: 'agent:main:main',
+        channelType: 'feishu',
+        accountId: 'default',
+        target: 'user:ou_runtime_1',
+        title: '一位男子的智能助手',
+        sessionType: 'private',
+        latestActivityAt: '2026-04-04T08:43:00.000Z',
+        updatedAt: Date.parse('2026-04-04T08:43:00.000Z'),
+        visibleAgentId: 'main',
+      },
+    ];
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(async (method: string) => {
+          if (method === 'channels.status') {
+            return {
+              channels: {
+                feishu: { configured: true, running: true },
+              },
+              channelAccounts: {
+                feishu: [
+                  {
+                    accountId: 'default',
+                    configured: true,
+                    connected: true,
+                    name: 'Feishu Bot',
+                  },
+                ],
+              },
+              channelDefaultAccountId: {
+                feishu: 'default',
+              },
+            };
+          }
+          throw new Error(`Unexpected RPC method: ${method}`);
+        }),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('GET'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/workbench/sessions?channelType=feishu'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, {
+      success: true,
+      sessions: [
+        expect.objectContaining({
+          id: 'feishu:default:user:ou_runtime_1',
+          channelId: 'feishu-default',
+          channelType: 'feishu',
+          sessionType: 'private',
+          title: '一位男子的智能助手',
+          visibleAgentId: 'main',
+        }),
+      ],
+    });
+  });
+
+  it('reads feishu runtime-derived conversations from session-backed records when live snapshot is empty', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    (globalThis as Record<string, unknown>)[TEST_DERIVED_WORKBENCH_RECORDS_KEY] = [
+      {
+        sessionKey: 'agent:main:main',
+        channelType: 'feishu',
+        accountId: 'default',
+        target: 'user:ou_runtime_1',
+        title: '一位男子的智能助手',
+        sessionType: 'private',
+        latestActivityAt: '2026-04-04T08:43:00.000Z',
+        updatedAt: Date.parse('2026-04-04T08:43:00.000Z'),
+        visibleAgentId: 'main',
+      },
+    ];
+    const gatewayRpc = vi.fn(async (method: string) => {
+      if (method === 'chat.history') {
+        return {
+          messages: [
+            {
+              id: 'msg-user-runtime',
+              role: 'user',
+              content: 'ou_abc123def456: 你好哇',
+              timestamp: Date.parse('2026-04-04T08:43:00.000Z'),
+            },
+            {
+              id: 'msg-agent-runtime',
+              role: 'assistant',
+              content: '你好哇钱哥！',
+              timestamp: Date.parse('2026-04-04T08:43:10.000Z'),
+            },
+          ],
+        };
+      }
+      throw new Error(`Unexpected RPC method: ${method}`);
+    });
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: gatewayRpc,
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('GET'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/workbench/conversations/feishu%3Adefault%3Auser%3Aou_runtime_1/messages?limit=50'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.bindingUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      channelType: 'feishu',
+      accountId: 'default',
+      externalConversationId: 'user:ou_runtime_1',
+      agentId: 'main',
+      sessionKey: 'agent:main:main',
+    }));
+    expect(gatewayRpc).toHaveBeenCalledWith('chat.history', {
+      sessionKey: 'agent:main:main',
+      limit: 500,
+    });
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
+      success: true,
+      conversation: expect.objectContaining({
+        id: 'feishu:default:user:ou_runtime_1',
+        title: '一位男子的智能助手',
+        visibleAgentId: 'main',
+      }),
+      messages: [
+        expect.objectContaining({
+          id: 'msg-user-runtime',
+          role: 'human',
+          content: '你好哇',
+        }),
+        expect.objectContaining({
+          id: 'msg-agent-runtime',
+          role: 'agent',
+          content: '你好哇钱哥！',
+        }),
+      ],
+      hasMore: false,
     }));
   });
 
@@ -755,6 +925,241 @@ describe('channel sync workbench routes', () => {
 
     expect(handled).toBe(true);
     expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({ success: true }));
+  });
+  it('renames a workbench conversation by persisting displayTitle metadata', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.parseJsonBody.mockResolvedValue({ title: '客服群' });
+    mocks.bindingUpsert.mockResolvedValue({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'gc_001',
+      agentId: 'main',
+      sessionKey: 'agent:main:wechat:group:gc_001',
+      displayTitle: '客服群',
+      updatedAt: Date.now(),
+    });
+
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('PATCH'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/workbench/conversations/wechat%3Adefault%3Agc_001'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.bindingUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'gc_001',
+      displayTitle: '客服群',
+    }));
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
+      success: true,
+    }));
+  });
+
+  it('hides a workbench conversation without deleting the channel account', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.bindingUpsert.mockResolvedValue({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'gc_001',
+      agentId: 'main',
+      sessionKey: 'agent:main:wechat:group:gc_001',
+      hidden: true,
+      updatedAt: Date.now(),
+    });
+
+    const ctx = {
+      gatewayManager: {
+        getStatus: () => ({ state: 'running', port: 18789 }),
+        rpc: vi.fn(),
+        debouncedRestart: vi.fn(),
+        debouncedReload: vi.fn(),
+      },
+    } as never;
+
+    const handled = await handleChannelRoutes(
+      createRequest('DELETE'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/workbench/conversations/wechat%3Adefault%3Agc_001'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.bindingUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'gc_001',
+      hidden: true,
+    }));
+    expect(mocks.deleteChannelAccountConfig).not.toHaveBeenCalled();
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
+      success: true,
+    }));
+  });
+  it('labels inbound wechat human messages as 微信用户 in runtime-backed conversation history', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.bindingGet.mockResolvedValue({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'test_chat_id',
+      agentId: 'main',
+      sessionKey: 'agent:main:wechat:group:test_chat_id',
+      updatedAt: Date.now(),
+    });
+
+    const gatewayRpc = vi.fn(async (method: string) => {
+      if (method === 'channels.status') {
+        return {
+          channels: { 'openclaw-weixin': { configured: true, running: true } },
+          channelAccounts: { 'openclaw-weixin': [{ accountId: 'default', configured: true, connected: true, name: 'WeChat' }] },
+          channelDefaultAccountId: { 'openclaw-weixin': 'default' },
+        };
+      }
+      if (method === 'chat.history') {
+        return {
+          messages: [
+            {
+              id: 'wx-user-1',
+              role: 'user',
+              content: '你好',
+              timestamp: Date.parse('2026-04-04T07:10:00.000Z'),
+            },
+          ],
+        };
+      }
+      throw new Error(`Unexpected: ${method}`);
+    });
+
+    const ctx = { gatewayManager: { getStatus: () => ({ state: 'running', port: 18789 }), rpc: gatewayRpc, debouncedRestart: vi.fn(), debouncedReload: vi.fn() } } as never;
+    const handled = await handleChannelRoutes(
+      createRequest('GET'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/workbench/conversations/wechat%3Adefault%3Atest_chat_id/messages?limit=50'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
+      success: true,
+      messages: [
+        expect.objectContaining({
+          id: 'wx-user-1',
+          role: 'human',
+          authorName: '微信用户',
+          content: '你好',
+        }),
+      ],
+    }));
+  });
+
+  it('reuses an existing wechat main-session binding when sending from the workbench', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.listConfiguredChannels.mockResolvedValueOnce(['wechat']);
+    mocks.parseJsonBody.mockResolvedValue({ text: 'from desktop', conversationId: 'wechat:default:test_chat_id' });
+    mocks.bindingGet.mockResolvedValue({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'test_chat_id',
+      agentId: 'main',
+      sessionKey: 'agent:main:main',
+      updatedAt: Date.now(),
+    });
+
+    const gatewayRpc = vi.fn(async (method: string) => {
+      if (method === 'chat.send') return { success: true };
+      if (method === 'channels.status') {
+        return {
+          channels: { 'openclaw-weixin': { configured: true, running: true } },
+          channelAccounts: { 'openclaw-weixin': [{ accountId: 'default', configured: true, connected: true, name: 'WeChat' }] },
+          channelDefaultAccountId: { 'openclaw-weixin': 'default' },
+          defaultAgentId: 'main',
+          channelOwners: {},
+        };
+      }
+      throw new Error(`Unexpected: ${method}`);
+    });
+
+    const ctx = { gatewayManager: { getStatus: () => ({ state: 'running', port: 18789 }), rpc: gatewayRpc, debouncedRestart: vi.fn(), debouncedReload: vi.fn() } } as never;
+    const handled = await handleChannelRoutes(
+      createRequest('POST'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/wechat-default/send'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(gatewayRpc).toHaveBeenCalledWith('chat.send', expect.objectContaining({
+      sessionKey: 'agent:main:main',
+      message: 'from desktop',
+      idempotencyKey: expect.any(String),
+    }));
+    expect(mocks.bindingUpsert).not.toHaveBeenCalledWith(expect.objectContaining({
+      sessionKey: 'agent:main:wechat:group:test_chat_id',
+    }));
+  });
+
+  it('applies persisted displayTitle to wechat conversation payloads', async () => {
+    const { handleChannelRoutes } = await import('@electron/api/routes/channels');
+    mocks.bindingGet.mockResolvedValue({
+      channelType: 'wechat',
+      accountId: 'default',
+      externalConversationId: 'test_chat_id',
+      agentId: 'main',
+      sessionKey: 'agent:main:main',
+      displayTitle: '小飞',
+      updatedAt: Date.now(),
+    });
+
+    const gatewayRpc = vi.fn(async (method: string) => {
+      if (method === 'channels.status') {
+        return {
+          channels: { 'openclaw-weixin': { configured: true, running: true } },
+          channelAccounts: { 'openclaw-weixin': [{ accountId: 'default', configured: true, connected: true, name: 'WeChat Bot' }] },
+          channelDefaultAccountId: { 'openclaw-weixin': 'default' },
+        };
+      }
+      if (method === 'chat.history') {
+        return {
+          messages: [
+            {
+              id: 'wx-user-1',
+              role: 'user',
+              content: 'hello',
+              timestamp: Date.parse('2026-04-04T07:10:00.000Z'),
+            },
+          ],
+        };
+      }
+      throw new Error(`Unexpected: ${method}`);
+    });
+
+    const ctx = { gatewayManager: { getStatus: () => ({ state: 'running', port: 18789 }), rpc: gatewayRpc, debouncedRestart: vi.fn(), debouncedReload: vi.fn() } } as never;
+    const handled = await handleChannelRoutes(
+      createRequest('GET'),
+      {} as ServerResponse,
+      new URL('http://127.0.0.1:3210/api/channels/workbench/conversations/wechat%3Adefault%3Atest_chat_id/messages?limit=50'),
+      ctx,
+    );
+
+    expect(handled).toBe(true);
+    expect(mocks.sendJson).toHaveBeenLastCalledWith(expect.anything(), 200, expect.objectContaining({
+      success: true,
+      conversation: expect.objectContaining({
+        id: 'wechat:default:test_chat_id',
+        title: '小飞',
+      }),
+    }));
   });
 });
 
@@ -945,6 +1350,7 @@ describe('WeChat workbench routes', () => {
     expect(handled).toBe(true);
     expect(gatewayRpc).toHaveBeenCalledWith('chat.send', expect.objectContaining({
       sessionKey: 'agent:main:wechat:group:test_chat_id',
+      idempotencyKey: expect.any(String),
       message: '你好微信',
     }));
   });

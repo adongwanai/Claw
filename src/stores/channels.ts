@@ -107,20 +107,39 @@ export const useChannelsStore = create<ChannelsState>((set, get) => ({
               : typeof summarySignal?.lastError === 'string'
                 ? summarySignal.lastError
                 : undefined;
+          const accountEntries = accounts.length > 0
+            ? [...accounts].sort((left, right) => {
+                const leftAccountId = left.accountId || defaultAccountId || 'default';
+                const rightAccountId = right.accountId || defaultAccountId || 'default';
+                if (leftAccountId === defaultAccountId && rightAccountId !== defaultAccountId) return -1;
+                if (rightAccountId === defaultAccountId && leftAccountId !== defaultAccountId) return 1;
+                return leftAccountId.localeCompare(rightAccountId);
+              })
+            : [{
+                accountId: defaultAccountId || 'default',
+                name: CHANNEL_NAMES[uiChannelId] || uiChannelId,
+                configured: true,
+              }];
 
-          channels.push({
-            id: `${uiChannelId}-${primaryAccount?.accountId || 'default'}`,
-            type: uiChannelId,
-            name: primaryAccount?.name || CHANNEL_NAMES[uiChannelId] || uiChannelId,
-            status,
-            accountId: primaryAccount?.accountId,
-            error:
-              (typeof primaryAccount?.lastError === 'string' ? primaryAccount.lastError : undefined) ||
-              (typeof summaryError === 'string' ? summaryError : undefined),
-            metadata: {
-              gatewayChannelId,
-            },
-          });
+          for (const account of accountEntries) {
+            const accountId = account.accountId || defaultAccountId || 'default';
+            const accountStatus = pickChannelRuntimeStatus([account as ChannelRuntimeAccountSnapshot], summarySignal);
+            channels.push({
+              id: `${uiChannelId}-${accountId}`,
+              type: uiChannelId,
+              name: account.name || CHANNEL_NAMES[uiChannelId] || uiChannelId,
+              status: accountStatus,
+              accountId,
+              error:
+                (typeof account.lastError === 'string' ? account.lastError : undefined) ||
+                (typeof summaryError === 'string' ? summaryError : undefined),
+              metadata: {
+                gatewayChannelId,
+                isDefault: accountId === defaultAccountId,
+                aggregateStatus: status,
+              },
+            });
+          }
         }
 
         set({ channels, loading: false });

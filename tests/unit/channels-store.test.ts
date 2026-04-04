@@ -169,6 +169,51 @@ describe('channels store fetchChannels', () => {
     ]);
   });
 
+  it('returns one channel entry per configured account instead of collapsing to one primary account', async () => {
+    gatewayRpcMock.mockResolvedValueOnce({
+      channelOrder: ['feishu'],
+      channels: {
+        feishu: { configured: true, running: true },
+      },
+      channelAccounts: {
+        feishu: [
+          {
+            accountId: 'default',
+            configured: true,
+            connected: true,
+            name: 'Feishu Main',
+          },
+          {
+            accountId: 'agent-a',
+            configured: true,
+            connected: true,
+            name: 'Feishu Agent A',
+          },
+        ],
+      },
+      channelDefaultAccountId: {
+        feishu: 'default',
+      },
+    });
+
+    await useChannelsStore.getState().fetchChannels();
+
+    expect(useChannelsStore.getState().channels).toEqual([
+      expect.objectContaining({
+        id: 'feishu-default',
+        type: 'feishu',
+        name: 'Feishu Main',
+        accountId: 'default',
+      }),
+      expect.objectContaining({
+        id: 'feishu-agent-a',
+        type: 'feishu',
+        name: 'Feishu Agent A',
+        accountId: 'agent-a',
+      }),
+    ]);
+  });
+
   it('falls back to configured channel ids when runtime channel status is unavailable', async () => {
     gatewayRpcMock.mockRejectedValueOnce(new Error('gateway unavailable'));
     vi.mocked(hostApiFetch).mockResolvedValueOnce({

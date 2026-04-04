@@ -8,6 +8,7 @@ const {
   mockMkdir,
   mockRm,
   mockCp,
+  mockPatchInstalledFeishuPluginCompatibility,
   mockGetOpenClawStatus,
   mockRunOpenClawDoctor,
   mockValidateChannelConfig,
@@ -19,6 +20,7 @@ const {
   mockMkdir: vi.fn(),
   mockRm: vi.fn(),
   mockCp: vi.fn(),
+  mockPatchInstalledFeishuPluginCompatibility: vi.fn(),
   mockGetOpenClawStatus: vi.fn(),
   mockRunOpenClawDoctor: vi.fn(),
   mockValidateChannelConfig: vi.fn(),
@@ -64,6 +66,10 @@ vi.mock('@electron/utils/channel-config', () => ({
   validateChannelConfig: (...args: unknown[]) => mockValidateChannelConfig(...args),
 }));
 
+vi.mock('@electron/utils/wechat-plugin-compat', () => ({
+  patchInstalledFeishuPluginCompatibility: (...args: unknown[]) => mockPatchInstalledFeishuPluginCompatibility(...args),
+}));
+
 vi.mock('@electron/services/feishu-auth-runtime', () => ({
   loadFeishuAuthRuntime: (...args: unknown[]) => mockLoadFeishuAuthRuntime(...args),
 }));
@@ -81,6 +87,7 @@ describe('feishu integration service', () => {
     mockMkdir.mockResolvedValue(undefined);
     mockRm.mockResolvedValue(undefined);
     mockCp.mockResolvedValue(undefined);
+    mockPatchInstalledFeishuPluginCompatibility.mockReturnValue(true);
     mockGetOpenClawStatus.mockReturnValue({
       packageExists: true,
       isBuilt: true,
@@ -193,6 +200,9 @@ describe('feishu integration service', () => {
 
     expect(mockRm).toHaveBeenCalled();
     expect(mockCp).toHaveBeenCalled();
+    expect(mockPatchInstalledFeishuPluginCompatibility).toHaveBeenCalledWith(
+      expect.stringContaining('feishu-openclaw-plugin'),
+    );
     expect(result.success).toBe(true);
     expect(result.version).toBe('2026.3.25');
     expect(result.source).toBe('bundled');

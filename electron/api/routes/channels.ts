@@ -31,12 +31,13 @@ import {
 import { logger } from '../../utils/logger';
 import { whatsAppLoginManager } from '../../utils/whatsapp-login';
 import { weChatLoginManager } from '../../utils/wechat-login';
-import { createChannelConversationBindingStore } from '../../services/channel-conversation-bindings';
+import { createChannelConversationBindingStore, type ChannelConversationBindingRecord } from '../../services/channel-conversation-bindings';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
 import { getOpenClawConfigDir } from '../../utils/paths';
 import { OPENCLAW_WECHAT_CHANNEL_TYPE, toOpenClawChannelType, toUiChannelType } from '../../utils/channel-alias';
 import { proxyAwareFetch } from '../../utils/proxy-fetch';
+import { sendFeishuViaPreferredPath } from '../../utils/feishu-send-path';
 import {
   listDiscordDirectoryGroupsFromConfig,
   listDiscordDirectoryPeersFromConfig,
@@ -293,6 +294,14 @@ type WorkbenchSession = {
   visibleAgentId?: string;
 };
 
+type WorkbenchConversationView = {
+  id: string;
+  title: string;
+  syncState: string;
+  participantSummary?: string;
+  visibleAgentId?: string;
+};
+
 type WorkbenchConversationMessage = {
   id: string;
   role: 'human' | 'agent' | 'tool' | 'system';
@@ -311,6 +320,7 @@ const FEISHU_PLUGIN_ROOT = join(homedir(), '.openclaw', 'extensions', 'feishu-op
 const WECHAT_PLUGIN_ROOT = join(homedir(), '.openclaw', 'extensions', 'openclaw-weixin');
 const channelConversationBindings = createChannelConversationBindingStore();
 const TEST_FEISHU_SNAPSHOT_KEY = '__clawxTestFeishuWorkbenchSnapshot';
+const TEST_DERIVED_WORKBENCH_RECORDS_KEY = '__clawxTestDerivedWorkbenchRecords';
 
 type FeishuConversationIdParts = {
   accountId: string;
@@ -318,6 +328,12 @@ type FeishuConversationIdParts = {
 };
 
 type WeChatConversationIdParts = {
+  accountId: string;
+  externalConversationId: string;
+};
+
+type WorkbenchConversationTarget = {
+  channelType: string;
   accountId: string;
   externalConversationId: string;
 };
@@ -514,6 +530,19 @@ function buildWorkbenchSessionId(
   return `${channelType}-${accountId}`;
 }
 
+function mergeWorkbenchMessages(
+  runtimeMessages: WorkbenchConversationMessage[],
+  snapshotMessages: WorkbenchConversationMessage[],
+): WorkbenchConversationMessage[] {
+  const mergedIds = new Set(runtimeMessages.map((message) => message.id));
+  const uniqueSnapshotMessages = snapshotMessages.filter((message) => !mergedIds.has(message.id));
+  return [...runtimeMessages, ...uniqueSnapshotMessages].sort((left, right) => {
+    const leftTs = Date.parse(left.createdAt ?? '') || 0;
+    const rightTs = Date.parse(right.createdAt ?? '') || 0;
+    return leftTs - rightTs;
+  });
+}
+
 function resolveConversationChannelType(conversationId: string): string {
   if (conversationId.includes(':')) {
     return conversationId.split(':')[0] || '';
@@ -527,6 +556,7 @@ function resolveConversationChannelType(conversationId: string): string {
 function buildWorkbenchSessions(
   channelType: string,
   statusSnapshot: ChannelsStatusSnapshot | null,
+  selectedAccountId?: string,
 ): WorkbenchSession[] {
   const rawChannelType = toOpenClawChannelType(channelType);
   const summary = statusSnapshot?.channels?.[rawChannelType];
@@ -535,6 +565,10 @@ function buildWorkbenchSessions(
 
   const sessions = accounts
     .filter((account) => account.configured !== false)
+    .filter((account) => {
+      if (!selectedAccountId) return true;
+      return (account.accountId || defaultAccountId) === selectedAccountId;
+    })
     .map((account) => {
       const accountId = account.accountId || defaultAccountId;
       const status = resolveNormalizedStatus(summary, account);
@@ -558,6 +592,22 @@ function buildWorkbenchSessions(
     });
 
   if (sessions.length > 0) return sessions;
+
+  if (selectedAccountId) {
+    return [
+      {
+        id: buildWorkbenchSessionId(channelType, selectedAccountId),
+        channelId: `${channelType}-${selectedAccountId}`,
+        channelType,
+        sessionType: 'group',
+        title: `${channelType}-${selectedAccountId}`,
+        pinned: selectedAccountId === defaultAccountId,
+        syncState: normalizeWorkbenchSyncState(resolveNormalizedStatus(summary, undefined)),
+        participantSummary: '等待同步会话',
+        visibleAgentId: selectedAccountId === defaultAccountId ? 'main' : selectedAccountId,
+      },
+    ];
+  }
 
   const fallbackStatus = normalizeWorkbenchSyncState(resolveNormalizedStatus(summary, undefined));
   return [
@@ -964,6 +1014,105 @@ function parseWeChatConversationId(conversationId: string): WeChatConversationId
   return { accountId, externalConversationId };
 }
 
+function parseAccountConversationId(conversationId: string): WorkbenchConversationTarget | null {
+  const separatorIndex = conversationId.indexOf('-');
+  if (separatorIndex === -1) {
+    return null;
+  }
+  const channelType = conversationId.slice(0, separatorIndex).trim();
+  const accountId = conversationId.slice(separatorIndex + 1).trim();
+  if (!channelType || !accountId) {
+    return null;
+  }
+  return {
+    channelType,
+    accountId,
+    externalConversationId: accountId,
+  };
+}
+
+function parseWorkbenchConversationTarget(conversationId: string): WorkbenchConversationTarget | null {
+  const feishuConversation = parseFeishuConversationId(conversationId);
+  if (feishuConversation) {
+    return {
+      channelType: 'feishu',
+      accountId: feishuConversation.accountId,
+      externalConversationId: feishuConversation.externalConversationId,
+    };
+  }
+  const wechatConversation = parseWeChatConversationId(conversationId);
+  if (wechatConversation) {
+    return {
+      channelType: 'wechat',
+      accountId: wechatConversation.accountId,
+      externalConversationId: wechatConversation.externalConversationId,
+    };
+  }
+  return parseAccountConversationId(conversationId);
+}
+
+function buildScopedWorkbenchSessionKey(
+  agentId: string,
+  channelType: string,
+  sessionType: WorkbenchSession['sessionType'],
+  externalConversationId: string,
+): string {
+  return `agent:${agentId}:${channelType}:${sessionType}:${externalConversationId}`;
+}
+
+function isLegacyMainSessionKey(sessionKey: string | null | undefined): boolean {
+  return typeof sessionKey === 'string' && /^agent:[^:]+:[^:]+$/.test(sessionKey);
+}
+
+function applyWorkbenchBindingMetadata(
+  session: WorkbenchSession,
+  binding: ChannelConversationBindingRecord | null,
+): WorkbenchSession | null {
+  if (binding?.hidden) {
+    return null;
+  }
+  if (binding?.displayTitle?.trim()) {
+    return {
+      ...session,
+      title: binding.displayTitle.trim(),
+    };
+  }
+  return session;
+}
+
+function applyWorkbenchConversationBindingMetadata(
+  conversation: WorkbenchConversationView | null,
+  binding: ChannelConversationBindingRecord | null,
+): WorkbenchConversationView | null {
+  if (!conversation) {
+    return null;
+  }
+  if (binding?.hidden) {
+    return null;
+  }
+  if (binding?.displayTitle?.trim()) {
+    return {
+      ...conversation,
+      title: binding.displayTitle.trim(),
+    };
+  }
+  return conversation;
+}
+
+async function getConversationBinding(
+  channelType: string,
+  accountId: string,
+  externalConversationId: string,
+): Promise<ChannelConversationBindingRecord | null> {
+  try {
+    return await Promise.resolve(
+      channelConversationBindings.get(channelType, accountId, externalConversationId),
+    );
+  } catch {
+    return null;
+  }
+}
+
 function extractFirstStringValue(
   row: Record<string, unknown>,
   keys: string[],
@@ -1069,6 +1218,7 @@ function extractHistoryItems(payload: unknown): unknown[] {
 function mapRuntimeHistoryItemToWorkbenchMessage(
   item: unknown,
   index: number,
+  channelType?: string,
 ): WorkbenchConversationMessage | null {
   if (typeof item === 'string') {
     const text = item.trim();
@@ -1100,8 +1250,14 @@ function mapRuntimeHistoryItemToWorkbenchMessage(
   const summary = extractFirstStringValue(row, ['summary']);
   const id = extractFirstStringValue(row, ['id', 'message_id', 'toolCallId', 'tool_call_id']) ?? `runtime-${index}`;
   const toolName = extractFirstStringValue(row, ['toolName', 'tool_name', 'name']);
+  const normalizedChannelType = (channelType || '').trim().toLowerCase();
+  const fallbackHumanAuthorName = normalizedChannelType === 'wechat'
+    ? '微信用户'
+    : normalizedChannelType === 'feishu'
+      ? '飞书用户'
+      : 'Channel User';
   const authorName = extractFirstStringValue(row, ['authorName', 'author'])
-    ?? (role === 'human' ? 'Feishu User' : role === 'agent' ? 'KTClaw' : undefined);
+    ?? (role === 'human' ? fallbackHumanAuthorName : role === 'agent' ? 'KTClaw' : undefined);
   const createdAt = coerceIsoTimestamp(
     row.createdAt
     ?? row.create_time
@@ -1136,37 +1292,41 @@ function mapRuntimeHistoryItemToWorkbenchMessage(
   };
 }
 
-function mapRuntimeHistoryToWorkbenchMessages(payload: unknown): WorkbenchConversationMessage[] {
+function mapRuntimeHistoryToWorkbenchMessages(payload: unknown, channelType?: string): WorkbenchConversationMessage[] {
   return extractHistoryItems(payload)
-    .map((item, index) => mapRuntimeHistoryItemToWorkbenchMessage(item, index))
+    .map((item, index) => mapRuntimeHistoryItemToWorkbenchMessage(item, index, channelType))
     .filter((item): item is WorkbenchConversationMessage => item != null);
 }
 
-async function resolveFeishuBindingForConversation(
-  conversationId: string,
+async function resolveScopedConversationBinding(
+  target: WorkbenchConversationTarget,
+  sessionType: WorkbenchSession['sessionType'],
   preferredAgentId?: string,
   options?: {
     createIfMissing?: boolean;
+    allowExistingLegacyMainSessionKey?: boolean;
   },
-): Promise<{ agentId: string; sessionKey: string } | null> {
-  const parsedConversation = parseFeishuConversationId(conversationId);
-  if (!parsedConversation) {
-    return null;
-  }
-
+): Promise<{ agentId: string; sessionKey: string; binding: ChannelConversationBindingRecord } | null> {
   const existing = await channelConversationBindings.get(
-    'feishu',
-    parsedConversation.accountId,
-    parsedConversation.externalConversationId,
+    target.channelType,
+    target.accountId,
+    target.externalConversationId,
   );
-  if (existing?.sessionKey) {
+  if (
+    existing?.sessionKey
+    && (
+      !isLegacyMainSessionKey(existing.sessionKey)
+      || options?.allowExistingLegacyMainSessionKey
+    )
+  ) {
     return {
-      agentId: existing.agentId || inferAgentIdFromAccountId(parsedConversation.accountId),
+      agentId: existing.agentId || inferAgentIdFromAccountId(target.accountId),
       sessionKey: existing.sessionKey,
+      binding: existing,
     };
   }
 
-  if (options?.createIfMissing === false) {
+  if (options?.createIfMissing === false && !existing) {
     return null;
   }
 
@@ -1174,8 +1334,12 @@ async function resolveFeishuBindingForConversation(
   const snapshotAgents = Array.isArray(snapshot?.agents)
     ? snapshot.agents
     : [];
-  const ownerFromChannel = typeof snapshot?.channelOwners?.feishu === 'string'
-    ? snapshot.channelOwners.feishu.trim()
+  const rawChannelType = toOpenClawChannelType(target.channelType);
+  const ownerFromScopedChannel = typeof snapshot?.channelOwners?.[`${rawChannelType}:${target.accountId}`] === 'string'
+    ? snapshot.channelOwners[`${rawChannelType}:${target.accountId}`].trim()
+    : '';
+  const ownerFromChannel = typeof snapshot?.channelOwners?.[rawChannelType] === 'string'
+    ? snapshot.channelOwners[rawChannelType].trim()
     : '';
   const defaultAgentId = typeof snapshot?.defaultAgentId === 'string'
     ? snapshot.defaultAgentId.trim()
@@ -1187,34 +1351,74 @@ async function resolveFeishuBindingForConversation(
     ? configuredAgentIds
     : await listConfiguredAgentIds().catch(() => []);
   const candidates = [
+    ownerFromScopedChannel,
     ownerFromChannel,
     preferredAgentId?.trim() || '',
-    inferAgentIdFromAccountId(parsedConversation.accountId),
+    existing?.agentId?.trim() || '',
+    inferAgentIdFromAccountId(target.accountId),
     defaultAgentId,
     'main',
   ].filter(Boolean);
   const resolvedAgentId = candidates.find((candidate) => fallbackAgentIds.includes(candidate))
     || candidates[0]
     || 'main';
-  const resolvedAgentSummary = snapshotAgents.find((agent) => {
-    return typeof agent?.id === 'string' && agent.id.trim() === resolvedAgentId;
-  }) as { mainSessionKey?: unknown } | undefined;
-  const summaryMainSessionKey = typeof resolvedAgentSummary?.mainSessionKey === 'string'
-    ? resolvedAgentSummary.mainSessionKey.trim()
-    : '';
-  const sessionKey = summaryMainSessionKey || `agent:${resolvedAgentId}:main`;
   const persisted = await channelConversationBindings.upsert({
-    channelType: 'feishu',
-    accountId: parsedConversation.accountId,
-    externalConversationId: parsedConversation.externalConversationId,
+    channelType: target.channelType,
+    accountId: target.accountId,
+    externalConversationId: target.externalConversationId,
     agentId: resolvedAgentId,
-    sessionKey,
+    sessionKey: buildScopedWorkbenchSessionKey(
+      resolvedAgentId,
+      target.channelType,
+      sessionType,
+      target.externalConversationId,
+    ),
+    ...(existing?.displayTitle ? { displayTitle: existing.displayTitle } : {}),
+    ...(existing?.hidden ? { hidden: existing.hidden } : {}),
   });
 
   return {
     agentId: persisted.agentId,
     sessionKey: persisted.sessionKey,
+    binding: persisted,
   };
+}
+
+async function resolveFeishuBindingForConversation(
+  conversationId: string,
+  preferredAgentId?: string,
+  options?: {
+    createIfMissing?: boolean;
+    sessionType?: WorkbenchSession['sessionType'];
+  },
+): Promise<{ agentId: string; sessionKey: string; binding: ChannelConversationBindingRecord } | null> {
+  const parsedConversation = parseFeishuConversationId(conversationId);
+  if (!parsedConversation) {
+    return null;
+  }
+  return resolveScopedConversationBinding({
+    channelType: 'feishu',
+    accountId: parsedConversation.accountId,
+    externalConversationId: parsedConversation.externalConversationId,
+  }, options?.sessionType ?? 'group', preferredAgentId, options);
+}
+
+async function resolveWeChatBindingForConversation(
+  conversationId: string,
+  preferredAgentId?: string,
+  options?: {
+    createIfMissing?: boolean;
+    sessionType?: WorkbenchSession['sessionType'];
+  },
+): Promise<{ agentId: string; sessionKey: string; binding: ChannelConversationBindingRecord } | null> {
+  const parsedConversation = parseWorkbenchConversationTarget(conversationId);
+  if (!parsedConversation || parsedConversation.channelType !== 'wechat') {
+    return null;
+  }
+  return resolveScopedConversationBinding(parsedConversation, options?.sessionType ?? 'group', preferredAgentId, {
+    ...options,
+    allowExistingLegacyMainSessionKey: true,
+  });
 }
 
 function buildFeishuConversationPayload(
@@ -1230,9 +1434,9 @@ function buildFeishuConversationPayload(
 } {
   const parsedConversation = parseFeishuConversationId(conversationId);
   const fallbackTitle = parsedConversation?.externalConversationId || conversationId;
-  const fallbackSummary = parsedConversation?.accountId === 'default'
-    ? 'synced group chat'
-    : 'synced private chat';
+  const fallbackSummary = parsedConversation?.externalConversationId?.startsWith('user:')
+    ? 'synced private chat'
+    : 'synced group chat';
   const visibleAgentId = resolvedAgentId
     || discoveredConversation?.visibleAgentId
     || (parsedConversation ? inferAgentIdFromAccountId(parsedConversation.accountId) : undefined);
@@ -1453,6 +1657,209 @@ function extractSessionRecords(store: JsonRecord): JsonRecord[] {
     ? store.sessions.filter((entry): entry is JsonRecord => Boolean(entry && typeof entry === 'object'))
     : [];
   return [...directEntries, ...arrayEntries];
+}
+
+type SessionRecordEntry = {
+  record: JsonRecord;
+  sessionKey?: string;
+};
+
+type SessionDerivedWorkbenchRecord = {
+  sessionKey: string;
+  channelType: string;
+  accountId: string;
+  target: string;
+  title: string;
+  sessionType: WorkbenchSession['sessionType'];
+  latestActivityAt?: string;
+  updatedAt: number;
+  visibleAgentId?: string;
+};
+
+function readInjectedSessionDerivedWorkbenchRecordsForTests(params: {
+  channelType: string;
+  accountId?: string;
+}): SessionDerivedWorkbenchRecord[] {
+  const injected = (globalThis as Record<string, unknown>)[TEST_DERIVED_WORKBENCH_RECORDS_KEY];
+  const records = Array.isArray(injected)
+    ? injected as SessionDerivedWorkbenchRecord[]
+    : [];
+  return records
+    .filter((record) => record.channelType === params.channelType)
+    .filter((record) => !params.accountId || record.accountId === params.accountId)
+    .sort((left, right) => right.updatedAt - left.updatedAt || left.title.localeCompare(right.title));
+}
+
+function buildWorkbenchSessionFromDerivedRecord(record: SessionDerivedWorkbenchRecord): WorkbenchSession {
+  return {
+    id: `${record.channelType}:${record.accountId}:${record.target}`,
+    channelId: `${record.channelType}-${record.accountId}`,
+    channelType: record.channelType,
+    sessionType: record.sessionType,
+    title: record.title,
+    pinned: false,
+    syncState: 'synced',
+    latestActivityAt: record.latestActivityAt,
+    participantSummary: record.sessionType === 'group' ? 'synced group chat' : 'synced private chat',
+    ...(record.visibleAgentId ? { visibleAgentId: record.visibleAgentId } : {}),
+  };
+}
+
+function mergeWorkbenchSessionLists(...groups: WorkbenchSession[][]): WorkbenchSession[] {
+  const merged = new Map<string, WorkbenchSession>();
+  for (const group of groups) {
+    for (const session of group) {
+      const existing = merged.get(session.id);
+      if (!existing) {
+        merged.set(session.id, session);
+        continue;
+      }
+      merged.set(session.id, {
+        ...session,
+        ...existing,
+        title: existing.title || session.title,
+        previewText: existing.previewText || session.previewText,
+        participantSummary: existing.participantSummary || session.participantSummary,
+        visibleAgentId: existing.visibleAgentId || session.visibleAgentId,
+        latestActivityAt: existing.latestActivityAt || session.latestActivityAt,
+        pinned: existing.pinned || session.pinned,
+      });
+    }
+  }
+
+  return Array.from(merged.values()).sort((left, right) => {
+    if (left.pinned !== right.pinned) return left.pinned ? -1 : 1;
+    const leftTs = Date.parse(left.latestActivityAt ?? '') || 0;
+    const rightTs = Date.parse(right.latestActivityAt ?? '') || 0;
+    if (leftTs !== rightTs) return rightTs - leftTs;
+    return left.title.localeCompare(right.title);
+  });
+}
+
+async function findDerivedWorkbenchRecordForConversation(
+  conversationId: string,
+  channelType: 'feishu' | 'wechat',
+): Promise<SessionDerivedWorkbenchRecord | undefined> {
+  const target = parseWorkbenchConversationTarget(conversationId);
+  if (!target || target.channelType !== channelType) {
+    return undefined;
+  }
+  const records = await listSessionDerivedWorkbenchRecords({
+    channelType,
+    accountId: target.accountId,
+  });
+  return records.find((record) => record.target === target.externalConversationId);
+}
+
+function extractSessionRecordEntries(store: JsonRecord): SessionRecordEntry[] {
+  const directEntries = Object.entries(store)
+    .filter(([key, value]) => key !== 'sessions' && value && typeof value === 'object')
+    .map(([key, value]) => ({
+      sessionKey: key,
+      record: value as JsonRecord,
+    }));
+  const arrayEntries = Array.isArray(store.sessions)
+    ? store.sessions
+      .filter((entry): entry is JsonRecord => Boolean(entry && typeof entry === 'object'))
+      .map((entry) => ({
+        sessionKey: readNonEmptyString(entry.key) || readNonEmptyString(entry.sessionKey),
+        record: entry,
+      }))
+    : [];
+  return [...directEntries, ...arrayEntries];
+}
+
+function parseAgentIdFromSessionKey(sessionKey: string | undefined): string | undefined {
+  if (!sessionKey?.startsWith('agent:')) return undefined;
+  const parts = sessionKey.split(':');
+  return parts[1]?.trim() || undefined;
+}
+
+async function listSessionDerivedWorkbenchRecords(params: {
+  channelType: string;
+  accountId?: string;
+}): Promise<SessionDerivedWorkbenchRecord[]> {
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') {
+    return readInjectedSessionDerivedWorkbenchRecordsForTests(params);
+  }
+  const storedChannelType = toOpenClawChannelType(params.channelType);
+  const agentsDir = join(getOpenClawConfigDir(), 'agents');
+  const agentDirs = await readdir(agentsDir, { withFileTypes: true }).catch(() => []);
+  const candidates: SessionDerivedWorkbenchRecord[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of agentDirs) {
+    if (!entry.isDirectory()) continue;
+    const sessionsPath = join(agentsDir, entry.name, 'sessions', 'sessions.json');
+    const raw = await readFile(sessionsPath, 'utf8').catch(() => '');
+    if (!raw.trim()) continue;
+
+    let parsed: JsonRecord;
+    try {
+      parsed = JSON.parse(raw) as JsonRecord;
+    } catch {
+      continue;
+    }
+
+    for (const item of extractSessionRecordEntries(parsed)) {
+      const session = item.record;
+      const deliveryContext = session.deliveryContext && typeof session.deliveryContext === 'object'
+        ? session.deliveryContext as JsonRecord
+        : undefined;
+      const origin = session.origin && typeof session.origin === 'object'
+        ? session.origin as JsonRecord
+        : undefined;
+      const sessionChannelType = readNonEmptyString(deliveryContext?.channel)
+        || readNonEmptyString(session.lastChannel)
+        || readNonEmptyString(session.channel)
+        || readNonEmptyString(origin?.provider)
+        || readNonEmptyString(origin?.surface);
+      if (!sessionChannelType || toOpenClawChannelType(sessionChannelType) !== storedChannelType) {
+        continue;
+      }
+
+      const sessionAccountId = readNonEmptyString(deliveryContext?.accountId)
+        || readNonEmptyString(session.lastAccountId)
+        || readNonEmptyString(origin?.accountId)
+        || 'default';
+      if (params.accountId && sessionAccountId !== params.accountId) {
+        continue;
+      }
+
+      const target = readNonEmptyString(deliveryContext?.to)
+        || readNonEmptyString(session.lastTo)
+        || readNonEmptyString(origin?.to);
+      const sessionKey = item.sessionKey || readNonEmptyString(session.sessionKey) || readNonEmptyString(session.key);
+      if (!target || !sessionKey) continue;
+
+      const conversationId = `${toUiChannelType(storedChannelType)}:${sessionAccountId}:${target}`;
+      if (seen.has(conversationId)) continue;
+      seen.add(conversationId);
+
+      const targetKind = inferTargetKindFromValue(
+        storedChannelType,
+        target,
+        readNonEmptyString(session.chatType) || readNonEmptyString(origin?.chatType),
+      );
+      const updatedAt = typeof session.updatedAt === 'number' ? session.updatedAt : 0;
+      candidates.push({
+        sessionKey,
+        channelType: toUiChannelType(storedChannelType),
+        accountId: sessionAccountId,
+        target,
+        title: readNonEmptyString(session.displayName)
+          || readNonEmptyString(session.subject)
+          || readNonEmptyString(origin?.label)
+          || target,
+        sessionType: targetKind === 'group' || targetKind === 'channel' ? 'group' : 'private',
+        latestActivityAt: updatedAt > 0 ? new Date(updatedAt).toISOString() : undefined,
+        updatedAt,
+        visibleAgentId: parseAgentIdFromSessionKey(sessionKey),
+      });
+    }
+  }
+
+  return candidates.sort((left, right) => right.updatedAt - left.updatedAt || left.title.localeCompare(right.title));
 }
 
 async function listSessionDerivedTargetOptions(params: {
@@ -1899,27 +2306,173 @@ export async function handleChannelRoutes(
   if (url.pathname === '/api/channels/workbench/sessions' && req.method === 'GET') {
     try {
       const channelType = url.searchParams.get('channelType')?.trim() || '';
+      const accountId = url.searchParams.get('accountId')?.trim() || undefined;
       if (!channelType) {
         sendJson(res, 400, { success: false, error: 'channelType is required', sessions: [] });
         return true;
       }
       if (channelType === 'feishu') {
-        const liveSnapshot = await fetchFeishuWorkbenchSnapshot().catch(() => ({ sessions: [], messagesByConversationId: new Map() }));
-        if (liveSnapshot.sessions.length > 0) {
+        const [liveSnapshot, derivedRecords] = await Promise.all([
+          fetchFeishuWorkbenchSnapshot().catch(() => ({ sessions: [], messagesByConversationId: new Map() })),
+          listSessionDerivedWorkbenchRecords({ channelType, accountId }),
+        ]);
+        const filteredFeishuSessions = liveSnapshot.sessions
+          .filter((session) => !accountId || session.channelId === `feishu-${accountId}`);
+        const liveSessions = (
+          await Promise.all(
+            filteredFeishuSessions.map(async (session) => {
+              const target = parseWorkbenchConversationTarget(session.id);
+              if (!target) return session;
+              const binding = await getConversationBinding(
+                target.channelType,
+                target.accountId,
+                target.externalConversationId,
+              );
+              return applyWorkbenchBindingMetadata(session, binding);
+            }),
+          )
+        ).filter((session): session is WorkbenchSession => session != null);
+        const derivedSessions = (
+          await Promise.all(
+            derivedRecords.map(async (record) => {
+              const binding = await getConversationBinding(
+                record.channelType,
+                record.accountId,
+                record.target,
+              );
+              return applyWorkbenchBindingMetadata(buildWorkbenchSessionFromDerivedRecord(record), binding);
+            }),
+          )
+        ).filter((session): session is WorkbenchSession => session != null);
+        const sessions = mergeWorkbenchSessionLists(liveSessions, derivedSessions);
+        if (sessions.length > 0) {
           sendJson(res, 200, {
             success: true,
-            sessions: liveSnapshot.sessions,
+            sessions,
+          });
+          return true;
+        }
+      }
+      if (channelType === 'wechat') {
+        const derivedRecords = await listSessionDerivedWorkbenchRecords({ channelType, accountId });
+        if (derivedRecords.length > 0) {
+          const sessions = (
+            await Promise.all(
+              derivedRecords.map(async (record) => {
+                const session: WorkbenchSession = {
+                  id: `${record.channelType}:${record.accountId}:${record.target}`,
+                  channelId: `${record.channelType}-${record.accountId}`,
+                  channelType: record.channelType,
+                  sessionType: record.sessionType,
+                  title: record.title,
+                  pinned: false,
+                  syncState: 'synced',
+                  latestActivityAt: record.latestActivityAt,
+                  participantSummary: record.sessionType === 'group' ? '已同步群聊' : '已同步私聊',
+                  visibleAgentId: record.visibleAgentId,
+                };
+                const binding = await getConversationBinding(
+                  record.channelType,
+                  record.accountId,
+                  record.target,
+                );
+                return applyWorkbenchBindingMetadata(session, binding);
+              }),
+            )
+          ).filter((session): session is WorkbenchSession => session != null);
+          sendJson(res, 200, {
+            success: true,
+            sessions,
           });
           return true;
         }
       }
       const statusSnapshot = await ctx.gatewayManager.rpc<ChannelsStatusSnapshot>('channels.status', { probe: true }).catch(() => null);
+      const baseSessions = buildWorkbenchSessions(channelType, statusSnapshot, accountId);
+      const sessions = (
+        await Promise.all(
+          baseSessions.map(async (session) => {
+            const target = parseWorkbenchConversationTarget(session.id);
+            if (!target) return session;
+            const binding = await getConversationBinding(
+              target.channelType,
+              target.accountId,
+              target.externalConversationId,
+            );
+            return applyWorkbenchBindingMetadata(session, binding);
+          }),
+        )
+      ).filter((session): session is WorkbenchSession => session != null);
       sendJson(res, 200, {
         success: true,
-        sessions: buildWorkbenchSessions(channelType, statusSnapshot),
+        sessions,
       });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error), sessions: [] });
+    }
+    return true;
+  }
+
+  const workbenchConversationMatch = /^\/api\/channels\/workbench\/conversations\/([^/]+)$/.exec(url.pathname);
+  if (workbenchConversationMatch && req.method === 'PATCH') {
+    try {
+      const conversationId = decodeURIComponent(workbenchConversationMatch[1]);
+      const target = parseWorkbenchConversationTarget(conversationId);
+      if (!target) {
+        sendJson(res, 400, { success: false, error: 'Invalid conversationId' });
+        return true;
+      }
+      const body = await parseJsonBody<{ title?: string }>(req);
+      const title = body.title?.trim();
+      if (!title) {
+        sendJson(res, 400, { success: false, error: 'title is required' });
+        return true;
+      }
+      const binding = target.channelType === 'feishu'
+        ? await resolveFeishuBindingForConversation(conversationId, undefined, { createIfMissing: true, sessionType: 'group' })
+        : target.channelType === 'wechat'
+          ? await resolveWeChatBindingForConversation(conversationId, undefined, { createIfMissing: true, sessionType: 'group' })
+          : await resolveScopedConversationBinding(target, 'group', undefined, { createIfMissing: true });
+      if (!binding) {
+        sendJson(res, 404, { success: false, error: 'Conversation binding not found' });
+        return true;
+      }
+      await channelConversationBindings.upsert({
+        ...binding.binding,
+        displayTitle: title,
+        hidden: false,
+      });
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (workbenchConversationMatch && req.method === 'DELETE') {
+    try {
+      const conversationId = decodeURIComponent(workbenchConversationMatch[1]);
+      const target = parseWorkbenchConversationTarget(conversationId);
+      if (!target) {
+        sendJson(res, 400, { success: false, error: 'Invalid conversationId' });
+        return true;
+      }
+      const binding = target.channelType === 'feishu'
+        ? await resolveFeishuBindingForConversation(conversationId, undefined, { createIfMissing: true, sessionType: 'group' })
+        : target.channelType === 'wechat'
+          ? await resolveWeChatBindingForConversation(conversationId, undefined, { createIfMissing: true, sessionType: 'group' })
+          : await resolveScopedConversationBinding(target, 'group', undefined, { createIfMissing: true });
+      if (!binding) {
+        sendJson(res, 404, { success: false, error: 'Conversation binding not found' });
+        return true;
+      }
+      await channelConversationBindings.upsert({
+        ...binding.binding,
+        hidden: true,
+      });
+      sendJson(res, 200, { success: true });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
     }
     return true;
   }
@@ -1934,19 +2487,44 @@ export async function handleChannelRoutes(
       if (conversationId.startsWith('feishu:')) {
         const liveSnapshot = await fetchFeishuWorkbenchSnapshot().catch(() => ({ sessions: [], messagesByConversationId: new Map() }));
         const discoveredConversation = liveSnapshot.sessions.find((session) => session.id === conversationId) ?? null;
+        const derivedSession = await findDerivedWorkbenchRecordForConversation(conversationId, 'feishu');
+        const resolvedConversation = discoveredConversation ?? (derivedSession ? buildWorkbenchSessionFromDerivedRecord(derivedSession) : null);
+        const target = parseWorkbenchConversationTarget(conversationId);
+        const existingBinding = target
+          ? await getConversationBinding(target.channelType, target.accountId, target.externalConversationId)
+          : null;
+        let derivedBinding: ChannelConversationBindingRecord | null = null;
+        if (target && derivedSession) {
+          derivedBinding = await channelConversationBindings.upsert({
+            channelType: target.channelType,
+            accountId: target.accountId,
+            externalConversationId: target.externalConversationId,
+            agentId: existingBinding?.agentId || derivedSession.visibleAgentId || 'main',
+            sessionKey: derivedSession.sessionKey,
+            ...(existingBinding?.displayTitle ? { displayTitle: existingBinding.displayTitle } : {}),
+            ...(existingBinding?.hidden ? { hidden: existingBinding.hidden } : {}),
+          }).catch(() => existingBinding);
+        }
         let binding = await resolveFeishuBindingForConversation(
           conversationId,
-          discoveredConversation?.visibleAgentId,
-          { createIfMissing: false },
+          resolvedConversation?.visibleAgentId,
+          { createIfMissing: false, sessionType: resolvedConversation?.sessionType },
         ).catch(() => null);
+        if (derivedBinding?.sessionKey) {
+          binding = {
+            sessionKey: derivedBinding.sessionKey,
+            agentId: derivedBinding.agentId || derivedSession?.visibleAgentId || 'main',
+            binding: derivedBinding,
+          };
+        }
 
-        const shouldCreateBindingOnRead = Boolean(discoveredConversation);
+        const shouldCreateBindingOnRead = Boolean(resolvedConversation) && !derivedSession;
 
         if (!binding && shouldCreateBindingOnRead) {
           binding = await resolveFeishuBindingForConversation(
             conversationId,
-            discoveredConversation?.visibleAgentId,
-            { createIfMissing: true },
+            resolvedConversation?.visibleAgentId,
+            { createIfMissing: true, sessionType: resolvedConversation?.sessionType },
           ).catch(() => null);
         }
 
@@ -1956,70 +2534,30 @@ export async function handleChannelRoutes(
             limit: 200,
           }).catch(() => null);
           let runtimeMessages = runtimePayload
-            ? mapRuntimeHistoryToWorkbenchMessages(runtimePayload)
+            ? mapRuntimeHistoryToWorkbenchMessages(runtimePayload, 'feishu')
             : [];
 
-          // Bug 2 fix: if the binding's session key (agent:main:main) yielded no messages,
-          // the feishu webhook may have written to the per-chat session key:
-          // agent:{agentId}:feishu:group:{chatId}  or  agent:{agentId}:feishu:direct:{chatId}
-          // Attempt those peer-session keys as a fallback.
-          if (runtimeMessages.length === 0) {
-            const { accountId: _aid, externalConversationId: chatId } = parseFeishuConversationId(conversationId) ?? {};
-            const agentId = binding.agentId || 'main';
-            if (chatId) {
-              const fallbackKeys = [
-                `agent:${agentId}:feishu:group:${chatId}`,
-                `agent:${agentId}:feishu:direct:${chatId}`,
-                `agent:${agentId}:feishu:channel:${chatId}`,
-              ];
-              for (const fallbackKey of fallbackKeys) {
-                const fallbackPayload = await ctx.gatewayManager.rpc<unknown>('chat.history', {
-                  sessionKey: fallbackKey,
-                  limit: 200,
-                }).catch(() => null);
-                if (fallbackPayload) {
-                  const fallbackMessages = mapRuntimeHistoryToWorkbenchMessages(fallbackPayload);
-                  if (fallbackMessages.length > 0) {
-                    runtimeMessages = fallbackMessages;
-                    // persist the correct session key for future send operations
-                    await channelConversationBindings.upsert({
-                      channelType: 'feishu',
-                      accountId: parseFeishuConversationId(conversationId)?.accountId ?? 'default',
-                      externalConversationId: chatId,
-                      agentId,
-                      sessionKey: fallbackKey,
-                    }).catch(() => undefined);
-                    break;
-                  }
-                }
-              }
-            }
-          }
-
           const fallbackMessages = liveSnapshot.messagesByConversationId.get(conversationId) ?? [];
-
-          // Merge runtime messages (agent responses, tool calls) with Feishu snapshot messages
-          // (user messages from Feishu API) so both sides of the conversation are visible.
-          const mergedIds = new Set(runtimeMessages.map((m) => m.id));
-          const uniqueSnapshotMessages = fallbackMessages.filter((m: WorkbenchConversationMessage) => !mergedIds.has(m.id));
-          const merged = [...runtimeMessages, ...uniqueSnapshotMessages].sort((a, b) => {
-            const ta = Date.parse(a.createdAt ?? '') || 0;
-            const tb = Date.parse(b.createdAt ?? '') || 0;
-            return ta - tb;
-          });
+          const merged = mergeWorkbenchMessages(runtimeMessages, fallbackMessages);
 
           sendJson(res, 200, {
             success: true,
-            conversation: buildFeishuConversationPayload(conversationId, discoveredConversation, binding.agentId),
+            conversation: applyWorkbenchConversationBindingMetadata(
+              buildFeishuConversationPayload(conversationId, resolvedConversation, binding.agentId),
+              binding.binding ?? derivedBinding ?? existingBinding,
+            ),
             messages: merged.length > 0 ? merged : fallbackMessages,
           });
           return true;
         }
 
-        if (discoveredConversation) {
+        if (resolvedConversation) {
           sendJson(res, 200, {
             success: true,
-            conversation: buildFeishuConversationPayload(conversationId, discoveredConversation),
+            conversation: applyWorkbenchConversationBindingMetadata(
+              buildFeishuConversationPayload(conversationId, resolvedConversation),
+              derivedBinding ?? existingBinding,
+            ),
             messages: liveSnapshot.messagesByConversationId.get(conversationId) ?? [],
           });
           return true;
@@ -2082,22 +2620,47 @@ export async function handleChannelRoutes(
       const cursor = url.searchParams.get('cursor')?.trim() || null;
 
       let allMessages: Array<Record<string, unknown>> = [];
-      let conversationObj: { id: string; title: string; syncState: string; participantSummary?: string; visibleAgentId?: string } | null = null;
+      let conversationObj: WorkbenchConversationView | null = null;
 
       if (conversationId.startsWith('feishu:')) {
         const liveSnapshot = await fetchFeishuWorkbenchSnapshot().catch(() => ({ sessions: [], messagesByConversationId: new Map() }));
         const discoveredConversation = liveSnapshot.sessions.find((s) => s.id === conversationId) ?? null;
+        const derivedSession = await findDerivedWorkbenchRecordForConversation(conversationId, 'feishu');
+        const resolvedConversation = discoveredConversation ?? (derivedSession ? buildWorkbenchSessionFromDerivedRecord(derivedSession) : null);
+        const target = parseWorkbenchConversationTarget(conversationId);
+        const existingBinding = target
+          ? await getConversationBinding(target.channelType, target.accountId, target.externalConversationId)
+          : null;
+        let derivedBinding: ChannelConversationBindingRecord | null = null;
+        if (target && derivedSession) {
+          derivedBinding = await channelConversationBindings.upsert({
+            channelType: target.channelType,
+            accountId: target.accountId,
+            externalConversationId: target.externalConversationId,
+            agentId: existingBinding?.agentId || derivedSession.visibleAgentId || 'main',
+            sessionKey: derivedSession.sessionKey,
+            ...(existingBinding?.displayTitle ? { displayTitle: existingBinding.displayTitle } : {}),
+            ...(existingBinding?.hidden ? { hidden: existingBinding.hidden } : {}),
+          }).catch(() => existingBinding);
+        }
         let binding = await resolveFeishuBindingForConversation(
           conversationId,
-          discoveredConversation?.visibleAgentId,
-          { createIfMissing: false },
+          resolvedConversation?.visibleAgentId,
+          { createIfMissing: false, sessionType: resolvedConversation?.sessionType },
         ).catch(() => null);
+        if (derivedBinding?.sessionKey) {
+          binding = {
+            sessionKey: derivedBinding.sessionKey,
+            agentId: derivedBinding.agentId || derivedSession?.visibleAgentId || 'main',
+            binding: derivedBinding,
+          };
+        }
 
-        if (!binding && discoveredConversation) {
+        if (!binding && resolvedConversation && !derivedSession) {
           binding = await resolveFeishuBindingForConversation(
             conversationId,
-            discoveredConversation?.visibleAgentId,
-            { createIfMissing: true },
+            resolvedConversation?.visibleAgentId,
+            { createIfMissing: true, sessionType: resolvedConversation?.sessionType },
           ).catch(() => null);
         }
 
@@ -2107,76 +2670,81 @@ export async function handleChannelRoutes(
             sessionKey: binding.sessionKey,
             limit: 500,
           }).catch(() => null);
-          workbenchMessages = runtimePayload ? mapRuntimeHistoryToWorkbenchMessages(runtimePayload) : [];
-
-          if (workbenchMessages.length === 0) {
-            const { accountId: _aid, externalConversationId: chatId } = parseFeishuConversationId(conversationId) ?? {};
-            const agentId = binding.agentId || 'main';
-            if (chatId) {
-              const peerKeys = [
-                `agent:${agentId}:feishu:group:${chatId}`,
-                `agent:${agentId}:feishu:direct:${chatId}`,
-              ];
-              for (const peerKey of peerKeys) {
-                const peerPayload = await ctx.gatewayManager.rpc<unknown>('chat.history', { sessionKey: peerKey, limit: 500 }).catch(() => null);
-                if (peerPayload) {
-                  const peerMsgs = mapRuntimeHistoryToWorkbenchMessages(peerPayload);
-                  if (peerMsgs.length > 0) { workbenchMessages = peerMsgs; break; }
-                }
-              }
-            }
-          }
+          workbenchMessages = runtimePayload ? mapRuntimeHistoryToWorkbenchMessages(runtimePayload, 'feishu') : [];
         }
 
-        if (workbenchMessages.length === 0) {
-          workbenchMessages = liveSnapshot.messagesByConversationId.get(conversationId) ?? [];
-        }
+        const snapshotMessages = liveSnapshot.messagesByConversationId.get(conversationId) ?? [];
+        workbenchMessages = workbenchMessages.length > 0
+          ? mergeWorkbenchMessages(workbenchMessages, snapshotMessages)
+          : snapshotMessages;
 
         allMessages = workbenchMessages as unknown as Array<Record<string, unknown>>;
-        conversationObj = buildFeishuConversationPayload(conversationId, discoveredConversation, binding?.agentId);
+        conversationObj = applyWorkbenchConversationBindingMetadata(
+          buildFeishuConversationPayload(conversationId, resolvedConversation, binding?.agentId),
+          binding?.binding ?? derivedBinding ?? existingBinding,
+        );
       } else {
         const channelType = resolveConversationChannelType(conversationId);
         const statusSnap = await ctx.gatewayManager.rpc<ChannelsStatusSnapshot>('channels.status', { probe: true }).catch(() => null);
         const sessions = buildWorkbenchSessions(channelType, statusSnap);
-        const parsedWeChatConversation = parseWeChatConversationId(conversationId);
+        const target = parseWorkbenchConversationTarget(conversationId);
+        const existingBinding = target
+          ? await getConversationBinding(target.channelType, target.accountId, target.externalConversationId)
+          : null;
+        const derivedSession = channelType === 'wechat' && target
+          ? (await listSessionDerivedWorkbenchRecords({ channelType, accountId: target.accountId }))
+            .find((record) => record.target === target.externalConversationId)
+          : undefined;
         const session = sessions.find((s) => s.id === conversationId)
           ?? (
-            parsedWeChatConversation
-              ? sessions.find((s) => s.channelId === `wechat-${parsedWeChatConversation.accountId}`) ?? null
+            target
+              ? sessions.find((s) => s.channelId === `${target.channelType}-${target.accountId}`) ?? null
               : null
           );
-        if (session || parsedWeChatConversation) {
+        if (session || target) {
           const resolvedConversationId = session?.id ?? conversationId;
-          const resolvedConversationTitle = session?.title
-            ?? parsedWeChatConversation?.externalConversationId
+          const resolvedConversationTitle = derivedSession?.title
+            ?? session?.title
+            ?? target?.externalConversationId
             ?? conversationId;
-          conversationObj = {
-            id: resolvedConversationId,
+          conversationObj = applyWorkbenchConversationBindingMetadata({
+            id: target ? conversationId : resolvedConversationId,
             title: resolvedConversationTitle,
             syncState: session?.syncState ?? 'connecting',
             ...(session?.participantSummary ? { participantSummary: session.participantSummary } : {}),
-            ...(session?.visibleAgentId ? { visibleAgentId: session.visibleAgentId } : {}),
-          };
-          const agentId = session?.visibleAgentId || 'main';
-          const sessionKeys = channelType === 'wechat' && parsedWeChatConversation
-            ? [
-              `agent:${agentId}:wechat:group:${parsedWeChatConversation.externalConversationId}`,
-              `agent:${agentId}:wechat:direct:${parsedWeChatConversation.externalConversationId}`,
-              `agent:${agentId}:main`,
-              'agent:main:main',
-            ]
-            : [
-              `agent:${agentId}:main`,
-              'agent:main:main',
-            ];
-          for (const key of [...new Set(sessionKeys)]) {
-            const payload = await ctx.gatewayManager.rpc<unknown>('chat.history', { sessionKey: key, limit: 500 }).catch(() => null);
-            if (!payload) continue;
-            const msgs = mapRuntimeHistoryToWorkbenchMessages(payload);
-            const visible = msgs.filter((m) => m.role !== 'system' || !m.internal);
-            if (visible.length > 0) {
-              allMessages = visible as unknown as Array<Record<string, unknown>>;
-              break;
+            ...((derivedSession?.visibleAgentId || session?.visibleAgentId)
+              ? { visibleAgentId: derivedSession?.visibleAgentId || session?.visibleAgentId }
+              : {}),
+          }, existingBinding);
+          if (target) {
+            if (derivedSession) {
+              await channelConversationBindings.upsert({
+                channelType: target.channelType,
+                accountId: target.accountId,
+                externalConversationId: target.externalConversationId,
+                agentId: derivedSession.visibleAgentId || 'main',
+                sessionKey: derivedSession.sessionKey,
+                ...(existingBinding?.displayTitle ? { displayTitle: existingBinding.displayTitle } : {}),
+                ...(existingBinding?.hidden ? { hidden: existingBinding.hidden } : {}),
+              }).catch(() => undefined);
+            }
+            const binding = derivedSession
+              ? {
+                sessionKey: derivedSession.sessionKey,
+                agentId: derivedSession.visibleAgentId || 'main',
+              }
+              : target.channelType === 'wechat'
+                ? await resolveWeChatBindingForConversation(conversationId, session?.visibleAgentId, { createIfMissing: true, sessionType: session?.sessionType })
+                : await resolveScopedConversationBinding(target, session?.sessionType ?? 'group', session?.visibleAgentId, { createIfMissing: true });
+            if (binding?.sessionKey) {
+              const payload = await ctx.gatewayManager.rpc<unknown>('chat.history', { sessionKey: binding.sessionKey, limit: 500 }).catch(() => null);
+              if (payload) {
+                const msgs = mapRuntimeHistoryToWorkbenchMessages(payload, target.channelType);
+                const visible = msgs.filter((m) => m.role !== 'system' || !m.internal);
+                if (visible.length > 0) {
+                  allMessages = visible as unknown as Array<Record<string, unknown>>;
+                }
+              }
             }
           }
         }
@@ -2605,66 +3173,63 @@ export async function handleChannelRoutes(
         return true;
       }
       if (body.conversationId?.startsWith('feishu:')) {
-        const parsedConv = parseFeishuConversationId(body.conversationId);
-        const binding = await resolveFeishuBindingForConversation(
-          body.conversationId,
-          undefined,
-          { createIfMissing: true },
-        ).catch(() => null);
-
-        // Determine the correct session key for sending.
-        // If the binding resolved to the agent's main session (agent:X:main),
-        // replace it with a feishu-specific session key to keep Feishu messages
-        // isolated from the main Chat page.
-        let sendSessionKey = binding?.sessionKey;
-        if (sendSessionKey && /^agent:[^:]+:main$/.test(sendSessionKey) && parsedConv) {
-          const agentId = binding?.agentId || 'main';
-          const chatId = parsedConv.externalConversationId;
-          sendSessionKey = `agent:${agentId}:feishu:group:${chatId}`;
-          // Persist the feishu-specific session key so future reads also use it
-          await channelConversationBindings.upsert({
-            channelType: 'feishu',
-            accountId: parsedConv.accountId,
-            externalConversationId: chatId,
-            agentId,
-            sessionKey: sendSessionKey,
-          }).catch(() => undefined);
-        }
-
-        if (sendSessionKey) {
-          const result = await ctx.gatewayManager.rpc<Record<string, unknown>>('chat.send', {
-            sessionKey: sendSessionKey,
-            message: body.text.trim(),
-            idempotencyKey: randomUUID(),
-          });
-          sendJson(res, 200, {
-            success: true,
-            runId: extractFirstStringValue(result, ['runId', 'run_id']),
-            sessionKey: sendSessionKey,
-          });
-          return true;
-        }
-
-        const sendResult = await sendFeishuConversationMessage({
-          conversationId: body.conversationId,
-          text: body.text.trim(),
-          identity: sendIdentity,
+        const sendResult = await sendFeishuViaPreferredPath({
+          directSend: async () => sendFeishuConversationMessage({
+            conversationId: body.conversationId,
+            text: body.text.trim(),
+            identity: sendIdentity,
+          }),
+          runtimeSend: async () => {
+            const binding = await resolveFeishuBindingForConversation(
+              body.conversationId,
+              undefined,
+              { createIfMissing: true, sessionType: 'group' },
+            ).catch(() => null);
+            const sendSessionKey = binding?.sessionKey;
+            if (!sendSessionKey) {
+              throw new Error('Feishu runtime session binding not found');
+            }
+            const result = await ctx.gatewayManager.rpc<Record<string, unknown>>('chat.send', {
+              sessionKey: sendSessionKey,
+              message: body.text.trim(),
+              idempotencyKey: randomUUID(),
+            });
+            return {
+              sessionKey: sendSessionKey,
+              runId: extractFirstStringValue(result, ['runId', 'run_id']),
+            };
+          },
         });
-        sendJson(res, 200, { success: true, message: '消息已发送', ...sendResult });
+        sendJson(res, 200, sendResult.transport === 'runtime'
+          ? {
+            success: true,
+            message: '消息已发送',
+            runId: sendResult.runId,
+            sessionKey: sendResult.sessionKey,
+          }
+          : {
+            success: true,
+            message: '消息已发送',
+            messageId: sendResult.messageId,
+            chatId: sendResult.chatId,
+          });
         return true;
       }
       if (body.conversationId?.startsWith('wechat:')) {
-        // wechat:accountId:chatId
-        const wechatParts = body.conversationId.split(':');
-        const wechatAccountId = wechatParts[1] ?? 'default';
-        const wechatChatId = (wechatParts.slice(2).join(':').trim()) || (wechatParts[1] ?? '');
-        const wechatBinding = await channelConversationBindings.get({
-          channelType: 'wechat', accountId: wechatAccountId, externalConversationId: wechatChatId,
-        }).catch(() => null);
-        const wechatSessionKey = wechatBinding?.sessionKey ?? `agent:main:wechat:group:${wechatChatId}`;
+        const wechatBinding = await resolveWeChatBindingForConversation(
+          body.conversationId,
+          undefined,
+          { createIfMissing: true, sessionType: 'group' },
+        ).catch(() => null);
+        const wechatSessionKey = wechatBinding?.sessionKey;
+        if (!wechatSessionKey) {
+          sendJson(res, 404, { success: false, error: 'WeChat conversation binding not found' });
+          return true;
+        }
         await ctx.gatewayManager.rpc('chat.send', {
           sessionKey: wechatSessionKey,
           message: body.text.trim(),
+          idempotencyKey: randomUUID(),
         });
         sendJson(res, 200, { success: true, message: '消息已发送' });
         return true;

@@ -110,6 +110,7 @@ Chat markdown now covers standard math rendering and KaTeX `mhchem` chemistry fo
 Configure and monitor multiple AI channels simultaneously. Each channel operates independently, allowing you to run specialized agents for different tasks.
 Feishu onboarding now stays inside KTClaw with one integrated wizard for plugin checks, robot create/link handoff, credential save, app-scope recovery, and QR-based user authorization.
 The channel workbench also supports account-scoped management inside the current product shape: you can inspect multiple accounts per channel, switch the default account, maintain account bindings, and resolve delivery targets for channels such as Feishu, WeChat, WeCom, DingTalk, and QQ Bot through a shared backend path.
+Channel-backed conversations are now isolated from the main local chat timeline, the Sidebar shows each configured account instance separately, channel-derived sessions are prefixed in the global session list, and synced conversation items can be renamed or removed from the workbench list without deleting the underlying channel account.
 
 ### ⏰ Cron-Based Automation
 Schedule AI tasks to run automatically. Define triggers, set intervals, and let your AI agents work around the clock without manual intervention.

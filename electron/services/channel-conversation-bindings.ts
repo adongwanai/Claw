@@ -8,6 +8,8 @@ export interface ChannelConversationBindingRecord {
   externalConversationId: string;
   agentId: string;
   sessionKey: string;
+  displayTitle?: string;
+  hidden?: boolean;
   updatedAt: number;
 }
 

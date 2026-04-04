@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { logger } from './logger';
 import { normalizeOpenClawAccountId, OPENCLAW_WECHAT_CHANNEL_TYPE } from './channel-alias';
 import { proxyAwareFetch } from './proxy-fetch';
+import { renderQrPngDataUrl } from './qr-code';
 
 type WeChatQrStatus = 'pending' | 'scanned' | 'confirmed' | 'expired' | 'error';
 
@@ -22,7 +23,7 @@ export interface WeChatQrState {
 const WECHAT_QR_TTL_MS = 5 * 60 * 1000; // 5 minutes (plugin ACTIVE_LOGIN_TTL_MS)
 const WECHAT_QR_POLL_MS = 2_000;
 const WECHAT_QR_SESSION_KEY = 'wechat-login';
-const WECHAT_QR_BOT_TYPE = 'ipad';
+const WECHAT_QR_BOT_TYPE = '3';
 const WECHAT_QR_API_BASE = 'https://ilinkai.weixin.qq.com';
 
 type ActiveLogin = {
@@ -172,15 +173,16 @@ class WeChatLoginManager extends EventEmitter {
         const detail = result ? JSON.stringify(result).slice(0, 200) : 'empty response';
         throw new Error(`微信二维码获取失败：${detail}`);
       }
+      const qrDataUrl = renderQrPngDataUrl(result.qrcode_img_content);
       this.activeLogin = {
         qrcode: result.qrcode,
-        qrcodeUrl: result.qrcode_img_content,
+        qrcodeUrl: qrDataUrl,
         startedAt: Date.now(),
         currentApiBaseUrl: WECHAT_QR_API_BASE,
       };
       this.state = {
         qrcode: result.qrcode,
-        qrcodeUrl: result.qrcode_img_content,
+        qrcodeUrl: qrDataUrl,
         sessionKey: WECHAT_QR_SESSION_KEY,
         status: 'pending',
         connected: false,

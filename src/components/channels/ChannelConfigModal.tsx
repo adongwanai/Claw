@@ -19,6 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useChannelsStore } from '@/stores/channels';
+import { useAgentsStore } from '@/stores/agents';
 
 import { hostApiFetch } from '@/lib/host-api';
 import { invokeIpc } from '@/lib/api-client';
@@ -78,10 +79,13 @@ export function ChannelConfigModal({
 }: ChannelConfigModalProps) {
   const { t } = useTranslation('channels');
   const { channels, addChannel, fetchChannels } = useChannelsStore();
+  const agents = useAgentsStore((state) => state.agents);
+  const fetchAgents = useAgentsStore((state) => state.fetchAgents);
   const [selectedType, setSelectedType] = useState<ChannelType | null>(initialSelectedType);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [channelName, setChannelName] = useState('');
   const [accountIdInput, setAccountIdInput] = useState(accountId || '');
+  const [selectedAgentId, setSelectedAgentId] = useState(agentId || '');
   const [connecting, setConnecting] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -112,6 +116,24 @@ export function ChannelConfigModal({
   useEffect(() => {
     setAccountIdInput(accountId || '');
   }, [accountId]);
+
+  useEffect(() => {
+    void fetchAgents();
+  }, [fetchAgents]);
+
+  useEffect(() => {
+    if (agentId) {
+      setSelectedAgentId(agentId);
+      return;
+    }
+    if (selectedAgentId) {
+      return;
+    }
+    const defaultAgent = agents.find((entry) => entry.id === 'main') ?? agents[0];
+    if (defaultAgent?.id) {
+      setSelectedAgentId(defaultAgent.id);
+    }
+  }, [agentId, agents, selectedAgentId]);
 
   useEffect(() => {
     if (!selectedType) {
@@ -203,6 +225,19 @@ export function ChannelConfigModal({
   const onCloseRef = useRef(onClose);
   const translateRef = useRef(t);
 
+  const persistAgentBinding = useCallback(async (channelType: ChannelType, nextAccountId?: string) => {
+    const resolvedBindingAgentId = selectedAgentId.trim();
+    if (!resolvedBindingAgentId) return;
+    await hostApiFetch('/api/channels/binding', {
+      method: 'PUT',
+      body: JSON.stringify({
+        channelType,
+        accountId: nextAccountId || 'default',
+        agentId: resolvedBindingAgentId,
+      }),
+    });
+  }, [selectedAgentId]);
+
   useEffect(() => {
     finishSaveRef.current = finishSave;
   }, [finishSave]);
@@ -248,20 +283,21 @@ export function ChannelConfigModal({
       const data = args[0] as { accountId?: string } | undefined;
       void data?.accountId;
       toast.success(translateRef.current('toast.qrConnected', { name: CHANNEL_NAMES[channelType] }));
-      try {
-        if (channelType === 'whatsapp') {
-          const saveResult = await hostApiFetch<{ success?: boolean; error?: string }>('/api/channels/config', {
-            method: 'POST',
-            body: JSON.stringify({ channelType: 'whatsapp', config: { enabled: true }, accountId: resolvedAccountId }),
+        try {
+          if (channelType === 'whatsapp') {
+            const saveResult = await hostApiFetch<{ success?: boolean; error?: string }>('/api/channels/config', {
+              method: 'POST',
+              body: JSON.stringify({ channelType: 'whatsapp', config: { enabled: true }, accountId: resolvedAccountId }),
           });
           if (!saveResult?.success) {
             throw new Error(saveResult?.error || 'Failed to save WhatsApp config');
+            }
           }
-        }
 
-        try {
-          await finishSaveRef.current(channelType);
-        } catch (postSaveError) {
+          await persistAgentBinding(channelType, resolvedAccountId || 'default');
+          try {
+            await finishSaveRef.current(channelType);
+          } catch (postSaveError) {
           toast.warning(translateRef.current('toast.savedButRefreshFailed'));
           console.warn('Channel saved but post-save refresh failed:', postSaveError);
         }
@@ -421,6 +457,7 @@ export function ChannelConfigModal({
         toast.warning(saveResult.warning);
       }
 
+      await persistAgentBinding(selectedType, resolvedAccountId || 'default');
       try {
         await finishSave(selectedType);
       } catch (postSaveError) {
@@ -610,6 +647,7 @@ export function ChannelConfigModal({
                   <Label htmlFor="name" className={labelClasses}>{t('dialog.channelName')}</Label>
                   <Input
                     ref={firstInputRef}
+                    data-testid="channel-name-input"
                     id="name"
                     placeholder={t('dialog.channelNamePlaceholder', { name: meta?.name })}
                     value={channelName}
@@ -623,6 +661,7 @@ export function ChannelConfigModal({
                 <div className="space-y-2.5">
                   <Label htmlFor="account-id" className={labelClasses}>{t('account.customIdLabel')}</Label>
                   <Input
+                    data-testid="channel-account-id-input"
                     id="account-id"
                     value={accountIdInput}
                     onChange={(event) => setAccountIdInput(event.target.value)}
@@ -632,6 +671,24 @@ export function ChannelConfigModal({
                   <p className="text-[12px] text-muted-foreground">{t('account.customIdHint')}</p>
                 </div>
               )}
+
+              <div className="space-y-2.5">
+                <Label htmlFor="channel-agent-select" className={labelClasses}>绑定 Agent</Label>
+                <select
+                  id="channel-agent-select"
+                  data-testid="channel-agent-select"
+                  value={selectedAgentId}
+                  onChange={(event) => setSelectedAgentId(event.target.value)}
+                  className="h-[44px] w-full rounded-xl border border-black/10 bg-[#eeece3] px-3 text-[13px] text-foreground shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 dark:border-white/10 dark:bg-muted"
+                >
+                  {agents.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[12px] text-muted-foreground">保存配置时同时把这个频道实例绑定到指定 Agent。</p>
+              </div>
 
               <div className="space-y-4">
                 {meta?.configFields.map((field) => (
@@ -790,6 +847,7 @@ function ConfigField({ field, value, onChange, showSecret, onToggleSecret }: Con
       </Label>
       <div className="flex gap-2">
         <Input
+          data-testid={`channel-field-${field.key}`}
           id={field.key}
           type={isPassword && !showSecret ? 'password' : 'text'}
           placeholder={field.placeholder ? t(field.placeholder) : undefined}

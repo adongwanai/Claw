@@ -67,18 +67,24 @@ type FeishuRobotCreationEntry = {
   qrCodeDataUrl: string;
 };
 
-type FeishuWizardStep = 'choose' | 'create' | 'configure';
+export type FeishuWizardStep = 'choose' | 'create' | 'configure';
 
 interface FeishuOnboardingWizardProps {
+  accountId?: string;
   autoStartAuthorization?: boolean;
+  initialConfigValues?: Partial<Record<'appId' | 'appSecret', string>>;
   initialChannelName?: string;
+  initialStep?: FeishuWizardStep;
   onClose: () => void;
   onConfigured?: (params: { channelName: string }) => void | Promise<void>;
 }
 
 export function FeishuOnboardingWizard({
+  accountId = 'default',
   autoStartAuthorization = false,
+  initialConfigValues,
   initialChannelName = '',
+  initialStep = 'choose',
   onClose,
   onConfigured,
 }: FeishuOnboardingWizardProps) {
@@ -93,10 +99,10 @@ export function FeishuOnboardingWizard({
   const [doctorSummary, setDoctorSummary] = useState<FeishuDoctorSummary | null>(null);
   const [authSession, setAuthSession] = useState<FeishuAuthSessionRecord | null>(null);
   const [creationEntry, setCreationEntry] = useState<FeishuRobotCreationEntry | null>(null);
-  const [step, setStep] = useState<FeishuWizardStep>('choose');
+  const [step, setStep] = useState<FeishuWizardStep>(initialStep);
   const [channelName] = useState(initialChannelName.trim());
-  const [appId, setAppId] = useState('');
-  const [appSecret, setAppSecret] = useState('');
+  const [appId, setAppId] = useState(initialConfigValues?.appId ?? '');
+  const [appSecret, setAppSecret] = useState(initialConfigValues?.appSecret ?? '');
   const autoStartRef = useRef(false);
 
   const loadStatus = async (): Promise<FeishuIntegrationStatus | null> => {
@@ -118,6 +124,23 @@ export function FeishuOnboardingWizard({
     void loadStatus();
   }, []);
 
+  useEffect(() => {
+    if (appId || appSecret) return;
+    let active = true;
+    void hostApiFetch<{ values?: Record<string, string> }>(
+      `/api/channels/config/feishu?accountId=${encodeURIComponent(accountId)}`,
+    )
+      .then((result) => {
+        if (!active) return;
+        setAppId((current) => current || result.values?.appId || '');
+        setAppSecret((current) => current || result.values?.appSecret || '');
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [accountId, appId, appSecret]);
+
   const primaryAction = useMemo(() => {
     if (!status) return null;
     if (status.nextAction === 'install-plugin') {
@@ -130,7 +153,7 @@ export function FeishuOnboardingWizard({
   }, [status, t]);
 
   const authNeedsAppPermission = Boolean(authSession?.state === 'failed' && authSession?.appPermissionUrl);
-  const canStartAuthorization = Boolean(status?.channel.configured && status.channel.pluginEnabled);
+  const canStartAuthorization = Boolean(status?.channel?.configured && status?.channel?.pluginEnabled);
 
   const handleInstallOrUpdate = async () => {
     if (!primaryAction) return;
@@ -183,7 +206,7 @@ export function FeishuOnboardingWizard({
     try {
       const next = await hostApiFetch<FeishuAuthSessionRecord>('/api/feishu/auth/start', {
         method: 'POST',
-        body: JSON.stringify({ accountId: 'default' }),
+        body: JSON.stringify({ accountId }),
       });
       setAuthSession(next);
     } catch (nextError) {
@@ -233,7 +256,7 @@ export function FeishuOnboardingWizard({
         method: 'POST',
         body: JSON.stringify({
           channelType: 'feishu',
-          accountId: 'default',
+          accountId,
           config: {
             appId: appId.trim(),
             appSecret: appSecret.trim(),
@@ -297,23 +320,23 @@ export function FeishuOnboardingWizard({
               <div className="grid gap-4 md:grid-cols-3">
                 <StatusCard
                   title={t('wizard.cards.openClawVersion')}
-                  subtitle={status.openClaw.version ?? t('wizard.cards.unknownVersion')}
-                  tone={status.openClaw.compatible ? 'ok' : 'warn'}
-                  detail={t('wizard.cards.minVersion', { version: status.openClaw.minVersion })}
+                  subtitle={status.openClaw?.version ?? t('wizard.cards.unknownVersion')}
+                  tone={status.openClaw?.compatible ? 'ok' : 'warn'}
+                  detail={t('wizard.cards.minVersion', { version: status.openClaw?.minVersion ?? 'unknown' })}
                 />
                 <StatusCard
                   title={t('wizard.cards.pluginVersion')}
-                  subtitle={status.plugin.installedVersion ?? t('wizard.cards.notInstalled')}
-                  tone={status.plugin.installed ? (status.plugin.needsUpdate ? 'warn' : 'ok') : 'warn'}
-                  detail={t('wizard.cards.recommendedVersion', { version: status.plugin.recommendedVersion })}
+                  subtitle={status.plugin?.installedVersion ?? t('wizard.cards.notInstalled')}
+                  tone={status.plugin?.installed ? (status.plugin?.needsUpdate ? 'warn' : 'ok') : 'warn'}
+                  detail={t('wizard.cards.recommendedVersion', { version: status.plugin?.recommendedVersion ?? 'unknown' })}
                 />
                 <StatusCard
                   title={t('wizard.cards.channelConfig')}
-                  subtitle={status.channel.configured
-                    ? t('wizard.cards.accountCount', { count: status.channel.accountIds.length })
+                  subtitle={status.channel?.configured
+                    ? t('wizard.cards.accountCount', { count: status.channel?.accountIds?.length ?? 0 })
                     : t('wizard.cards.notConfigured')}
-                  tone={status.channel.configured && status.channel.pluginEnabled ? 'ok' : 'neutral'}
-                  detail={status.channel.pluginEnabled ? t('wizard.cards.pluginEnabled') : t('wizard.cards.pluginDisabled')}
+                  tone={status.channel?.configured && status.channel?.pluginEnabled ? 'ok' : 'neutral'}
+                  detail={status.channel?.pluginEnabled ? t('wizard.cards.pluginEnabled') : t('wizard.cards.pluginDisabled')}
                 />
               </div>
 
@@ -323,7 +346,7 @@ export function FeishuOnboardingWizard({
                     <div>
                       <p className="text-[14px] font-medium text-[#1d4ed8]">{primaryAction.label}</p>
                       <p className="mt-1 text-[12px] text-[#3b82f6]">
-                        {t('wizard.actions.installHint', { version: status.plugin.recommendedVersion })}
+                        {t('wizard.actions.installHint', { version: status.plugin?.recommendedVersion ?? 'unknown' })}
                       </p>
                     </div>
                     <button
@@ -622,7 +645,7 @@ export function FeishuOnboardingWizard({
                   <div>
                     <p className="text-[15px] font-medium text-[#111827]">{t('wizard.doctor.title')}</p>
                     <p className="mt-1 text-[12px] text-[#6b7280]">
-                      {t('wizard.doctor.description', { version: status.docsVersion })}
+                      {t('wizard.doctor.description', { version: status.docsVersion ?? 'unknown' })}
                     </p>
                   </div>
                   <button

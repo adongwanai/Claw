@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Channels } from '@/pages/Channels';
+import { useRightPanelStore } from '@/stores/rightPanelStore';
 
 vi.mock('react-router-dom', () => ({
   useLocation: () => ({
@@ -58,6 +59,19 @@ vi.mock('@/stores/channels', () => ({
 
 vi.mock('@/stores/settings', () => ({
   useSettingsStore: (selector: (state: typeof settingsState) => unknown) => selector(settingsState),
+}));
+
+vi.mock('@/stores/agents', () => ({
+  useAgentsStore: (selector: (state: {
+    agents: Array<{ id: string; name: string }>;
+    fetchAgents: () => Promise<void>;
+  }) => unknown) => selector({
+    agents: [
+      { id: 'main', name: 'Main' },
+      { id: 'agent-a', name: 'Agent A' },
+    ],
+    fetchAgents: async () => undefined,
+  }),
 }));
 
 vi.mock('@/lib/host-events', () => ({
@@ -195,6 +209,15 @@ describe('Channels sync workbench', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     hostEventSubscribers.clear();
+    useRightPanelStore.setState({
+      open: false,
+      type: null,
+      agentId: null,
+      taskId: null,
+      activeChannelId: null,
+      pendingBotSettings: null,
+      pendingAddChannel: false,
+    });
     locationState.search = '';
     channelsStoreState.channels = [
       {
@@ -253,7 +276,7 @@ describe('Channels sync workbench', () => {
     render(<Channels />);
 
     const list = await screen.findByTestId('channels-conversation-list');
-    const items = within(list).getAllByRole('button');
+    const items = Array.from(list.querySelectorAll('[data-testid^="session-item-"]'));
 
     expect(items[0]).toHaveTextContent('研发中心 DevOps 总群');
     expect(items[0]).toHaveTextContent('群聊');
@@ -306,6 +329,27 @@ describe('Channels sync workbench', () => {
   it('does not append a fake local reply while waiting for runtime-backed refresh', async () => {
     const fixtures = buildWorkbenchFixtures();
     hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/feishu/status') {
+        return {
+          docsVersion: '2026.3.25',
+          openClaw: { version: '2026.3.22', minVersion: '2026.3.2', compatible: true },
+          plugin: {
+            bundledVersion: '2026.3.25',
+            bundledSource: 'build/openclaw-plugins/feishu-openclaw-plugin',
+            installedVersion: '2026.3.25',
+            installedPath: 'C:/Users/test/.openclaw/extensions/feishu-openclaw-plugin',
+            recommendedVersion: '2026.3.25',
+            installed: true,
+            needsUpdate: false,
+          },
+          channel: {
+            configured: true,
+            accountIds: ['default'],
+            pluginEnabled: true,
+          },
+          nextAction: 'ready',
+        };
+      }
       if (path === '/api/channels/capabilities') return fixtures.capabilities;
       if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
       if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
@@ -387,6 +431,36 @@ describe('Channels sync workbench', () => {
     expect(screen.getByText('断开连接')).toBeInTheDocument();
     expect(screen.getByText('App ID')).toBeInTheDocument();
     expect(screen.getByText('query_k8s_logs')).toBeInTheDocument();
+  });
+
+  it('opens the feishu onboarding wizard when quick-adding the current feishu channel', async () => {
+    render(<Channels />);
+
+    fireEvent.click(screen.getByRole('button', { name: '+' }));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/feishu/status');
+    });
+  });
+
+  it('opens the feishu onboarding wizard from the settings edit action', async () => {
+    render(<Channels />);
+
+    fireEvent.click(await screen.findByText('设置'));
+    fireEvent.click(await screen.findByTestId('settings-edit-config'));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith('/api/feishu/status');
+    });
+  });
+
+  it('opens the add-channel chooser when pendingAddChannel is set from the sidebar', async () => {
+    useRightPanelStore.setState({ pendingAddChannel: true });
+
+    render(<Channels />);
+
+    expect(await screen.findByRole('combobox')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('例如：研发中心飞书群')).toBeInTheDocument();
   });
 
   it('shows account entries for the selected channel inside the settings drawer', async () => {
@@ -651,7 +725,8 @@ describe('Channels sync workbench', () => {
     resolveLoadMore?.();
   });
 
-  it('hides identity toggle when userAuthStatus is not authorized', async () => {
+  /*
+  it.skip('hides identity toggle when userAuthStatus is not authorized', async () => {
     const fixtures = buildWorkbenchFixtures();
     hostApiFetchMock.mockImplementation(async (path: string) => {
       if (path === '/api/channels/capabilities') return fixtures.capabilities;
@@ -670,7 +745,7 @@ describe('Channels sync workbench', () => {
     });
   });
 
-  it('shows identity toggle pill when userAuthStatus is authorized', async () => {
+  it.skip('shows identity toggle pill when userAuthStatus is authorized', async () => {
     const fixtures = buildWorkbenchFixtures();
     hostApiFetchMock.mockImplementation(async (path: string) => {
       if (path === '/api/channels/capabilities') return fixtures.capabilities;
@@ -686,7 +761,7 @@ describe('Channels sync workbench', () => {
     expect(screen.getByTestId('identity-toggle')).toHaveTextContent('我');
   });
 
-  it('switches identity mode when toggle pill buttons are clicked', async () => {
+  it.skip('switches identity mode when toggle pill buttons are clicked', async () => {
     const fixtures = buildWorkbenchFixtures();
     hostApiFetchMock.mockImplementation(async (path: string) => {
       if (path === '/api/channels/capabilities') return fixtures.capabilities;
@@ -731,6 +806,64 @@ describe('Channels sync workbench', () => {
     });
   });
 
+  it('removes the identity toggle and always sends channel messages as bot identity', async () => {
+    const fixtures = buildWorkbenchFixtures();
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/feishu/status') return { status: 'authorized', channel: { configured: true }, nextAction: 'none' };
+      return { success: true };
+    });
+
+    render(<Channels />);
+    const input = await screen.findByPlaceholderText('鍦ㄧ兢鑱婂彂閫佹秷鎭紙灏嗗悓姝ヨ嚦椋炰功锛?..');
+    expect(screen.queryByTestId('identity-toggle')).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'hello from channel' } });
+    fireEvent.click(screen.getByRole('button', { name: '鉃? }));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith(
+        '/api/channels/feishu-default/send',
+        expect.objectContaining({
+          body: JSON.stringify({ text: 'hello from channel', conversationId: 'feishu-conv-devops', identity: 'bot' }),
+        }),
+      );
+    });
+  });
+  */
+
+  it('removes the identity toggle and always sends channel messages as bot identity', async () => {
+    const fixtures = buildWorkbenchFixtures();
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/feishu/status') return { status: 'authorized', channel: { configured: true }, nextAction: 'none' };
+      return { success: true };
+    });
+
+    render(<Channels />);
+    await waitFor(() => {
+      expect(document.querySelector('textarea')).not.toBeNull();
+    });
+    const input = document.querySelector('textarea') as HTMLTextAreaElement;
+    expect(screen.queryByTestId('identity-toggle')).not.toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'hello from channel' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith(
+        '/api/channels/feishu-default/send',
+        expect.objectContaining({
+          body: JSON.stringify({ text: 'hello from channel', conversationId: 'feishu-conv-devops', identity: 'bot' }),
+        }),
+      );
+    });
+  });
+
   it('appends optimistic message immediately on send and clears composer', async () => {
     const fixtures = buildWorkbenchFixtures();
     let resolveFirstMessages: (() => void) | null = null;
@@ -763,7 +896,7 @@ describe('Channels sync workbench', () => {
     resolveFirstMessages?.();
   });
 
-  it('shows retry button on failed optimistic send', async () => {
+  it.skip('shows retry button on failed optimistic send', async () => {
     const fixtures = buildWorkbenchFixtures();
     hostApiFetchMock.mockImplementation(async (path: string) => {
       if (path === '/api/channels/capabilities') return fixtures.capabilities;
@@ -781,6 +914,30 @@ describe('Channels sync workbench', () => {
     fireEvent.click(screen.getByRole('button', { name: '➤' }));
 
     expect(await screen.findByRole('button', { name: '重试' })).toBeInTheDocument();
+  });
+
+  it('shows retry button on failed optimistic send using the retry data-testid', async () => {
+    const fixtures = buildWorkbenchFixtures();
+    hostApiFetchMock.mockImplementation(async (path: string) => {
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/channels/feishu-default/send') throw new Error('network error');
+      return { success: true };
+    });
+
+    render(<Channels />);
+    await waitFor(() => {
+      expect(document.querySelector('textarea')).not.toBeNull();
+    });
+
+    const input = document.querySelector('textarea') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'failed send' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-testid^="retry-btn-"]')).not.toBeNull();
+    });
   });
 
   it('opens mention popover when @ is typed and inserts selection', async () => {
@@ -883,6 +1040,73 @@ describe('Channels sync workbench', () => {
     const archivedLabel = within(list).getByTestId('session-archived-feishu-conv-bot-ops');
     expect(archivedLabel).toBeInTheDocument();
     expect(within(list).queryByTestId('session-archived-feishu-conv-devops')).not.toBeInTheDocument();
+  });
+
+  it('renames a synced conversation from the middle list without leaving the page', async () => {
+    const fixtures = buildWorkbenchFixtures();
+    hostApiFetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/channels/workbench/conversations/feishu-conv-devops' && init?.method === 'PATCH') {
+        return { success: true };
+      }
+      return { success: true };
+    });
+
+    render(<Channels />);
+    const list = await screen.findByTestId('channels-conversation-list');
+
+    fireEvent.click(within(list).getByTestId('rename-session-feishu-conv-devops'));
+    const input = within(list).getByTestId('session-title-input-feishu-conv-devops');
+    fireEvent.change(input, { target: { value: '客服同步群' } });
+    fireEvent.click(within(list).getByTestId('save-session-title-feishu-conv-devops'));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith(
+        '/api/channels/workbench/conversations/feishu-conv-devops',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ title: '客服同步群' }),
+        }),
+      );
+    });
+    expect(within(list).getByText('客服同步群')).toBeInTheDocument();
+  });
+
+  it('removes a synced conversation from the middle list without deleting the channel instance', async () => {
+    const fixtures = buildWorkbenchFixtures();
+    hostApiFetchMock.mockImplementation(async (path: string, init?: RequestInit) => {
+      if (path === '/api/channels/capabilities') return fixtures.capabilities;
+      if (path === '/api/channels/workbench/sessions?channelType=feishu') return fixtures.sessions;
+      if (path.startsWith('/api/channels/workbench/conversations/feishu-conv-devops/messages')) return fixtures.messages;
+      if (path === '/api/channels/workbench/conversations/feishu-conv-bot-ops' && init?.method === 'DELETE') {
+        return { success: true };
+      }
+      return { success: true };
+    });
+
+    render(<Channels />);
+    const list = await screen.findByTestId('channels-conversation-list');
+
+    expect(within(list).getByTestId('session-item-feishu-conv-bot-ops')).toBeInTheDocument();
+    fireEvent.click(within(list).getByTestId('hide-session-feishu-conv-bot-ops'));
+
+    await waitFor(() => {
+      expect(hostApiFetchMock).toHaveBeenCalledWith(
+        '/api/channels/workbench/conversations/feishu-conv-bot-ops',
+        expect.objectContaining({
+          method: 'DELETE',
+        }),
+      );
+    });
+    await waitFor(() => {
+      expect(within(list).queryByTestId('session-item-feishu-conv-bot-ops')).not.toBeInTheDocument();
+    });
+    expect(channelsStoreState.channels).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'feishu-default' }),
+      expect.objectContaining({ id: 'telegram-default' }),
+    ]));
   });
 });
 
