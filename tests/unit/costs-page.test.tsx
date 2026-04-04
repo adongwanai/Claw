@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { Costs } from '@/pages/Costs';
+import { SettingsCostsUsagePanel } from '@/components/settings-center/settings-costs-usage-panel';
 import { hostApiFetch } from '@/lib/host-api';
 
 const { subscribeHostEventMock } = vi.hoisted(() => ({
@@ -309,5 +310,12 @@ describe('Costs page usage display', () => {
     expect(vi.mocked(hostApiFetch).mock.calls.filter(
       ([path]) => path === '/api/usage/recent-token-history?limit=200',
     )).toHaveLength(1);
+  });
+
+  it('renders the reusable settings panel without the standalone page header', async () => {
+    render(<SettingsCostsUsagePanel />);
+
+    expect(await screen.findByText('planner-agent')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 });

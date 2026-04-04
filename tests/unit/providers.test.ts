@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { createElement } from 'react';
 import {
   PROVIDER_TYPES,
   PROVIDER_TYPE_INFO,
@@ -13,6 +15,14 @@ import {
   getProviderEnvVar,
   getProviderEnvVars,
 } from '@electron/utils/provider-registry';
+
+vi.mock('@/components/settings/ProvidersSettings', () => ({
+  ProvidersSettings: () => createElement('div', null, 'Providers Settings Mock'),
+}));
+
+vi.mock('@/lib/telemetry', () => ({
+  trackUiEvent: vi.fn(),
+}));
 
 describe('provider metadata', () => {
   it('includes ark in the frontend provider registry', () => {
@@ -139,6 +149,24 @@ describe('provider metadata', () => {
     expect(resolveProviderApiKeyForSave('ollama', 'real-key')).toBe('real-key');
     expect(resolveProviderApiKeyForSave('openai', '')).toBeUndefined();
     expect(resolveProviderApiKeyForSave('openai', ' sk-test ')).toBe('sk-test');
+  });
+
+  it('renders the reusable models and providers settings panel', async () => {
+    if (!('electron' in window)) {
+      Object.defineProperty(window, 'electron', {
+        value: { platform: 'win32' },
+        configurable: true,
+      });
+    }
+
+    const { SettingsModelsProvidersPanel } = await import('@/components/settings-center/settings-models-providers-panel');
+    render(createElement(SettingsModelsProvidersPanel));
+
+    expect(screen.getByText('Default model and fallback routing')).toBeInTheDocument();
+    expect(screen.getByLabelText('Global default model')).toBeInTheDocument();
+    expect(screen.getByText('Gateway connection')).toBeInTheDocument();
+    expect(screen.getByText('Providers Settings Mock')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
   });
 });
 
