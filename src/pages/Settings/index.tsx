@@ -1,17 +1,21 @@
 import { useEffect, useId, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { SettingsMemoryKnowledgePanel } from '@/components/settings-center/settings-memory-knowledge-panel';
 import { SettingsMigrationPanel } from '@/components/settings-center/settings-migration-panel';
 import { SettingsMigrationWizard } from '@/components/settings-center/settings-migration-wizard';
 import { SettingsNav } from '@/components/settings-center/settings-nav';
 import { SettingsSectionCard } from '@/components/settings-center/settings-section-card';
+import { SettingsCostsUsagePanel } from '@/components/settings-center/settings-costs-usage-panel';
+import { SettingsModelsProvidersPanel } from '@/components/settings-center/settings-models-providers-panel';
+import { SettingsAppUpdatesPanel } from '@/components/settings-center/settings-app-updates-panel';
+import { SettingsAboutPanel } from '@/components/settings-center/settings-about-panel';
 import { ProvidersSettings } from '@/components/settings/ProvidersSettings';
 import { McpTab } from '@/pages/Skills/McpTab';
 import {
-  DEFAULT_SETTINGS_SECTION,
+  parseSettingsSection,
   SETTINGS_NAV_GROUPS,
   SETTINGS_SECTION_META,
   type SettingsSectionId,
@@ -31,6 +35,7 @@ import type { ChangeEvent, ReactNode } from 'react';
 export function Settings() {
   const { t } = useTranslation(['settings', 'common']);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     proxyEnabled,
     proxyServer,
@@ -73,7 +78,6 @@ export function Settings() {
   const installUpdate = useUpdateStore((state) => state.installUpdate);
   const initUpdate = useUpdateStore((state) => state.init);
 
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>(DEFAULT_SETTINGS_SECTION);
   const [proxyEnabledDraft, setProxyEnabledDraft] = useState(proxyEnabled);
   const [proxyServerDraft, setProxyServerDraft] = useState(proxyServer);
   const [proxyHttpServerDraft, setProxyHttpServerDraft] = useState(proxyHttpServer);
@@ -86,6 +90,7 @@ export function Settings() {
   const [migrationWizardOpen, setMigrationWizardOpen] = useState(false);
   const [resettingAllSettings, setResettingAllSettings] = useState(false);
   const [clearingServerData, setClearingServerData] = useState(false);
+  const activeSection = parseSettingsSection(searchParams.get('section'));
 
   useEffect(() => setProxyEnabledDraft(proxyEnabled), [proxyEnabled]);
   useEffect(() => setProxyServerDraft(proxyServer), [proxyServer]);
@@ -98,8 +103,24 @@ export function Settings() {
       setMigrationWizardOpen(false);
     }
   }, [activeSection, migrationWizardOpen]);
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section === activeSection) {
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('section', activeSection);
+    setSearchParams(nextParams, { replace: true });
+  }, [activeSection, searchParams, setSearchParams]);
 
   const activeMeta = SETTINGS_SECTION_META[activeSection];
+
+  const handleSectionChange = (section: SettingsSectionId) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('section', section);
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const saveProxySettings = async () => {
     setSavingProxy(true);
@@ -209,7 +230,7 @@ export function Settings() {
         <SettingsNav
           groups={SETTINGS_NAV_GROUPS}
           activeItemId={activeSection}
-          onChange={setActiveSection}
+          onChange={handleSectionChange}
         />
 
         <main className="min-w-0 flex-1 overflow-y-auto bg-white px-[60px] py-8 dark:bg-background">
@@ -356,10 +377,10 @@ type RenderSectionArgs = {
 function renderActiveSection(args: RenderSectionArgs) {
   switch (args.activeSection) {
     case 'costs-usage':
-      return <CostsUsageSection />;
+      return <SettingsCostsUsagePanel />;
 
     case 'models-providers':
-      return <ModelProviderSection gatewayStatus={args.gatewayStatus} restartGateway={args.restartGateway} />;
+      return <SettingsModelsProvidersPanel />;
 
     case 'general':
       return <GeneralSettingsSection />;
@@ -368,10 +389,10 @@ function renderActiveSection(args: RenderSectionArgs) {
       return <SettingsMemoryKnowledgePanel />;
 
     case 'skills-mcp':
-      return <SkillsMcpOverviewSection />;
+      return <SettingsSkillsMcpPanel />;
 
     case 'tool-permissions':
-      return <ToolPermissionsSection />;
+      return <SettingsToolPermissionsPanel />;
 
     case 'migration-backup':
       return <SettingsMigrationPanel onLaunchWizard={args.openMigrationWizard} />;
@@ -1357,7 +1378,7 @@ function AutomationDefaultsSection() {
 
 /* ─── Section: Skills & MCP (09.2) ─── */
 
-function SkillsMcpOverviewSection() {
+export function SettingsSkillsMcpPanel() {
   const { skills, loading: skillsLoading, fetchSkills, enableSkill, disableSkill } = useSkillsStore();
   const { status: gatewayStatus } = useGatewayStore();
   const isGatewayConnected = gatewayStatus.state === 'running';
@@ -1382,10 +1403,10 @@ function SkillsMcpOverviewSection() {
       <div className="rounded-2xl border border-[#d1d5db] bg-[#f8fafc] p-2">
         <div className="mb-3">
           <p className="text-[14px] font-medium text-[#111827]">
-            {t('skillsMcp.overview.title', { defaultValue: '将 Skills 与 MCP 分开查看' })}
+            {t('skillsMcp.overview.title', { defaultValue: '全局 Skills 与 MCP 中心' })}
           </p>
           <p className="mt-1 text-[12px] text-[#6b7280]">
-            {t('skillsMcp.overview.description', { defaultValue: '一个页签管理内置技能，另一个页签专注 KTClaw 可调用的 MCP 服务、runtime、工具发现与日志。' })}
+            {t('skillsMcp.overview.description', { defaultValue: '成员技能分配和编辑仍由 TeamMap 负责。' })}
           </p>
         </div>
         <div
@@ -1475,7 +1496,7 @@ function SkillsMcpOverviewSection() {
                   checked={skill.enabled}
                   disabled={skill.isCore}
                   onCheckedChange={(value) => void handleSkillToggle(skill.id, value)}
-                  aria-labelledby={`skill-overview-${skill.id}`}
+                  aria-label={skill.name}
                 />
               </div>
             ))
@@ -1506,7 +1527,7 @@ function SkillsMcpOverviewSection() {
 
 /* ─── Section: Tool Permissions (09.3) ─── */
 
-function ToolPermissionsSection() {
+export function SettingsToolPermissionsPanel() {
   const {
     globalRiskLevel,
     setGlobalRiskLevel,
@@ -1586,14 +1607,14 @@ function ToolPermissionsSection() {
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <span className="h-2 w-2 shrink-0 rounded-full bg-clawx-ac" />
             <p className="text-[13px] font-medium text-[#000000]">
-              全局风险级别设定 (Global Risk Level)
+              全局风险级别设定
             </p>
           </div>
           <select
             className="w-[260px] shrink-0 appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[12px] text-[#3c3c43] outline-none focus:border-clawx-ac"
             style={selectStyle}
             value={globalRiskLevel}
-            aria-label="全局风险级别设定 (Global Risk Level)"
+            aria-label="全局风险级别设定"
             onChange={(event) =>
               setGlobalRiskLevel(event.target.value as 'standard' | 'strict' | 'permissive')
             }
@@ -1617,7 +1638,7 @@ function ToolPermissionsSection() {
               onClick={() => setWhitelistEditorOpen((open) => !open)}
               className="rounded border border-black/10 px-2 py-1 text-[11px] text-[#3c3c43] hover:bg-[#f2f2f7]"
             >
-              ◎ 路径白名单
+              路径白名单
             </button>
             <Switch checked={fileAcl} onCheckedChange={setFileAcl} aria-label="本地文件操作 (File I/O ACL)" />
           </div>
@@ -1720,14 +1741,14 @@ function ToolPermissionsSection() {
       </SettingsCard>
 
       <SettingsCard
-        title="自定义工具授权 (Custom Tool Grants)"
+        title="自定义工具授权"
         headerRight={
           <button
             type="button"
             onClick={() => setGrantEditorOpen((open) => !open)}
             className="rounded-lg bg-[#111] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#333]"
           >
-            + 添加工具许可
+            添加工具许可
           </button>
         }
       >

@@ -23,24 +23,39 @@ export type SettingsNavGroup = {
   items: SettingsNavItem[];
 };
 
+export const SETTINGS_SECTION_IDS: SettingsSectionId[] = [
+  'costs-usage',
+  'models-providers',
+  'general',
+  'skills-mcp',
+  'tool-permissions',
+  'memory-knowledge',
+  'migration-backup',
+  'app-updates',
+  'about',
+];
+
+const SETTINGS_SECTION_ID_SET = new Set<SettingsSectionId>(SETTINGS_SECTION_IDS);
+
 export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
   {
     id: 'canonical',
-    items: [
-      { id: 'costs-usage', labelKey: 'settings:settingsShell.items.costs-usage.label' },
-      { id: 'models-providers', labelKey: 'settings:settingsShell.items.models-providers.label' },
-      { id: 'general', labelKey: 'settings:settingsShell.items.general.label' },
-      { id: 'skills-mcp', labelKey: 'settings:settingsShell.items.skills-mcp.label' },
-      { id: 'tool-permissions', labelKey: 'settings:settingsShell.items.tool-permissions.label' },
-      { id: 'memory-knowledge', labelKey: 'settings:settingsShell.items.memory-knowledge.label' },
-      { id: 'migration-backup', labelKey: 'settings:settingsShell.items.migration-backup.label' },
-      { id: 'app-updates', labelKey: 'settings:settingsShell.items.app-updates.label' },
-      { id: 'about', labelKey: 'settings:settingsShell.items.about.label' },
-    ],
+    items: SETTINGS_SECTION_IDS.map((id) => ({
+      id,
+      labelKey: `settings:settingsShell.items.${id}.label`,
+    })),
   },
 ];
 
 export const DEFAULT_SETTINGS_SECTION: SettingsSectionId = 'costs-usage';
+
+export function isSettingsSectionId(value: string | null | undefined): value is SettingsSectionId {
+  return value != null && SETTINGS_SECTION_ID_SET.has(value as SettingsSectionId);
+}
+
+export function parseSettingsSection(value: string | null | undefined): SettingsSectionId {
+  return isSettingsSectionId(value) ? value : DEFAULT_SETTINGS_SECTION;
+}
 
 export const SETTINGS_SECTION_META: Record<
   SettingsSectionId,
