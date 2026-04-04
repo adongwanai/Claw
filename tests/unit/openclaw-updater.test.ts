@@ -200,6 +200,7 @@ describe('updater channel semantics and persistence', () => {
   });
 
   it('loads persisted update policy state and skips startup checks before the next eligible time', async () => {
+    const lastAttemptAt = new Date(Date.now() - 30_000).toISOString();
     const nextEligibleAt = new Date(Date.now() + 60_000).toISOString();
     mockGetSetting.mockImplementation((key: string) => {
       if (key === 'updateChannelExplicit') return Promise.resolve(true);
@@ -208,8 +209,8 @@ describe('updater channel semantics and persistence', () => {
       if (key === 'updatePolicyState') {
         return Promise.resolve({
           attemptCount: 2,
-          lastAttemptAt: '2026-03-26T00:00:00.000Z',
-          lastSuccessAt: '2026-03-26T00:00:05.000Z',
+          lastAttemptAt,
+          lastSuccessAt: lastAttemptAt,
           lastFailureAt: null,
           lastCheckReason: 'startup',
           lastCheckError: null,
