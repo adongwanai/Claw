@@ -95,6 +95,11 @@ export function EmployeeSquareCard({
       <p className="mt-5 min-h-[44px] text-sm leading-6 text-slate-600">
         {card.persona || '暂未配置角色设定。'}
       </p>
+      {card.currentWorkSummary ? (
+        <p className="mt-3 rounded-2xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          {card.currentWorkSummary}
+        </p>
+      ) : null}
 
       <div className="mt-5 flex flex-wrap gap-2">
         {card.teamLabels.length > 0 ? (

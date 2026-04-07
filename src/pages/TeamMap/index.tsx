@@ -6,6 +6,7 @@ import { Bot, Code, Cpu, Database, Network, UserCog, Users, Zap } from 'lucide-r
 import { useAgentsStore } from '@/stores/agents';
 import { useTeamsStore } from '@/stores/teams';
 import { useChatStore } from '@/stores/chat';
+import { useApprovalsStore } from '@/stores/approvals';
 import type { AgentSummary } from '@/types/agent';
 import { deriveTeamWorkVisibility, type TeamMemberWorkVisibility } from '@/lib/team-work-visibility';
 import { useTeamRuntime } from '@/hooks/use-team-runtime';
@@ -418,14 +419,15 @@ export function TeamMap() {
     channelOwners,
   } = useAgentsStore();
   const { teams, loading: teamsLoading, fetchTeams, removeMember } = useTeamsStore();
+  const tasks = useApprovalsStore((state) => state.tasks ?? []);
+  const fetchTasks = useApprovalsStore((state) => state.fetchTasks ?? (async () => undefined));
   const sessionLastActivity = useChatStore((state) => state.sessionLastActivity);
   const openDirectAgentSession = useChatStore((state) => state.openDirectAgentSession);
   const { byAgent: runtimeByAgent } = useTeamRuntime();
 
   useEffect(() => {
-    void fetchAgents();
-    void fetchTeams();
-  }, [fetchAgents, fetchTeams]);
+    void Promise.all([fetchAgents(), fetchTeams(), fetchTasks()]);
+  }, [fetchAgents, fetchTeams, fetchTasks]);
 
   const loading = agentsLoading || teamsLoading;
   const currentTeam = teams.find((team) => team.id === teamId) ?? null;
@@ -443,8 +445,8 @@ export function TeamMap() {
   }, [agents, currentTeam]);
 
   const workVisibility = useMemo(
-    () => deriveTeamWorkVisibility(scopedAgents, sessionLastActivity, runtimeByAgent),
-    [runtimeByAgent, scopedAgents, sessionLastActivity],
+    () => deriveTeamWorkVisibility(scopedAgents, sessionLastActivity, runtimeByAgent, tasks),
+    [runtimeByAgent, scopedAgents, sessionLastActivity, tasks],
   );
 
   useEffect(() => {

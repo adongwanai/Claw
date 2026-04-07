@@ -1,5 +1,6 @@
 import type { AgentSummary } from '@/types/agent';
 import { deriveTeamWorkVisibility, type TeamWorkStatusKey } from '@/lib/team-work-visibility';
+import type { KanbanTask } from '@/types/task';
 
 export type LeaderProgressBriefMember = {
   id: string;
@@ -47,6 +48,7 @@ type BuildLeaderProgressBriefInput = {
   configuredChannelTypes: string[];
   channelOwners: Record<string, string>;
   runtimeByAgent?: Record<string, Array<{ status: string; prompt: string }>>;
+  tasks?: KanbanTask[];
 };
 
 function getOwnedEntryPoints(
@@ -104,7 +106,7 @@ function prioritizeNextAction(members: LeaderProgressBriefMember[]): string {
 
 export function buildLeaderProgressBrief(input: BuildLeaderProgressBriefInput): LeaderProgressBrief {
   void input.leaderId;
-  const visibility = deriveTeamWorkVisibility(input.agents, input.sessionLastActivity, input.runtimeByAgent);
+  const visibility = deriveTeamWorkVisibility(input.agents, input.sessionLastActivity, input.runtimeByAgent, input.tasks);
   const members = input.agents.map((agent) => {
     const memberVisibility = visibility[agent.id] ?? {
       statusKey: 'idle' as TeamWorkStatusKey,

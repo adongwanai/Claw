@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildEmployeeSquareCardModels } from '@/lib/agent-square-view-model';
 import type { AgentSummary } from '@/types/agent';
 import type { TeamSummary } from '@/types/team';
+import type { KanbanTask } from '@/types/task';
 
 function createTeam(overrides: Partial<TeamSummary>): TeamSummary {
   return {
@@ -144,5 +145,44 @@ describe('buildEmployeeSquareCardModels', () => {
     expect(researcher?.lastActiveLabel).toBe('最近暂无活动');
     expect(main?.activityTone).toBe('active');
     expect(researcher?.activityTone).toBe('idle');
+  });
+
+  it('uses canonical task summaries to promote blocked activity tone and current work summary', () => {
+    const models = buildEmployeeSquareCardModels({
+      agents: [
+        createAgent({
+          id: 'researcher',
+          name: 'Researcher',
+          mainSessionKey: 'agent:researcher:main',
+          teamRole: 'worker',
+        }),
+      ],
+      teams: [],
+      sessionLastActivity: {},
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Investigate OAuth callback',
+          description: 'Track the failing redirect',
+          status: 'in-progress',
+          priority: 'high',
+          assigneeId: 'researcher',
+          workState: 'blocked',
+          blocker: {
+            state: 'blocked',
+            summary: 'Waiting on leader approval',
+          },
+          teamId: 'team-1',
+          teamName: 'Alpha Team',
+          isTeamTask: true,
+          canonicalExecution: null,
+          createdAt: '2026-04-07T00:00:00.000Z',
+          updatedAt: '2026-04-07T00:05:00.000Z',
+        } satisfies KanbanTask,
+      ],
+    });
+
+    expect(models[0]?.activityTone).toBe('blocked');
+    expect(models[0]?.currentWorkSummary).toBe('Investigate OAuth callback');
   });
 });

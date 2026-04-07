@@ -1,8 +1,10 @@
 import { readOpenClawConfig, writeOpenClawConfig } from './channel-config';
 import { withConfigLock } from './config-mutex';
 import { listAgentsSnapshot } from './agent-config';
+import { listTaskSnapshots } from './task-config';
 import type { Team, TeamSummary, CreateTeamRequest, UpdateTeamRequest, TeamStatus } from '../../src/types/team';
 import { randomUUID } from 'crypto';
+import { buildTeamTaskRollupMap } from '../../src/lib/task-summary-read-model';
 
 interface TeamsConfig {
   teams?: Team[];
@@ -60,7 +62,10 @@ async function generateTeamName(leaderId: string): Promise<string> {
 /**
  * Build TeamSummary with computed display fields
  */
-async function buildTeamSummary(team: Team): Promise<TeamSummary> {
+async function buildTeamSummary(
+  team: Team,
+  taskRollup?: ReturnType<typeof buildTeamTaskRollupMap>[string],
+): Promise<TeamSummary> {
   const snapshot = await listAgentsSnapshot();
 
   // Find leader
@@ -84,14 +89,12 @@ async function buildTeamSummary(team: Team): Promise<TeamSummary> {
   // Calculate member count (leader + members)
   const memberCount = 1 + team.memberIds.length;
 
-  // TODO: Calculate activeTaskCount from task system when available
-  const activeTaskCount = 0;
-
-  // TODO: Calculate lastActiveTime from agent activity when available
-  const lastActiveTime = undefined;
+  const activeTaskCount = taskRollup?.activeTaskCount ?? 0;
+  const lastActiveTime = taskRollup?.lastActiveTime;
 
   return {
     ...team,
+    status: taskRollup?.status ?? team.status,
     memberCount,
     activeTaskCount,
     lastActiveTime,
@@ -105,10 +108,11 @@ async function buildTeamSummary(team: Team): Promise<TeamSummary> {
  */
 export async function listTeamsSnapshot(): Promise<TeamSummary[]> {
   const teams = await readTeamsConfig();
+  const taskRollups = buildTeamTaskRollupMap(await listTaskSnapshots());
 
   // Build summaries for all teams
   const summaries = await Promise.all(
-    teams.map((team) => buildTeamSummary(team))
+    teams.map((team) => buildTeamSummary(team, taskRollups[team.id]))
   );
 
   // Sort by creation time (newest first, per D-07)

@@ -5,12 +5,14 @@ import { hostApiFetch } from '@/lib/host-api';
 import { useAgentsStore } from '@/stores/agents';
 import { useTeamsStore } from '@/stores/teams';
 import { useChatStore } from '@/stores/chat';
+import { useApprovalsStore } from '@/stores/approvals';
 import type { AgentCronRelation, CronJob } from '@/types/cron';
 import type { AgentChatAccess, AgentSummary, AgentTeamRole } from '@/types/agent';
 import { AgentDetailHero } from '@/components/agents/detail/AgentDetailHero';
 import { AgentDetailTabs, type AgentDetailTabId } from '@/components/agents/detail/AgentDetailTabs';
 import { AgentMemoryTab } from '@/components/agents/detail/AgentMemoryTab';
 import { AgentActivityTab } from '@/components/agents/detail/AgentActivityTab';
+import { buildAgentTaskSummaryMap } from '@/lib/task-summary-read-model';
 import { toast } from 'sonner';
 
 const RECENT_ACTIVITY_WINDOW_MS = 5 * 60 * 1000;
@@ -452,6 +454,8 @@ export function AgentDetail() {
     fetchTeams?: () => Promise<void>;
     loading?: boolean;
   };
+  const tasks = useApprovalsStore((state) => state.tasks ?? []);
+  const fetchTasks = useApprovalsStore((state) => state.fetchTasks ?? (async () => undefined));
   const sessionLastActivity = useChatStore((state) => state.sessionLastActivity);
   const openDirectAgentSession = useChatStore((state) => state.openDirectAgentSession);
   const [localAvatar, setLocalAvatar] = useState<{ agentId: string; avatar: string | null } | null>(null);
@@ -464,8 +468,8 @@ export function AgentDetail() {
   const loading = agentsLoading || teamsLoading;
 
   useEffect(() => {
-    void Promise.all([fetchAgents(), fetchTeams()]);
-  }, [fetchAgents, fetchTeams]);
+    void Promise.all([fetchAgents(), fetchTeams(), fetchTasks()]);
+  }, [fetchAgents, fetchTeams, fetchTasks]);
 
   const agent = useMemo(
     () => agents.find((entry) => entry.id === agentId) ?? null,
@@ -484,6 +488,7 @@ export function AgentDetail() {
       .map((team) => team.name),
     [agentId, teams],
   );
+  const taskSummaryByAgent = useMemo(() => buildAgentTaskSummaryMap(tasks), [tasks]);
   const hierarchySummary = agent?.isDefault
     ? t('detail.rootSummary', { defaultValue: 'This is the root KTClaw agent.' })
     : t('detail.reportsToSummary', {
@@ -560,15 +565,28 @@ export function AgentDetail() {
     }
   };
 
-  const lastActiveAt = sessionLastActivity[agent.mainSessionKey];
-  const statusLabel = lastActiveAt && Date.now() - lastActiveAt < RECENT_ACTIVITY_WINDOW_MS ? 'Active' : 'Idle';
-  const activityTitles = responsibility ? [responsibility] : [];
-  const blockingReason = chatAccess === 'leader_only'
-    ? 'Direct chat is routed through the reporting leader.'
-    : null;
-  const nextStep = blockingReason
-    ? 'Route requests through the current leader or use the leader chat entry.'
-    : 'Open a direct chat from Employee Square to capture the latest status.';
+  const agentTaskSummary = taskSummaryByAgent[agent.id];
+  const lastActiveAt = agentTaskSummary?.lastActiveTime ?? sessionLastActivity[agent.mainSessionKey];
+  const statusLabel = agentTaskSummary?.statusKey === 'blocked'
+    ? 'Blocked'
+    : agentTaskSummary?.statusKey === 'waiting_approval'
+      ? 'Waiting Approval'
+      : agentTaskSummary?.activeTaskCount
+        ? 'Working'
+        : (lastActiveAt && Date.now() - lastActiveAt < RECENT_ACTIVITY_WINDOW_MS ? 'Active' : 'Idle');
+  const activityTitles = agentTaskSummary?.currentWorkTitles?.length
+    ? agentTaskSummary.currentWorkTitles
+    : (responsibility ? [responsibility] : []);
+  const blockingReason = agentTaskSummary?.blockingReason ?? (
+    chatAccess === 'leader_only'
+      ? 'Direct chat is routed through the reporting leader.'
+      : null
+  );
+  const nextStep = agentTaskSummary?.statusKey === 'blocked' || agentTaskSummary?.statusKey === 'waiting_approval'
+    ? 'Open Task Kanban to resolve the current execution gate.'
+    : activityTitles.length > 0
+      ? 'Open Task Kanban to inspect the current execution lineage.'
+      : 'Open a direct chat from Employee Square to capture the latest status.';
 
   return (
     <div className="mx-auto flex h-full max-w-5xl flex-col gap-6 px-8 py-10">

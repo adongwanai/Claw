@@ -14,6 +14,7 @@ import { useChannelsStore } from '@/stores/channels';
 import { useTeamsStore } from '@/stores/teams';
 import { useGatewayStore } from '@/stores/gateway';
 import { useChatStore } from '@/stores/chat';
+import { useApprovalsStore } from '@/stores/approvals';
 import type { AgentSummary } from '@/types/agent';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +39,8 @@ export function Agents() {
     error: teamsError,
     fetchTeams,
   } = useTeamsStore();
+  const tasks = useApprovalsStore((state) => state.tasks ?? []);
+  const fetchTasks = useApprovalsStore((state) => state.fetchTasks ?? (async () => undefined));
   const sessionLastActivity = useChatStore((state) => state.sessionLastActivity);
   const openDirectAgentSession = useChatStore((state) => state.openDirectAgentSession);
 
@@ -50,8 +53,8 @@ export function Agents() {
   const error = agentsError ?? teamsError;
 
   useEffect(() => {
-    void Promise.all([fetchAgents(), fetchChannels(), fetchTeams()]);
-  }, [fetchAgents, fetchChannels, fetchTeams]);
+    void Promise.all([fetchAgents(), fetchChannels(), fetchTeams(), fetchTasks()]);
+  }, [fetchAgents, fetchChannels, fetchTeams, fetchTasks]);
 
   const activeAgent = useMemo(
     () => agents.find((agent) => agent.id === activeAgentId) ?? null,
@@ -59,8 +62,8 @@ export function Agents() {
   );
 
   const cards = useMemo(
-    () => buildEmployeeSquareCardModels({ agents, teams, sessionLastActivity }),
-    [agents, sessionLastActivity, teams],
+    () => buildEmployeeSquareCardModels({ agents, teams, sessionLastActivity, tasks }),
+    [agents, sessionLastActivity, tasks, teams],
   );
 
   const agentsById = useMemo(

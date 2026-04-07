@@ -1,5 +1,7 @@
 import type { AgentSummary } from '@/types/agent';
 import type { TeamSummary } from '@/types/team';
+import type { KanbanTask } from '@/types/task';
+import { buildAgentTaskSummaryMap } from '@/lib/task-summary-read-model';
 
 const ACTIVE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -13,6 +15,7 @@ export interface EmployeeSquareCardModel {
   channelCount: number;
   lastActiveLabel: string;
   activityTone: 'active' | 'idle' | 'blocked';
+  currentWorkSummary?: string;
   isDirectChatBlocked: boolean;
   detailsHref: string;
   memoryHref: string;
@@ -60,18 +63,26 @@ export function buildEmployeeSquareCardModels(input: {
   agents: AgentSummary[];
   teams: TeamSummary[];
   sessionLastActivity: Record<string, number>;
+  tasks?: KanbanTask[];
   now?: number;
 }): EmployeeSquareCardModel[] {
   const now = input.now ?? Date.now();
   const teamLabelsByAgentId = buildTeamLabelMap(input.teams);
+  const taskSummaryByAgent = buildAgentTaskSummaryMap(input.tasks ?? []);
   const lastActivityByAgentId = new Map(
     input.agents.map((agent) => [agent.id, input.sessionLastActivity[agent.mainSessionKey] ?? 0]),
   );
 
   return [...input.agents]
     .map((agent) => {
-      const lastActivityAt = lastActivityByAgentId.get(agent.id) || undefined;
+      const taskSummary = taskSummaryByAgent[agent.id];
+      const lastActivityAt = taskSummary?.lastActiveTime ?? (lastActivityByAgentId.get(agent.id) || undefined);
       const isRecentlyActive = lastActivityAt !== undefined && now - lastActivityAt < ACTIVE_WINDOW_MS;
+      const activityTone = taskSummary?.statusKey === 'blocked' || taskSummary?.statusKey === 'waiting_approval'
+        ? 'blocked'
+        : (taskSummary?.activeTaskCount ?? 0) > 0 || isRecentlyActive
+          ? 'active'
+          : 'idle';
 
       return {
         id: agent.id,
@@ -82,7 +93,8 @@ export function buildEmployeeSquareCardModels(input: {
         modelLabel: agent.modelDisplay,
         channelCount: agent.channelTypes.length,
         lastActiveLabel: formatLastActiveLabel(lastActivityAt, now),
-        activityTone: isRecentlyActive ? 'active' : 'idle',
+        activityTone,
+        currentWorkSummary: taskSummary?.currentWorkSummary,
         isDirectChatBlocked: agent.chatAccess === 'leader_only',
         detailsHref: `/agents/${encodeURIComponent(agent.id)}`,
         memoryHref: `/agents/${encodeURIComponent(agent.id)}?tab=memory`,
