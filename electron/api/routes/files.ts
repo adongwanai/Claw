@@ -5,6 +5,7 @@ import { extname, join } from 'node:path';
 import { homedir } from 'node:os';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
+import { checkPermission, appendAuditLog } from '../../utils/permissions-enforcer';
 
 const EXT_MIME_MAP: Record<string, string> = {
   '.png': 'image/png',
@@ -88,6 +89,14 @@ export async function handleFileRoutes(
       await fsP.mkdir(OUTBOUND_DIR, { recursive: true });
       const results = [];
       for (const filePath of body.filePaths) {
+        const permResult = await checkPermission('file:write', { path: filePath });
+        if (permResult === 'block') {
+          sendJson(res, 403, { error: 'blocked_by_permissions', action: 'file:write', path: filePath });
+          return true;
+        }
+        if (permResult === 'confirm') {
+          await appendAuditLog({ timestamp: new Date().toISOString(), action: 'file:write', result: 'confirm-auto-allowed', context: { path: filePath }, globalRiskLevel: 'standard' });
+        }
         const id = crypto.randomUUID();
         const ext = extname(filePath);
         const stagedPath = join(OUTBOUND_DIR, `${id}${ext}`);
@@ -115,6 +124,14 @@ export async function handleFileRoutes(
       const id = crypto.randomUUID();
       const ext = extname(body.fileName) || mimeToExt(body.mimeType);
       const stagedPath = join(OUTBOUND_DIR, `${id}${ext}`);
+      const permResult = await checkPermission('file:write', { path: stagedPath });
+      if (permResult === 'block') {
+        sendJson(res, 403, { error: 'blocked_by_permissions', action: 'file:write', path: stagedPath });
+        return true;
+      }
+      if (permResult === 'confirm') {
+        await appendAuditLog({ timestamp: new Date().toISOString(), action: 'file:write', result: 'confirm-auto-allowed', context: { path: stagedPath }, globalRiskLevel: 'standard' });
+      }
       const buffer = Buffer.from(body.base64, 'base64');
       await fsP.writeFile(stagedPath, buffer);
       const mimeType = body.mimeType || getMimeType(ext);
@@ -179,6 +196,14 @@ export async function handleFileRoutes(
       if (result.canceled || !result.filePath) {
         sendJson(res, 200, { success: false });
         return true;
+      }
+      const permResult = await checkPermission('file:write', { path: result.filePath });
+      if (permResult === 'block') {
+        sendJson(res, 403, { error: 'blocked_by_permissions', action: 'file:write', path: result.filePath });
+        return true;
+      }
+      if (permResult === 'confirm') {
+        await appendAuditLog({ timestamp: new Date().toISOString(), action: 'file:write', result: 'confirm-auto-allowed', context: { path: result.filePath }, globalRiskLevel: 'standard' });
       }
       const fsP = await import('node:fs/promises');
       if (body.filePath) {

@@ -89,6 +89,10 @@ interface SettingsState {
   terminalCommandBlocklist: string[];
   customToolGrants: string[];
 
+  // Memory Strategy
+  watchedMemoryDirs: string[];
+  notificationsEnabled: boolean;
+
   // Setup
   setupComplete: boolean;
 
@@ -152,6 +156,8 @@ interface SettingsState {
   removeTerminalCommandBlocklistEntry: (value: string) => void;
   addCustomToolGrant: (value: string) => Promise<boolean>;
   removeCustomToolGrant: (value: string) => void;
+  setWatchedMemoryDirs: (dirs: string[]) => void;
+  setNotificationsEnabled: (v: boolean) => void;
   markSetupComplete: () => void;
   resetSettings: () => void;
 }
@@ -279,6 +285,8 @@ const defaultSettings = {
   filePathAllowlist: [] as string[],
   terminalCommandBlocklist: [] as string[],
   customToolGrants: [] as string[],
+  watchedMemoryDirs: [] as string[],
+  notificationsEnabled: true,
 };
 
 type SettingsPatch = Partial<typeof defaultSettings>;
@@ -409,16 +417,25 @@ export const useSettingsStore = create<SettingsState>()(
         }).catch(() => { });
       },
       setBrandName: (brandName) => set({ brandName }),
-      setBrandSubtitle: (brandSubtitle) => set({ brandSubtitle }),
+      setBrandSubtitle: (brandSubtitle) => {
+        set({ brandSubtitle });
+        void persistSettingsPatch({ brandSubtitle }).catch(() => { });
+      },
       setBrandLogoDataUrl: (brandLogoDataUrl) => set({ brandLogoDataUrl }),
       setBrandIconDataUrl: (brandIconDataUrl) => set({ brandIconDataUrl }),
-      setMyName: (myName) => set({ myName }),
+      setMyName: (myName) => {
+        set({ myName });
+        void persistSettingsPatch({ myName }).catch(() => { });
+      },
       setDefaultModel: (defaultModel) => set({ defaultModel }),
       setContextLimit: (contextLimit) => set({ contextLimit }),
       setShowToolCalls: (showToolCalls) => set({ showToolCalls }),
       setEmojiAvatar: (emojiAvatar) => set({ emojiAvatar }),
       setHideAvatarBg: (hideAvatarBg) => set({ hideAvatarBg }),
-      setMinimizeToTray: (minimizeToTray) => set({ minimizeToTray }),
+      setMinimizeToTray: (minimizeToTray) => {
+        set({ minimizeToTray });
+        void persistSettingsPatch({ minimizeToTray }).catch(() => { });
+      },
       setAutoSpawn: (autoSpawn) => set({ autoSpawn }),
       setModelInherit: (modelInherit) => set({ modelInherit }),
       setStrictIsolation: (strictIsolation) => set({ strictIsolation }),
@@ -439,19 +456,19 @@ export const useSettingsStore = create<SettingsState>()(
       setMobileAlert: (mobileAlert) => set({ mobileAlert }),
       setGlobalRiskLevel: (globalRiskLevel) => {
         set({ globalRiskLevel });
-        void persistSettingValue('globalRiskLevel', globalRiskLevel).catch(() => { });
+        void persistSettingsPatch({ globalRiskLevel }).catch(() => { });
       },
       setFileAcl: (fileAcl) => {
         set({ fileAcl });
-        void persistSettingValue('fileAcl', fileAcl).catch(() => { });
+        void persistSettingsPatch({ fileAcl }).catch(() => { });
       },
       setTerminalAcl: (terminalAcl) => {
         set({ terminalAcl });
-        void persistSettingValue('terminalAcl', terminalAcl).catch(() => { });
+        void persistSettingsPatch({ terminalAcl }).catch(() => { });
       },
       setNetworkAcl: (networkAcl) => {
         set({ networkAcl });
-        void persistSettingValue('networkAcl', networkAcl).catch(() => { });
+        void persistSettingsPatch({ networkAcl }).catch(() => { });
       },
       addChannelRouteRule: async (value) => {
         const channelRouteRules = get().channelRouteRules;
@@ -529,6 +546,14 @@ export const useSettingsStore = create<SettingsState>()(
           persistSettingsPatch({ customToolGrants: updated });
           return { customToolGrants: updated };
         }),
+      setWatchedMemoryDirs: (watchedMemoryDirs) => {
+        set({ watchedMemoryDirs });
+        void persistSettingsPatch({ watchedMemoryDirs }).catch(() => { });
+      },
+      setNotificationsEnabled: (notificationsEnabled) => {
+        set({ notificationsEnabled });
+        void persistSettingsPatch({ notificationsEnabled }).catch(() => { });
+      },
       resetSettings: () => set(defaultSettings),
     }),
     {

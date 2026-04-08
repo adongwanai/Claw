@@ -17,6 +17,7 @@ import type {
 } from '@electron/services/mcp/runtime-manager';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
+import { checkPermission } from '../../utils/permissions-enforcer';
 
 interface McpConfig {
   servers: McpServerConfig[];
@@ -280,6 +281,11 @@ export async function handleMcpRoutes(
     const body = await parseJsonBody<{ toolName?: string; arguments?: Record<string, unknown> }>(req);
     if (!body.toolName) {
       sendJson(res, 400, { error: 'toolName is required' });
+      return true;
+    }
+    const permResult = await checkPermission('mcp:tool', { tool: body.toolName });
+    if (permResult === 'block') {
+      sendJson(res, 403, { error: 'blocked_by_permissions', action: 'mcp:tool', tool: body.toolName });
       return true;
     }
     const result: McpToolCallResult = await getManager(ctx)?.callTool(name, body.toolName, body.arguments ?? {}) ?? {

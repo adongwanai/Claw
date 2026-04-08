@@ -11,6 +11,7 @@ import {
 } from '../../utils/task-config';
 import type { CreateTaskRequest, KanbanTask, StartTaskExecutionRequest, TaskExecutionEventInput } from '../../src/types/task';
 import { logger } from '../../utils/logger';
+import { checkPermission } from '../../utils/permissions-enforcer';
 
 const TASKS_PREFIX = '/api/tasks/';
 
@@ -73,6 +74,12 @@ export async function handleTaskRoutes(
       }
       if (!body.sessionId || !body.sessionKey) {
         sendJson(res, 400, { success: false, error: 'sessionId and sessionKey are required' });
+        return true;
+      }
+
+      const permResult = await checkPermission('terminal:exec', { command: `task:${taskId}` });
+      if (permResult === 'block') {
+        sendJson(res, 403, { error: 'blocked_by_permissions', action: 'terminal:exec' });
         return true;
       }
 

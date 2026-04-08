@@ -1,101 +1,170 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Switch } from '@/components/ui/switch';
+import { useSettingsStore } from '@/stores/settings';
+import { hostApiFetch } from '@/lib/host-api';
 
-const selectStyle = {
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-  backgroundRepeat: 'no-repeat' as const,
-  backgroundPosition: 'right 12px center',
-  paddingRight: '32px',
-};
+type ActionState = 'idle' | 'loading' | 'success' | 'error';
+
+function useMemoryAction(endpoint: string): { state: ActionState; run: () => Promise<void> } {
+  const [state, setState] = useState<ActionState>('idle');
+  const run = async () => {
+    setState('loading');
+    try {
+      await hostApiFetch(endpoint, { method: 'POST' });
+      setState('success');
+      setTimeout(() => setState('idle'), 2000);
+    } catch {
+      setState('error');
+      setTimeout(() => setState('idle'), 3000);
+    }
+  };
+  return { state, run };
+}
+
+function ActionButton({
+  label,
+  state,
+  onClick,
+}: {
+  label: string;
+  state: ActionState;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation('settings');
+  const disabled = state === 'loading';
+  const displayLabel =
+    state === 'loading'
+      ? t('memoryBrowser.loading')
+      : state === 'success'
+        ? t('memoryBrowser.saved')
+        : state === 'error'
+          ? t('memoryBrowser.readFailed', { error: '' }).replace(': ', '')
+          : label;
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="shrink-0 rounded-lg border border-black/10 px-4 py-2 text-[13px] font-medium text-[#000000] transition hover:bg-[#f2f2f7] disabled:opacity-50"
+    >
+      {displayLabel}
+    </button>
+  );
+}
 
 export function SettingsMemoryStrategy() {
   const { t } = useTranslation('settings');
-  const [contextConsolidation, setContextConsolidation] = useState(true);
-  const [nightlyReflection, setNightlyReflection] = useState(true);
+  const watchedMemoryDirs = useSettingsStore((s) => s.watchedMemoryDirs);
+  const setWatchedMemoryDirs = useSettingsStore((s) => s.setWatchedMemoryDirs);
+  const [newDirInput, setNewDirInput] = useState('');
+  const [showInput, setShowInput] = useState(false);
+
+  const snapshot = useMemoryAction('/api/memory/snapshot');
+  const analyze = useMemoryAction('/api/memory/analyze');
+  const reindex = useMemoryAction('/api/memory/reindex');
+
+  function handleAddDir() {
+    const trimmed = newDirInput.trim();
+    if (!trimmed) return;
+    if (!watchedMemoryDirs.includes(trimmed)) {
+      setWatchedMemoryDirs([...watchedMemoryDirs, trimmed]);
+    }
+    setNewDirInput('');
+    setShowInput(false);
+  }
+
+  function handleRemoveDir(dir: string) {
+    setWatchedMemoryDirs(watchedMemoryDirs.filter((d) => d !== dir));
+  }
 
   return (
     <div className="space-y-4">
-      {/* 全局长期记忆策略 */}
+      {/* Manual memory operations */}
       <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
-        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">{t('memoryStrategy.global.title')}</h3>
-        <div className="space-y-4">
-          <div>
-            <p className="mb-2 text-[13px] font-medium text-[#000000]">{t('memoryStrategy.global.storageLabel')}</p>
-            <select
-              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
-              style={selectStyle}
-            >
-              <option>{t('memoryStrategy.global.storageOptions.sqlite')}</option>
-              <option>{t('memoryStrategy.global.storageOptions.postgres')}</option>
-              <option>{t('memoryStrategy.global.storageOptions.chroma')}</option>
-            </select>
-          </div>
-          <div>
-            <p className="mb-2 text-[13px] font-medium text-[#000000]">{t('memoryStrategy.global.embeddingLabel')}</p>
-            <select
-              className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
-              style={selectStyle}
-            >
-              <option>{t('memoryStrategy.global.embeddingOptions.small')}</option>
-              <option>{t('memoryStrategy.global.embeddingOptions.large')}</option>
-              <option>{t('memoryStrategy.global.embeddingOptions.local')}</option>
-            </select>
-          </div>
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">
+          {t('memoryStrategy.global.title')}
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          <ActionButton
+            label={t('memoryStrategy.localKnowledge.reindex')}
+            state={snapshot.state}
+            onClick={() => void snapshot.run()}
+          />
+          <ActionButton
+            label="Analyze"
+            state={analyze.state}
+            onClick={() => void analyze.run()}
+          />
+          <ActionButton
+            label="Reindex"
+            state={reindex.state}
+            onClick={() => void reindex.run()}
+          />
         </div>
       </section>
 
-      {/* 自动浓缩与总结 */}
+      {/* Watched directories */}
       <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
-        <h3 className="mb-1 text-[15px] font-semibold text-[#000000]">{t('memoryStrategy.automation.title')}</h3>
-        <div className="divide-y divide-black/[0.04]">
-          <div className="flex items-center justify-between gap-6 py-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-[#000000]">
-                {t('memoryStrategy.automation.contextConsolidation.title')}
-              </p>
-              <p className="mt-0.5 text-[12px] text-[#8e8e93]">
-                {t('memoryStrategy.automation.contextConsolidation.description')}
-              </p>
-            </div>
-            <Switch checked={contextConsolidation} onCheckedChange={setContextConsolidation} />
-          </div>
-          <div className="flex items-center justify-between gap-6 py-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-[#000000]">
-                {t('memoryStrategy.automation.nightlyReflection.title')}
-              </p>
-              <p className="mt-0.5 text-[12px] text-[#8e8e93]">
-                {t('memoryStrategy.automation.nightlyReflection.description')}
-              </p>
-            </div>
-            <Switch checked={nightlyReflection} onCheckedChange={setNightlyReflection} />
-          </div>
-        </div>
-      </section>
-
-      {/* 挂载本地目录知识 */}
-      <section className="rounded-xl border border-[#c6c6c8] bg-white px-5 py-4">
-        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">{t('memoryStrategy.localKnowledge.title')}</h3>
+        <h3 className="mb-4 text-[15px] font-semibold text-[#000000]">
+          {t('memoryStrategy.localKnowledge.title')}
+        </h3>
         <div className="space-y-3">
-          <div className="flex items-center justify-between rounded-lg border border-black/10 bg-[#f9f9f9] px-4 py-3">
-            <div>
-              <p className="text-[13px] font-medium text-[#000000]">{t('memoryStrategy.localKnowledge.examplePath')}</p>
-              <p className="mt-0.5 text-[12px] text-[#8e8e93]">{t('memoryStrategy.localKnowledge.exampleStats')}</p>
+          {watchedMemoryDirs.length === 0 && (
+            <p className="text-[13px] text-[#8e8e93]">No watched directories configured.</p>
+          )}
+          {watchedMemoryDirs.map((dir) => (
+            <div
+              key={dir}
+              className="flex items-center justify-between rounded-lg border border-black/10 bg-[#f9f9f9] px-4 py-3"
+            >
+              <p className="text-[13px] font-medium text-[#000000] break-all">{dir}</p>
+              <button
+                type="button"
+                aria-label={`Remove ${dir}`}
+                onClick={() => handleRemoveDir(dir)}
+                className="ml-3 shrink-0 rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#ef4444] hover:bg-[#fee2e2]"
+              >
+                Remove
+              </button>
             </div>
+          ))}
+
+          {showInput ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newDirInput}
+                onChange={(e) => setNewDirInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddDir(); }}
+                placeholder="/path/to/directory"
+                className="flex-1 rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleAddDir}
+                className="rounded-lg bg-[#0a7aff] px-4 py-2 text-[13px] font-semibold text-white transition hover:bg-[#075ac4]"
+              >
+                Add
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowInput(false); setNewDirInput(''); }}
+                className="rounded-lg border border-black/10 px-4 py-2 text-[13px] font-medium text-[#000000] transition hover:bg-[#f2f2f7]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
-              className="rounded-md border border-black/10 px-2.5 py-1 text-[12px] text-[#3c3c43] hover:bg-[#e5e5ea]"
+              onClick={() => setShowInput(true)}
+              className="w-full rounded-lg border border-dashed border-black/10 py-2.5 text-[13px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
             >
-              {t('memoryStrategy.localKnowledge.reindex')}
+              {t('memoryStrategy.localKnowledge.addDirectory')}
             </button>
-          </div>
-          <button
-            type="button"
-            className="w-full rounded-lg border border-dashed border-black/10 py-2.5 text-[13px] text-[#8e8e93] transition-colors hover:bg-[#f2f2f7]"
-          >
-            {t('memoryStrategy.localKnowledge.addDirectory')}
-          </button>
+          )}
         </div>
       </section>
     </div>

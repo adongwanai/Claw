@@ -80,8 +80,20 @@ export interface AppSettings {
   devModeUnlocked: boolean;
   setupComplete: boolean;
 
+  // Tool Permissions
+  globalRiskLevel: 'standard' | 'strict' | 'permissive';
+  fileAcl: boolean;
+  terminalAcl: boolean;
+  networkAcl: boolean;
+  channelRouteRules: string[];
+  filePathAllowlist: string[];
+  terminalCommandBlocklist: string[];
+  customToolGrants: string[];
+
   // Desktop Behavior
   minimizeToTray: boolean;
+
+  // Identity
   brandSubtitle: string;
   myName: string;
 
@@ -89,6 +101,10 @@ export interface AppSettings {
   selectedBundles: string[];
   enabledSkills: string[];
   disabledSkills: string[];
+
+  // Memory Strategy
+  watchedMemoryDirs: string[];
+  notificationsEnabled: boolean;
 }
 
 /**
@@ -149,15 +165,31 @@ function createDefaultSettings(): AppSettings {
     devModeUnlocked: false,
     setupComplete: false,
 
-    // Desktop Behavior
-    minimizeToTray: true,
-    brandSubtitle: '',
-    myName: '',
-
     // Presets
     selectedBundles: ['productivity', 'developer'],
     enabledSkills: [],
     disabledSkills: [],
+
+    // Tool Permissions
+    globalRiskLevel: 'standard',
+    fileAcl: true,
+    terminalAcl: true,
+    networkAcl: true,
+    channelRouteRules: [],
+    filePathAllowlist: [],
+    terminalCommandBlocklist: [],
+    customToolGrants: [],
+
+    // Desktop Behavior
+    minimizeToTray: false,
+
+    // Identity
+    brandSubtitle: '',
+    myName: '',
+
+    // Memory Strategy
+    watchedMemoryDirs: [],
+    notificationsEnabled: true,
   };
 }
 

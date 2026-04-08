@@ -374,7 +374,7 @@ type RenderSectionArgs = {
   t: (key: string, options?: Record<string, unknown>) => string;
 };
 
-function renderActiveSection(args: RenderSectionArgs) {
+function renderActiveSection(args: Omit<RenderSectionArgs, 'activeSection'> & { activeSection: string }) {
   switch (args.activeSection) {
     case 'costs-usage':
       return <SettingsCostsUsagePanel />;
@@ -383,6 +383,18 @@ function renderActiveSection(args: RenderSectionArgs) {
       return <SettingsModelsProvidersPanel />;
 
     case 'general':
+      return <HonestGeneralSettingsSection />;
+
+    case 'tool-permissions':
+      return <ToolPermissionsPlaceholder />;
+
+    case 'app-updates':
+      return <SettingsAppUpdatesPanel />;
+
+    case 'about':
+      return <SettingsAboutPanel onRerunSetup={args.rerunSetup} />;
+
+    case 'general-legacy':
       return <GeneralSettingsSection />;
 
     case 'memory-knowledge':
@@ -391,13 +403,13 @@ function renderActiveSection(args: RenderSectionArgs) {
     case 'skills-mcp':
       return <SettingsSkillsMcpPanel />;
 
-    case 'tool-permissions':
+    case 'tool-permissions-legacy':
       return <SettingsToolPermissionsPanel />;
 
     case 'migration-backup':
       return <SettingsMigrationPanel onLaunchWizard={args.openMigrationWizard} />;
 
-    case 'app-updates':
+    case 'app-updates-legacy':
       return (
         <AutoUpdateSection
           currentVersion={args.currentVersion}
@@ -419,35 +431,10 @@ function renderActiveSection(args: RenderSectionArgs) {
         />
       );
 
-    case 'about':
+    case 'about-legacy':
       return (
         <>
-          {/* Card 1: 实验室实验 */}
-          <SettingsSectionCard
-            title="实验室实验 (Experimental Flags)"
-            description=""
-          >
-            <ToggleRow
-              label="开发者专用模式 (Dev Mode)"
-              desc="在主工作台解锁底层 WebSocket 抓包控制台与 RAW Payload 窗口。"
-              checked={args.devModeUnlocked}
-              onCheckedChange={args.setDevModeUnlocked}
-            />
-            <ToggleRow
-              label="启用远程 API RPC 监听"
-              desc="开启本地 18789 端口，允许本机的浏览器扩展或其他 Shell 直接使唤主控内核。 (有一定风险)"
-              checked={args.remoteRpcEnabled}
-              onCheckedChange={args.setRemoteRpcEnabled}
-            />
-            <ToggleRow
-              label="启用 Tauri/Web P2P 同步 (预览)"
-              desc="正在酝酿的能力测试：多机器设备组网互传 Agent 记忆。"
-              checked={args.p2pSyncEnabled}
-              onCheckedChange={args.setP2pSyncEnabled}
-            />
-          </SettingsSectionCard>
-
-          {/* Card 2: 诊断排错与反馈系统 */}
+          {/* Card 1: 诊断排错与反馈系统 */}
           <SettingsSectionCard
             title="诊断排错与反馈系统"
             description=""
@@ -541,6 +528,207 @@ function renderActiveSection(args: RenderSectionArgs) {
     default:
       return null;
   }
+}
+
+function HonestGeneralSettingsSection() {
+  const { t } = useTranslation(['settings']);
+  const {
+    theme,
+    setTheme,
+    accentColor,
+    setAccentColor,
+    language,
+    setLanguage,
+    launchAtStartup,
+    setLaunchAtStartup,
+    showToolCalls,
+    setShowToolCalls,
+    brandName,
+    setBrandName,
+    brandLogoDataUrl,
+    setBrandLogoDataUrl,
+    brandIconDataUrl,
+    setBrandIconDataUrl,
+  } = useSettingsStore();
+  const languageSelectId = useId();
+  const accentCustomColorId = useId();
+
+  const handleBrandImageUpload = (
+    event: ChangeEvent<HTMLInputElement>,
+    setDataUrl: (value: string | null) => void,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      toast.error(t('settings:brandImageRequired'));
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setDataUrl(reader.result);
+      } else {
+        toast.error(t('settings:brandReadFailed'));
+      }
+    };
+    reader.onerror = () => {
+      toast.error(t('settings:brandReadFailed'));
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  };
+
+  return (
+    <>
+      <SettingsCard title="Account & Security">
+        <div className="rounded-lg border border-dashed border-[#c6c6c8] bg-[#f9fafb] px-4 py-3 text-[13px] text-[#3c3c43]">
+          Desktop account management is not available here yet.
+        </div>
+      </SettingsCard>
+
+      <SettingsCard title="Appearance & Behavior">
+        <div className="py-3">
+          <label htmlFor={languageSelectId} className="mb-2 block text-[13px] font-medium text-[#000000]">
+            Interface language
+          </label>
+          <select
+            id={languageSelectId}
+            aria-label="Interface language"
+            value={language}
+            onChange={(event) => setLanguage(event.target.value)}
+            className="w-full appearance-none rounded-lg border border-black/10 bg-white px-3 py-2 text-[13px] text-[#000000] outline-none focus:border-clawx-ac"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 12px center',
+              paddingRight: '32px',
+            }}
+          >
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <option key={lang.code} value={lang.code}>
+                {lang.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[12px] text-[#8e8e93]">Language changes apply immediately.</p>
+        </div>
+
+        <SettingsRow
+          label="Theme mode"
+          desc="Choose how KTClaw looks across the workspace."
+          right={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={cn(
+                  'h-10 w-10 rounded-full border-2 transition-all',
+                  theme === 'light' ? 'border-black/25 scale-110' : 'border-black/[0.04]',
+                )}
+                style={{
+                  background: 'conic-gradient(from 90deg, #f97316 0deg 180deg, #f3f4f6 180deg 360deg)',
+                }}
+                title="Light theme"
+                aria-label="Light theme"
+              />
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={cn(
+                  'h-10 w-10 rounded-full border-2 transition-all',
+                  theme === 'dark' ? 'border-white/30 scale-110' : 'border-black/[0.04]',
+                )}
+                style={{
+                  background: 'conic-gradient(from 90deg, #1c1c1e 0deg 180deg, #7c3aed 180deg 360deg)',
+                }}
+                title="Dark theme"
+                aria-label="Dark theme"
+              />
+            </div>
+          }
+        />
+
+        <SettingsRow
+          label="Accent color"
+          desc="Pick the primary highlight color for buttons, links, and selected states."
+          right={
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { color: '#007aff', label: 'Blue' },
+                { color: '#10b981', label: 'Green' },
+                { color: '#8b5cf6', label: 'Purple' },
+                { color: '#f97316', label: 'Orange' },
+                { color: '#ef4444', label: 'Red' },
+                { color: '#06b6d4', label: 'Cyan' },
+              ].map(({ color, label }) => (
+                <button
+                  key={color}
+                  type="button"
+                  aria-label={`Accent color ${label}`}
+                  onClick={() => setAccentColor(color)}
+                  className={cn(
+                    'h-7 w-7 rounded-full border-2 transition-all hover:scale-110',
+                    accentColor === color ? 'border-black/40 scale-110' : 'border-black/[0.08]',
+                  )}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+              <input
+                id={accentCustomColorId}
+                type="color"
+                value={accentColor || '#007aff'}
+                onChange={(event) => setAccentColor(event.target.value)}
+                className="h-7 w-7 cursor-pointer rounded-full border border-black/10"
+                aria-label="Custom accent color"
+              />
+            </div>
+          }
+        />
+
+        <ToggleRow
+          label="Launch at startup"
+          desc="Start KTClaw automatically after you sign in."
+          checked={launchAtStartup}
+          onCheckedChange={setLaunchAtStartup}
+        />
+        <ToggleRow
+          label="Show tool calls"
+          desc="Display tool call cards and live tool status inside chat messages."
+          checked={showToolCalls}
+          onCheckedChange={setShowToolCalls}
+        />
+      </SettingsCard>
+
+      <SettingsCard title="Brand & Identity">
+        <InputField label="Workspace name" value={brandName} onChange={setBrandName} />
+      </SettingsCard>
+
+      <AgentAvatarsSection />
+    </>
+  );
+}
+
+function ToolPermissionsPlaceholder() {
+  return (
+    <SettingsCard title="Tool Permissions">
+      <div
+        data-testid="tool-permissions-placeholder"
+        className="rounded-xl border border-dashed border-black/10 bg-[#f8fafc] px-4 py-4 text-[13px] leading-6 text-[#475569]"
+      >
+        <p className="font-medium text-[#0f172a]">Runtime enforcement is not live yet.</p>
+        <p className="mt-2">
+          KTClaw does not currently enforce file, terminal, network, or custom grant policies at runtime.
+        </p>
+        <p className="mt-2">
+          The controls stay hidden so Settings does not imply sandbox guarantees that the desktop runtime cannot yet honor.
+        </p>
+      </div>
+    </SettingsCard>
+  );
 }
 
 /* ─── Primitive helpers ─── */
@@ -1555,6 +1743,20 @@ export function SettingsToolPermissionsPanel() {
   const [blacklistDraft, setBlacklistDraft] = useState('');
   const [grantEditorOpen, setGrantEditorOpen] = useState(false);
   const [grantDraft, setGrantDraft] = useState('');
+  const [auditEntries, setAuditEntries] = useState<Array<{ timestamp: string; action: string; result: string; context: Record<string, string>; globalRiskLevel: string }>>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+
+  const loadAuditLog = () => {
+    setAuditLoading(true);
+    hostApiFetch<{ entries: Array<{ timestamp: string; action: string; result: string; context: Record<string, string>; globalRiskLevel: string }> }>('/api/settings/audit-log')
+      .then((data) => setAuditEntries((data.entries ?? []).slice(-5).reverse()))
+      .catch(() => setAuditEntries([]))
+      .finally(() => setAuditLoading(false));
+  };
+
+  useEffect(() => {
+    loadAuditLog();
+  }, []);
 
   const selectStyle = {
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238e8e93' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
@@ -1802,6 +2004,47 @@ export function SettingsToolPermissionsPanel() {
             submitLabel="保存许可"
           />
         ) : null}
+      </SettingsCard>
+
+      <SettingsCard
+        title="审计日志 (最近 5 条)"
+        headerRight={
+          <button
+            type="button"
+            onClick={loadAuditLog}
+            disabled={auditLoading}
+            className="rounded-lg border border-black/10 px-3 py-1.5 text-[12px] text-[#3c3c43] hover:bg-[#f2f2f7] disabled:opacity-50"
+          >
+            {auditLoading ? '加载中…' : '刷新'}
+          </button>
+        }
+      >
+        {auditEntries.length === 0 ? (
+          <p className="py-3 text-[12px] text-[#8e8e93]">暂无审计记录。执行操作后将在此显示。</p>
+        ) : (
+          <div className="divide-y divide-black/5">
+            {auditEntries.map((entry, i) => (
+              <div key={i} className="flex items-start gap-3 py-2.5">
+                <span className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                  entry.result === 'block' ? 'bg-red-100 text-red-700' :
+                  entry.result === 'allow' ? 'bg-green-100 text-green-700' :
+                  'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {entry.result}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] font-medium text-[#000000]">{entry.action}</p>
+                  <p className="text-[11px] text-[#8e8e93]">
+                    {entry.context.path ?? entry.context.command ?? entry.context.tool ?? entry.context.url ?? ''}
+                  </p>
+                </div>
+                <span className="shrink-0 text-[10px] text-[#8e8e93]">
+                  {new Date(entry.timestamp).toLocaleTimeString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </SettingsCard>
     </>
   );

@@ -1,4 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'http';
+import { app } from 'electron';
+import { join } from 'node:path';
 import { applyProxySettings } from '../../main/proxy';
 import { syncLaunchAtStartupSettingFromStore } from '../../main/launch-at-startup';
 import { getAllSettings, getSetting, resetSettings, setSetting, type AppSettings } from '../../utils/store';
@@ -28,6 +30,18 @@ function patchTouchesLaunchAtStartup(patch: Partial<AppSettings>): boolean {
   return Object.prototype.hasOwnProperty.call(patch, 'launchAtStartup');
 }
 
+function patchTouchesGatewayPort(patch: Partial<AppSettings>): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, 'gatewayPort');
+}
+
+export function patchTouchesMinimizeToTray(patch: Partial<AppSettings>): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, 'minimizeToTray');
+}
+
+export function patchTouchesNotifications(patch: Partial<AppSettings>): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, 'notificationsEnabled');
+}
+
 export async function handleSettingsRoutes(
   req: IncomingMessage,
   res: ServerResponse,
@@ -51,6 +65,18 @@ export async function handleSettingsRoutes(
       }
       if (patchTouchesLaunchAtStartup(patch)) {
         await syncLaunchAtStartupSettingFromStore();
+      }
+      if (patchTouchesGatewayPort(patch) && typeof patch.gatewayPort === 'number') {
+        ctx.gatewayManager.setConfiguredPort(patch.gatewayPort);
+        if (ctx.gatewayManager.getStatus().state === 'running') {
+          await ctx.gatewayManager.restart();
+        }
+      }
+      if (patchTouchesMinimizeToTray(patch)) {
+        ctx.eventBus.emit('settings:minimizeToTray-changed', { minimizeToTray: patch.minimizeToTray });
+      }
+      if (patchTouchesNotifications(patch)) {
+        ctx.eventBus.emit('settings:notifications-changed', { notificationsEnabled: patch.notificationsEnabled });
       }
       sendJson(res, 200, { success: true });
     } catch (error) {
@@ -87,6 +113,12 @@ export async function handleSettingsRoutes(
       if (key === 'launchAtStartup') {
         await syncLaunchAtStartupSettingFromStore();
       }
+      if (key === 'gatewayPort' && typeof body.value === 'number') {
+        ctx.gatewayManager.setConfiguredPort(body.value);
+        if (ctx.gatewayManager.getStatus().state === 'running') {
+          await ctx.gatewayManager.restart();
+        }
+      }
       sendJson(res, 200, { success: true });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
@@ -100,6 +132,28 @@ export async function handleSettingsRoutes(
       await handleProxySettingsChange(ctx);
       await syncLaunchAtStartupSettingFromStore();
       sendJson(res, 200, { success: true, settings: await getAllSettings() });
+    } catch (error) {
+      sendJson(res, 500, { success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (url.pathname === '/api/settings/audit-log' && req.method === 'GET') {
+    try {
+      const auditLogPath = join(app.getPath('userData'), 'permissions-audit.jsonl');
+      const { readFile } = await import('node:fs/promises');
+      let content = '';
+      try {
+        content = await readFile(auditLogPath, 'utf8');
+      } catch {
+        // File doesn't exist yet — return empty list
+      }
+      const lines = content.trim().split('\n').filter(Boolean);
+      const last50 = lines.slice(-50);
+      const entries = last50.map((line) => {
+        try { return JSON.parse(line); } catch { return null; }
+      }).filter(Boolean);
+      sendJson(res, 200, { entries });
     } catch (error) {
       sendJson(res, 500, { success: false, error: String(error) });
     }
