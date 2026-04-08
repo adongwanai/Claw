@@ -272,6 +272,65 @@ Plans:
 - [ ] 10-02: WeChat workbench UI — session list, message panel, composer with identity toggle
 - [ ] 10-03: Backend sync endpoints — QR login, paginated messages, media proxy, member list, identity-aware send
 
+### Phase 12: Team Task Execution Integration
+
+**Goal:** 打通任务看板、会话执行、团队管理、员工管理与 agent 通信，将任务升级为真实的团队执行对象，建立统一的 task / session / runtime / team / agent 联动模型。
+**Depends on:** Phase 11
+**Canonical refs:**
+- `.planning/PRODUCT-RESTRUCTURE.md` §四（任务看板）
+- `.planning/PRODUCT-RESTRUCTURE.md` §五（团队总览）
+- `.planning/PRODUCT-RESTRUCTURE.md` §六（团队地图）
+- `.planning/PRODUCT-RESTRUCTURE.md` §七（员工广场）
+- `.planning/PRODUCT-RESTRUCTURE.md` §九（会话）
+- `.planning/PRODUCT-RESTRUCTURE.md` §十二.4（聊天 ↔ 会话 ↔ Memory）
+- `.planning/PRODUCT-RESTRUCTURE.md` §十二.5（任务看板 ↔ 团队/员工）
+- `.planning/phases/02-task-board-redesign/02-CONTEXT.md`
+- `.planning/phases/04-team-map-evolution/04-CONTEXT.md`
+- `.planning/phases/05-employee-square/05-CONTEXT.md`
+- `.planning/phases/07-session-redesign/07-CONTEXT.md`
+**Plans:** 4 plans
+
+Plans:
+- [ ] 12-01-PLAN.md - Canonical task domain and persistence spine
+- [ ] 12-02-PLAN.md - Chat-to-task execution thread wiring
+- [ ] 12-03-PLAN.md - Task Detail as execution-lineage surface
+- [ ] 12-04-PLAN.md - Summary read models for Team Map, Agent Activity, and team rollups
+**Success Criteria (what must be TRUE):**
+  1. 任务从本地看板对象升级为统一团队执行对象，持有 canonical execution thread
+  2. 聊天创建任务时，可区分“仅创建任务”和“创建并启动执行”
+  3. 团队任务默认保留一个顶层任务，Leader / worker 协作记录挂在 execution lineage 下，而不是自动炸成多个平级任务卡
+  4. 任务详情成为 execution lineage 的主视图，可查看关联 session、runtime、阻塞与审批
+  5. Team Map / 员工详情只显示执行摘要，不复制完整任务中心
+  6. 内部 Leader / worker / worker 通信默认落在 task execution thread，不污染用户主会话
+  7. 用户在主会话中看到任务摘要卡和可展开的最新内部通信摘录
+  8. blocked / waiting_approval 具备清晰的 Leader first-line handling 和状态回卷规则
+  9. 多团队归属下，一个任务仍只有一个 owning team，跨团队支援记为借调 execution
+
+### Phase 13: Settings Functional Restoration
+
+**Goal:** Restore the settings capabilities that were intentionally downscoped, disabled, or left as store-only placeholders so the 9-section Settings center once again exposes only real, working product behaviors.
+**Requirements**: SETTINGS-01, SETTINGS-02, AGENT-03
+**Depends on:** Phase 12
+**Canonical refs:**
+- `.planning/PROJECT.md`
+- `.planning/REQUIREMENTS.md`
+- `.planning/phases/08-settings-convergence/08-CONTEXT.md`
+- `src/pages/Settings/index.tsx`
+- `src/stores/settings.ts`
+**Plans:** 0 plans
+
+**Success Criteria (what must be TRUE):**
+  1. Tool Permissions become real runtime controls for KTClaw-initiated execution entrypoints instead of decorative settings
+  2. Migration & Backup supports preview-first selective restore, `.ktclaw` archive import/export, and automatic backups without exporting sensitive secrets
+  3. Memory Strategy restores real manual controls plus watched-directory auto reindex, but does not introduce full content-generation automation
+  4. Desktop behavior settings such as autostart-minimized, close-to-tray, and high-value system notifications have real application behavior
+  5. `brandSubtitle` and `myName` become user-visible identity settings in product chrome and chat-facing copy
+  6. Phase 08's locked 9-section IA remains unchanged
+  7. Existing single-instance desktop behavior must not regress
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 13 to break down)
+
 ---
 
 ## Progress
