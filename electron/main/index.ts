@@ -393,6 +393,11 @@ async function initialize(): Promise<void> {
     hostApiSessionToken,
   });
 
+  // Keep runtime state in sync with settings changes
+  hostEventBus.on('settings:minimizeToTray-changed', ({ minimizeToTray }: { minimizeToTray: boolean }) => {
+    _minimizeToTray = minimizeToTray;
+  });
+
   loadWindowContents(window);
 
   const enabledMcpServers = loadMcpConfig().servers.filter((server) => server.enabled);

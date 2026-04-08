@@ -4,7 +4,11 @@
  * Exported separately to allow clean testing without the full memory route.
  */
 import { watch, type FSWatcher } from 'fs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { logger } from '../../utils/logger';
 
+const execFileAsync = promisify(execFile);
 const dirWatchers = new Map<string, FSWatcher>();
 
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T {
@@ -18,11 +22,10 @@ function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): T 
   }) as T;
 }
 
-function triggerReindex(_dir: string): void {
-  // Trigger reindex for all agent scopes whose workspaceDir is under dir.
-  // The actual reindex logic lives in memory.ts; here we emit a signal
-  // that can be consumed by the memory route or handled inline.
-  // For now, log the intent — the memory route's reindex endpoint handles the work.
+function triggerReindex(dir: string): void {
+  execFileAsync('openclaw', ['memory', 'reindex'], { timeout: 30000 })
+    .then(() => logger.debug(`[memory-watcher] reindex triggered for ${dir}`))
+    .catch((err) => logger.warn(`[memory-watcher] reindex failed for ${dir}: ${err}`));
 }
 
 /**

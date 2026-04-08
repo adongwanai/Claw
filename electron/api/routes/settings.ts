@@ -6,6 +6,7 @@ import { syncLaunchAtStartupSettingFromStore } from '../../main/launch-at-startu
 import { getAllSettings, getSetting, resetSettings, setSetting, type AppSettings } from '../../utils/store';
 import type { HostApiContext } from '../context';
 import { parseJsonBody, sendJson } from '../route-utils';
+import { syncWatchedDirs } from './memory-watcher';
 
 async function handleProxySettingsChange(ctx: HostApiContext): Promise<void> {
   const settings = await getAllSettings();
@@ -40,6 +41,10 @@ export function patchTouchesMinimizeToTray(patch: Partial<AppSettings>): boolean
 
 export function patchTouchesNotifications(patch: Partial<AppSettings>): boolean {
   return Object.prototype.hasOwnProperty.call(patch, 'notificationsEnabled');
+}
+
+function patchTouchesWatchedMemoryDirs(patch: Partial<AppSettings>): boolean {
+  return Object.prototype.hasOwnProperty.call(patch, 'watchedMemoryDirs');
 }
 
 export async function handleSettingsRoutes(
@@ -77,6 +82,9 @@ export async function handleSettingsRoutes(
       }
       if (patchTouchesNotifications(patch)) {
         ctx.eventBus.emit('settings:notifications-changed', { notificationsEnabled: patch.notificationsEnabled });
+      }
+      if (patchTouchesWatchedMemoryDirs(patch) && Array.isArray(patch.watchedMemoryDirs)) {
+        syncWatchedDirs(patch.watchedMemoryDirs);
       }
       sendJson(res, 200, { success: true });
     } catch (error) {
