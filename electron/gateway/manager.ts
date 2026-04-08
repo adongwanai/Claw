@@ -34,6 +34,7 @@ import { connectGatewaySocket, waitForGatewayReady } from './ws-client';
 import {
   findExistingGatewayProcess,
   runOpenClawDoctorRepair,
+  stopSystemdGatewayService,
   terminateOwnedGatewayProcess,
   unloadLaunchctlGatewayService,
   waitForPortFree,
@@ -225,13 +226,17 @@ export class GatewayManager extends EventEmitter {
       await runGatewayStartupSequence({
         port: this.status.port,
         ownedPid: this.process?.pid,
-        shouldWaitForPortFree: process.platform === 'win32',
+        shouldWaitForPortFree: process.platform === 'win32' || process.platform === 'linux',
         resetStartupStderrLines: () => {
           this.recentStartupStderrLines = [];
         },
         getStartupStderrLines: () => this.recentStartupStderrLines,
         assertLifecycle: (phase) => {
           this.lifecycleController.assert(startEpoch, phase);
+        },
+        stopSystemService: async () => {
+          await unloadLaunchctlGatewayService();
+          await stopSystemdGatewayService();
         },
         findExistingGateway: async (port, ownedPid) => {
           return await findExistingGatewayProcess({ port, ownedPid });
@@ -695,7 +700,6 @@ export class GatewayManager extends EventEmitter {
    */
   private async startProcess(): Promise<void> {
     const launchContext = await prepareGatewayLaunchContext(this.status.port);
-    await unloadLaunchctlGatewayService();
     this.processExitCode = null;
 
     const { child, lastSpawnSummary } = await launchGatewayProcess({
@@ -900,6 +904,23 @@ export class GatewayManager extends EventEmitter {
         error: 'Failed to reconnect after maximum attempts',
         reconnectAttempts: this.reconnectAttempts
       });
+      // Schedule a long-interval recovery attempt so the gateway can
+      // self-heal if the underlying issue (e.g. process crash, port conflict)
+      // resolves on its own, without requiring a manual user action.
+      if (this.shouldReconnect) {
+        const recoveryDelayMs = 60_000;
+        logger.warn(`Gateway will attempt recovery in ${recoveryDelayMs / 1000}s`);
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          if (!this.shouldReconnect) return;
+          logger.info('Gateway attempting recovery after max-attempts cooldown');
+          this.reconnectAttempts = 0;
+          void this.start().catch((err) => {
+            logger.error('Gateway recovery attempt failed:', err);
+            this.scheduleReconnect();
+          });
+        }, recoveryDelayMs);
+      }
       return;
     }
 

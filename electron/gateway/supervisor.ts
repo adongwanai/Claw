@@ -8,6 +8,56 @@ import { logger } from '../utils/logger';
 import { prependPathEntry } from '../utils/env-path';
 import { probeGatewayReady } from './ws-client';
 
+const SYSTEMD_GATEWAY_SERVICE_NAMES = [
+  'openclaw-gateway',
+  'clawdbot-gateway',
+  'moltbot-gateway',
+];
+
+/**
+ * Stop any openclaw gateway systemd user services on Linux to prevent
+ * auto-respawn conflicts when ClawX manages its own gateway process.
+ * Equivalent to unloadLaunchctlGatewayService() on macOS.
+ */
+export async function stopSystemdGatewayService(): Promise<void> {
+  if (process.platform !== 'linux') return;
+
+  const cp = await import('child_process');
+
+  const isActive = (unit: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      cp.exec(`systemctl --user is-active ${unit}`, { timeout: 5000 }, (err) => {
+        resolve(!err);
+      });
+    });
+
+  const stopUnit = (unit: string): Promise<void> =>
+    new Promise((resolve) => {
+      cp.exec(`systemctl --user stop ${unit}`, { timeout: 10000 }, (err) => {
+        if (err) {
+          logger.warn(`Failed to stop systemd user service ${unit}: ${err.message}`);
+        } else {
+          logger.info(`Stopped systemd user service ${unit} to prevent auto-respawn`);
+        }
+        resolve();
+      });
+    });
+
+  let stopped = false;
+  for (const name of SYSTEMD_GATEWAY_SERVICE_NAMES) {
+    const unit = `${name}.service`;
+    if (await isActive(unit)) {
+      await stopUnit(unit);
+      stopped = true;
+    }
+  }
+
+  if (stopped) {
+    // Give systemd a moment to release the port before we bind it.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+}
+
 export function warmupManagedPythonReadiness(): void {
   void isPythonReady().then((pythonReady) => {
     if (!pythonReady) {
@@ -152,7 +202,7 @@ export async function waitForPortFree(port: number, timeoutMs = 30000): Promise<
     }
 
     if (!logged) {
-      logger.info(`Waiting for port ${port} to become available (Windows TCP TIME_WAIT)...`);
+      logger.info(`Waiting for port ${port} to become available...`);
       logged = true;
     }
     await new Promise((resolve) => setTimeout(resolve, pollInterval));
@@ -162,26 +212,18 @@ export async function waitForPortFree(port: number, timeoutMs = 30000): Promise<
 }
 
 async function getListeningProcessIds(port: number): Promise<string[]> {
-  const cmd = process.platform === 'win32'
-    ? `netstat -ano | findstr :${port}`
-    : `lsof -i :${port} -sTCP:LISTEN -t`;
-
   const cp = await import('child_process');
-  const { stdout } = await new Promise<{ stdout: string }>((resolve) => {
-    cp.exec(cmd, { timeout: 5000, windowsHide: true }, (err, stdout) => {
-      if (err) {
-        resolve({ stdout: '' });
-      } else {
-        resolve({ stdout });
-      }
-    });
-  });
 
-  if (!stdout.trim()) {
-    return [];
-  }
+  const exec = (cmd: string): Promise<string> =>
+    new Promise((resolve) => {
+      cp.exec(cmd, { timeout: 5000, windowsHide: true }, (err, stdout) => {
+        resolve(err ? '' : stdout);
+      });
+    });
 
   if (process.platform === 'win32') {
+    const stdout = await exec(`netstat -ano | findstr :${port}`);
+    if (!stdout.trim()) return [];
     const pids: string[] = [];
     for (const line of stdout.trim().split(/\r?\n/)) {
       const parts = line.trim().split(/\s+/);
@@ -192,14 +234,31 @@ async function getListeningProcessIds(port: number): Promise<string[]> {
     return [...new Set(pids)];
   }
 
-  return [...new Set(stdout.trim().split(/\r?\n/).map((value) => value.trim()).filter(Boolean))];
+  // Unix: try lsof first, fall back to ss (more widely available on Linux)
+  let stdout = await exec(`lsof -i :${port} -sTCP:LISTEN -t`);
+  if (!stdout.trim() && process.platform === 'linux') {
+    // ss is available on virtually all modern Linux systems (iproute2)
+    const ssOut = await exec(`ss -tlnp sport = :${port}`);
+    if (ssOut.trim()) {
+      // Extract PIDs from ss output: pid=12345
+      const pids = [...ssOut.matchAll(/pid=(\d+)/g)].map((m) => m[1]);
+      return [...new Set(pids)];
+    }
+  }
+
+  if (!stdout.trim()) return [];
+  return [...new Set(stdout.trim().split(/\r?\n/).map((v) => v.trim()).filter(Boolean))];
 }
 
 async function terminateOrphanedProcessIds(port: number, pids: string[]): Promise<void> {
   logger.info(`Found orphaned process listening on port ${port} (PIDs: ${pids.join(', ')}), attempting to kill...`);
 
+  // Stop system-managed services BEFORE killing PIDs so the service manager
+  // cannot respawn the process during the kill/wait window.
   if (process.platform === 'darwin') {
     await unloadLaunchctlGatewayService();
+  } else if (process.platform === 'linux') {
+    await stopSystemdGatewayService();
   }
 
   for (const pid of pids) {
@@ -247,7 +306,7 @@ export async function findExistingGatewayProcess(options: {
       const pids = await getListeningProcessIds(port);
       if (pids.length > 0 && (!ownedPid || !pids.includes(String(ownedPid)))) {
         await terminateOrphanedProcessIds(port, pids);
-        if (process.platform === 'win32') {
+        if (process.platform === 'win32' || process.platform === 'linux') {
           await waitForPortFree(port, 10000);
         }
         return null;
