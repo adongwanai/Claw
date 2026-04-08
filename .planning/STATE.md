@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 04 plans 01-03 backfilled; final closeout checkpoint remains
-last_updated: "2026-04-04T08:17:52.571Z"
-last_activity: 2026-04-04 -- Phase 08 execution started
+stopped_at: Phase 13 context gathered
+last_updated: "2026-04-08T16:48:21.8704869+08:00"
+last_activity: 2026-04-07 -- Phase 12 execution started
 progress:
-  total_phases: 11
-  completed_phases: 5
-  total_plans: 40
-  completed_plans: 28
+  total_phases: 12
+  completed_phases: 7
+  total_plans: 44
+  completed_plans: 34
   percent: 75
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: `.planning/PROJECT.md` (updated 2026-03-31)
 
 **Core value:** Simpler frontend, clearer control plane, stronger teams, more trainable agents, more visible task flow, clearer integrations, and a more focused settings surface.
-**Current focus:** Phase 08 — settings-convergence
+**Current focus:** Phase 12 — team-task-execution-integration
 
 ## Current Position
 
-Phase: 08 (settings-convergence) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 08
-Last activity: 2026-04-04 -- Phase 08 execution started
+Phase: 12 (team-task-execution-integration) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 12
+Last activity: 2026-04-07 -- Phase 12 execution started
 
 Progress: [███████████████░░░░░] 75%
 
@@ -65,8 +65,17 @@ Progress: [███████████████░░░░░] 75%
 - Backfill `04-01` to `04-03` from the current implementation and focused tests.
 - Preserve `04-04` as the remaining closeout plan because the final manual verification checkpoint has not been run yet.
 
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 12 added: Team Task Execution Integration
+- Intent: introduce a dedicated cross-domain phase to connect task board, session execution, team management, employee management, and agent communication instead of forcing that work into the older Phase 02/05/07 boundaries.
+- Phase 13 added: Settings Functional Restoration
+- Intent: restore the settings capabilities that were intentionally downscoped or disabled so the settings surface exposes only real, working controls again.
+
 ## Session Continuity
 
-Last session: 2026-04-03T23:10:00+08:00
-Stopped at: Phase 04 plans 01-03 backfilled; final closeout checkpoint remains
-Resume file: `.planning/phases/04-team-map-evolution/04-04-PLAN.md`
+Last session: 2026-04-08T16:48:21.8704869+08:00
+Stopped at: Phase 13 context gathered
+Resume file: .planning/phases/13-settings-functional-restoration/13-CONTEXT.md
