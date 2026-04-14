@@ -63,6 +63,8 @@ artifacts/
 docs/pr-session-notes-*.md
 
 .cursor/
+.claude/
+.playwright-cli/
 .pnpm-store/
 .superpowers/
 .specstory/
@@ -70,3 +72,18 @@ docs/pr-session-notes-*.md
 .npm-cache/
 .worktrees/
 .planning/
+reference/
+_backup/
+output/
+tmp-bench/
+test-results/
+release-win-ci-test-*/
+.plugin_init.json
+.plugin_progress.txt
+.plugin_roadmap.json
+init.utf8.json
+progress.utf8.txt
+roadmap.utf8.json
+need.md
+prompt.txt
+产品重构文档.md
